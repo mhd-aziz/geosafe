@@ -207,6 +207,7 @@ Riwayat iterasi:
 |---|---|---|
 | `iter-01-api-database` | #1 | `config.py` · `db.py` · `GET /api/v1/sources` (T1) |
 | `iter-02-api-tiles` | #2 | `maps.py` · `GET /tiles/regions/{z}/{x}/{y}.mvt` (P1) |
+| `iter-03-api-panel` | #3 | `panels.py` · `GET /api/v1/panel/kabupaten_kota/{kode}` (W2) |
 
 ## Konvensi penulisan (dikunci 2026-11-16)
 
