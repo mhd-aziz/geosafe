@@ -93,9 +93,11 @@ dokumen boleh langsung ke `main`.
    persetujuan.
 7. Merauke (`9301`) kini provinsi Papua Selatan, bukan Papua. Jangan mengandalkan pengetahuan lama soal
    pemekaran wilayah saat membuat uji.
-8. `.env` di luar repo tidak mengutip DSN, jadi `source` di bash memotongnya menjadi `host=127.0.0.1`
-   dan uji gagal di port 5432 (systemd membacanya utuh, API tetap sehat): `export
-   GEOSAFE_DATABASE_URL="$(sed -n 's/^GEOSAFE_DATABASE_URL=//p' ~/.config/geosafe/geosafe.env)"`.
+8. `.env` di luar repo sudah mengutip DSN (2026-11-17), jadi `source` di bash **dan** `EnvironmentFile`
+   systemd sama-sama membacanya utuh. Kalau suatu saat berkas sejenis ditulis tanpa kutip, `source`
+   hanya menangkap kata pertama (`host=127.0.0.1`), uji gagal di port 5432, sementara systemd tetap
+   sehat — ambil nilainya dengan
+   `export GEOSAFE_DATABASE_URL="$(sed -n 's/^GEOSAFE_DATABASE_URL=//p' ~/.config/geosafe/geosafe.env)"`.
 9. nginx harus memetakan `.mjs` ke `text/javascript`; tanpa itu worker MapLibre ditolak Chrome dan
    **peta kosong tanpa galat di antarmuka** (`curl` tetap 200). `reload nginx` tidak seketika, dan
    halaman yang dimuat ulang bisa memakai salinan lama karena `immutable` — uji lewat origin lain

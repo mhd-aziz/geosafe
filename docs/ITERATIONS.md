@@ -569,6 +569,12 @@ Temuan:
    5432). systemd membacanya utuh, jadi API tidak pernah terpengaruh. Sementara ini
    DSN diambil dengan
    `export GEOSAFE_DATABASE_URL="$(sed -n 's/^GEOSAFE_DATABASE_URL=//p' ~/.config/geosafe/geosafe.env)"`.
+   **Ditutup 2026-11-17** atas izin pemilik repo: nilai di berkas itu kini dikutip
+   (`GEOSAFE_DATABASE_URL="host=... port=5433 ..."`), diverifikasi dua sisi — `source`
+   di bash menangkap 86 karakter dan 6 medan, dan setelah `systemctl --user restart
+   geosafe-api` endpoint baca basis data tetap 200 (`/api/v1/sources` `count: 7`,
+   panel Merauke 200); `pytest` dengan cara `source` biasa → **38 passed** (9,98 dtk).
+   Cadangan berkas sebelum sunting: `~/geosafe-deploy/geosafe.env.bak`.
 5. Halaman masih **tanpa basemap** (latar polos) — PMTiles tetap pekerjaan berikutnya,
    dan sejak penyisipan ini berkas nginx hanya ada di disk mesin ini.
 6. **Tinjauan independen menolak versi pertama** dan menemukan dua cacat nyata di
@@ -787,6 +793,7 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 
 | Tanggal | Dokumen | Perubahan |
 |---|---|---|
+| 2026-11-17 | `PETA-DIREKTORI.md` · `data/README.md` | baris `data/basemap/` (basemap PMTiles 216 MB: latar peta aplikasi, dilayani nginx, tidak masuk repo kode) ditambahkan ke tabel pencarian, pohon struktur, dan tabel isi folder — sebelumnya folder itu tidak terdaftar di penunjuk mana pun |
 | 2026-11-16 | `docs/SRS-GeoSafe.md` → **v1.6** | `SRS-NF-04` dikoreksi jadi 0,25–0,30 dtk (jalur HTTP); `NF-05`/`NF-06`/`NF-08` ditandai "diukur di `psql`"; satu cacat lama di tabel riwayat diperbaiki. SRS 32 halaman, pengenal `SRS-*` tetap 132 |
 | 2026-11-16 | `data/pembangun/LAPORAN-MUAT-POSTGRES.md` | bagian **6b**: koreksi angka 93 ms + pemisahan biaya SQL/HTTP |
 | 2026-11-16 | `docs/ARSITEKTUR.md` | bagian 6 tidak lagi menulis `NF-04`/`NF-05`/`NF-06`/`NF-08` "belum diukur" |
