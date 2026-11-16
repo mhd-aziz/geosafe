@@ -23,7 +23,7 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 10 endpoint, `uv run pytest` 38 passed |
+| Backend (`backend/`) | berjalan — 12 endpoint, `uv run pytest` 69 passed |
 | Frontend (`frontend/`) | berjalan — 3 halaman (peta · tren · sumber data), basemap PMTiles z12, `npm test` 50 passed |
 | Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna, nginx menyajikan halaman, proxy API, dan basemap PMTiles z12 (216 MB) di `127.0.0.1:8080` |
 | Iterasi selesai | 08 (+ penyisipan 06b, 07a, 08a, 09a, 09b, 09c) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
@@ -139,7 +139,9 @@ yang sengaja belum dikerjakan ada di [`frontend/README.md`](frontend/README.md).
 | `GET /api/v1/search/regions?q=` | C1 | pencarian wilayah empat tingkat (provinsi, kabupaten/kota, kecamatan, desa/kelurahan), maksimal 20 baris + `bbox` untuk memperbesar peta |
 | `GET /api/v1/analysis/national_trend` | A1 | tren nasional 2020–2026: titik panas (seri `main`/`fill`/`nrt` apa adanya + `archive_total`) dan kejadian, plus luas terbakar sebagai konteks |
 | `GET /api/v1/point_coverage?year=` | T1 | berapa titik panas masuk poligon wilayah, berapa yang di luar (tidak dihitung nol) |
-| `GET /api/v1/downloads` · `…/{berkas}` | T1 | daftar 29 tabel siap pakai + unduhan CSV-nya |
+| `GET /api/v1/downloads` · `.../{berkas}` | T1 | daftar 29 tabel siap pakai + unduhan CSV-nya |
+| `/api/v1/latest?window=` | P2 | titik panas terkini 24/48/72 jam (`series: nrt`), `region_code` hasil join saat permintaan, `satellites` beserta ketersediaannya |
+| `/api/v1/latest/summary?window=` | W1 | ringkasan nasional: jumlah titik, kabupaten/kota terdampak, 10 provinsi terbanyak — tanpa titik mentah |
 
 Catatan pemakaian: tile tanpa poligon dibalas `204`; wilayah yang belum punya
 baris fakta tetap terkirim dengan properti `has_fact = 0`; panel menyertakan
