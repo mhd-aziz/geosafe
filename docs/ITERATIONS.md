@@ -24,7 +24,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 07 | `feat/frontend-app` | frontend: peta choropleth + pencarian + panel (alur MVP) | #9 | `iter-07-frontend` |
 | 09a | `chore/deploy-api-service` | API berjalan sebagai unit systemd pengguna (`Restart=always`) | #10 | `iter-09a-api-service` |
 | 09b | `chore/deploy-nginx` | nginx menyajikan halaman hasil build + proxy API; berkas `deploy/` dikeluarkan dari git | #13 | `iter-09b-nginx` |
-| 09c | `feat/frontend-basemap` | basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps di frontend | — | — (diisi setelah digabung) |
+| 09c | `feat/frontend-basemap` | basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps di frontend | #14 | `iter-09c-basemap` |
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 
@@ -608,7 +608,9 @@ Temuan:
 
 ---
 
-## Penyisipan 09c — basemap PMTiles
+## Penyisipan 09c — basemap PMTiles (PR #14)
+
+Tag `iter-09c-basemap` menandai commit hasil *squash merge* di `main`.
 
 Sisa terakhir iterasi 09: peta berhenti memakai latar polos. Berkas basemap
 `indonesia.pmtiles` **216.138.172 byte** (207 MiB) berada di luar kedua repo —

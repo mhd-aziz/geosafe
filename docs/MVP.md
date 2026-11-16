@@ -70,7 +70,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 08 | `feat/frontend-t1-trend` — halaman tren (A1) + Sumber & Batas Data (T1) + router | ✅ PR #12, tag `iter-08-frontend-t1` |
 | 09a | deploy: API sebagai unit systemd pengguna | ✅ PR #10, tag `iter-09a-api-service` |
 | 09b | deploy: nginx menyajikan halaman hasil build + proxy API (port 8080); berkas `deploy/` dikeluarkan dari git | ✅ PR #13, tag `iter-09b-nginx` |
-| 09c | `feat/frontend-basemap` — basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps | sedang dikerjakan (cabang `feat/frontend-basemap`) |
+| 09c | `feat/frontend-basemap` — basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps | ✅ PR #14, tag `iter-09c-basemap` |
 | 10 | P2 titik panas terkini (FIRMS + cache 15 menit) | setelah MVP jalan |
 | 11 | P4 kerawanan versi B + uji sensitivitas bobot | setelah ada pembanding |
 
