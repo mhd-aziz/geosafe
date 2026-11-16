@@ -27,6 +27,7 @@ project-GeoSafe/
 │       ├── test_health.py
 │       ├── test_sources.py     pytest (butuh basis data hidup)
 │       └── test_tiles.py
+├── docs/                       dokumen kerja: PRD.md · MVP.md · README.md (penunjuk)
 ├── frontend/                   kosong — React + TypeScript · Vite 7.3.8
 └── deploy/                     kosong — nginx (SPA + proxy) · systemd
 ```
@@ -185,6 +186,7 @@ Riwayat iterasi:
 | Tag | PR | Isi |
 |---|---|---|
 | `iter-01-api-database` | #1 | `config.py` · `db.py` · `GET /api/v1/sources` (T1) |
+| `iter-02-api-tiles` | #2 | `maps.py` · `GET /tiles/regions/{z}/{x}/{y}.mvt` (P1) |
 
 ## Konvensi penulisan (dikunci 2026-11-16)
 
