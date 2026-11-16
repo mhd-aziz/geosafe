@@ -25,6 +25,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 09a | `chore/deploy-api-service` | API berjalan sebagai unit systemd pengguna (`Restart=always`) | #10 | `iter-09a-api-service` |
 | 09b | `chore/deploy-nginx` | nginx menyajikan halaman hasil build + proxy API; berkas `deploy/` dikeluarkan dari git | #13 | `iter-09b-nginx` |
 | 09c | `feat/frontend-basemap` | basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps di frontend | #14 | `iter-09c-basemap` |
+| 10a | `feat/api-latest-hotspots` | `P2`/`W1` di API: tarikan FIRMS, cache 15 menit, snapshot, join kabupaten/kota saat permintaan | — | — (diisi setelah digabung) |
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 
@@ -611,6 +612,157 @@ Temuan:
    berpindah cabang setelah mengeluarkan berkas dari pelacakan, **salin dulu**
    berkasnya ke luar repo (mis. `~/geosafe-deploy/`), dan periksa keberadaannya
    setelah `git switch`.
+
+---
+
+## Iterasi 10a — `feat/api-latest-hotspots`
+
+Nomor PR dan tag diisi setelah digabung ke `main`.
+
+Bagian pertama iterasi 10: `P2` (titik panas terkini) dan `W1` (ringkasannya) di
+API, mengikuti kontrak yang sudah disetujui di
+`../planning-GeoSafe/docs/API-P2.md`. Inilah satu-satunya endpoint **runtime** —
+satu-satunya yang datanya diambil saat permintaan diproses, bukan dari tabel
+historis.
+
+Berkas: `backend/app/routers/latest.py` (baru) · `backend/app/config.py` (kunci
+FIRMS + jalur snapshot) · `backend/app/main.py` (pendaftaran router) ·
+`backend/tests/test_latest.py` (17 uji).
+
+Bentuknya: tarik tiga satelit penyedia → buang duplikat → cache 15 menit di memori
++ `snapshot.json` → saring jendela 24/48/72 jam → join kabupaten/kota **saat
+permintaan** lewat satu query SQL → kirim; `points` diganti `null` bila muatan
+melewati 2 MB.
+
+Kenyataan API FIRMS yang mengubah rancangan (diuji 2026-11-17, bukan dari ingatan):
+
+1. **Satu permintaan melayani satu satelit saja.** Daftar sumber (koma) maupun
+   kata kunci `all` dijawab **400 Bad Request**; hanya sumber tunggal yang dilayani.
+2. **Suomi-NPP berhenti mengirim.** `data_availability` menunjukkan
+   `VIIRS_SNPP_NRT` berakhir **2026-11-02** (pengumuman NASA: pengiriman berhenti
+   2 Nov 2026), dan tarikannya memang nol baris. Karena keputusan penutup 9 #2
+   melarang panggilan ketersediaan terpisah, satelit yang berhenti tidak bisa
+   dilaporkan tanggalnya; yang masuk daftar `satellites` adalah **sumber yang
+   benar-benar dicoba**: `VIIRS_NOAA20_NRT`, `VIIRS_NOAA21_NRT`, `MODIS_NRT`.
+3. **Kolom CSV MODIS berbeda**: suhu ada di `brightness` (VIIRS di `bright_ti4`)
+   dan `confidence` berupa angka 0–100, sehingga kelasnya dinormalkan
+   (`<30` low · `30–79` nominal · `≥80` high).
+4. `acq_time` bisa tiga digit (`416` = 04:16) dan harus dipad sebelum dirakit.
+
+Bukti — lewat HTTP di jalur aplikasi (`http://127.0.0.1:8080`, nginx mem-proxy
+`/api`), kunci FIRMS sungguhan:
+
+| Uji | Hasil |
+|---|---|
+| `/api/v1/latest?window=24` pertama | **200** · 14,86 dtk · 209.099 B · `X-Cache: MISS` · **880 titik**, 150 di luar poligon (17,0 %) |
+| permintaan kedua | **200** · **0,171 dtk** · `X-Cache: HIT` · tanpa tarikan baru |
+| `/api/v1/latest/summary?window=24` | 200 · 0,253 dtk · 1.386 B · `fetched_at` dan `point_count` **identik** dengan `/latest` (invarian kontrak) · 103 kabupaten/kota terdampak |
+| provinsi teratas (24 jam) | Papua Selatan 193 · Sulawesi Tenggara 89 · Sulawesi Tengah 88 · Maluku 63 · NTT 58 |
+| `/api/v1/latest?window=72` | 200 · 0,60 dtk · 1.050.390 B · **4.425 titik**, 354 di luar poligon (di bawah batas 2 MB) |
+| `satellites` | SNPP `available: false` (2026-11-02) · NOAA20/NOAA21/MODIS `available: true` (2026-11-16) |
+| snapshot | `backend/snapshot.json` tertulis 1.222.157 B setelah tarikan berhasil |
+| kuota FIRMS | `mapkey_status` 20 → **49 transaksi** (±29 per penyegaran) terhadap batas 5.000/10 menit |
+| uji | `pytest` **18 passed** (berkas baru) · seluruh suite **56 passed** |
+
+Temuan:
+
+1. **`SRS-NF-09` perlu dikoreksi, dan cache tetap 15 menit.** Keputusan pemilik repo
+   2026-11-17: TTL cache tetap **15 menit** (empat penyegaran per jam, sesuai maksud
+   `NF-09`). Yang perlu diperjelas adalah satuan "permintaan": karena Area API
+   melayani **satu satelit per permintaan**, satu penyegaran = **3 permintaan**
+   (ketersediaan tidak lagi dipanggil — keputusan 9 #2), jadi **12 permintaan HTTP
+   per jam**, bukan 4 dan bukan 16 seperti versi pertama. Biaya kuotanya terukur
+   **24 transaksi per penyegaran** (3 permintaan satelit berjendela 4 hari; satu
+   permintaan area MODIS 1 hari = 2 transaksi), jadi **±96 transaksi/jam** lawan
+   batas 5.000 transaksi/10 menit (±30.000/jam) — pemakaian sekitar **0,3 %** kuota.
+   Usulan bunyi baris `NF-09` yang jujur: *"Jumlah penyegaran data terkini per jam:
+   4 (cache 15 menit) — 12 permintaan satelit per jam; tidak bergantung jumlah
+   pengguna"*. Baris di `SRS-GeoSafe.md` belum diubah karena itu dokumen pemilik repo.
+2. **Rencana `CATATAN-DISKUSI.md` bagian F memilih join `STRtree` di Python tanpa
+   basis data**, sedangkan kontrak `API-P2.md` bagian 6 (disetujui sehari setelah
+   catatan itu) dan aturan repo nomor 4 menuntut **satu implementasi join, di
+   SQL**. Yang dipakai di sini SQL: array titik dikirim lewat `unnest` lalu
+   `LEFT JOIN regions ... ST_Contains`, sehingga titik laut tetap terkirim dengan
+   `region_code: null`. Terukur hari ini: 880 titik → respons 0,171 dtk dari cache
+   (join ikut dijalankan setiap permintaan), 4.425 titik (72 jam) → 0,60 dtk.
+   Angka rencana (join 900 titik 0,02 dtk) tetap benar untuk `STRtree`, tetapi
+   jalurnya berbeda dan tidak dipakai.
+3. **Uji pertama gagal karena berkas ujinya, bukan kode.** Permintaan
+   `bbox=139,-10,142,-7` ditolak 422 oleh kode — dan itu benar, karena batas timur
+   wilayah yang sah adalah 141,5 (kontrak). Berkas uji diperbaiki, bukan kodenya.
+4. **`available` ditentukan dari baris yang benar-benar kembali** (keputusan 9 #2):
+   satelit dianggap tersedia bila ia mengirim baris pada tarikan itu, dan
+   `last_acq_date` diambil dari tanggal terbaru yang pernah terlihat. Tidak ada
+   panggilan `data_availability` terpisah — akibatnya satu penyegaran hanya
+   **3 permintaan HTTP**, bukan 4.
+5. **Snapshot ditulis setiap tarikan berhasil**, dan kegagalan tarikan membalas
+   `200` dengan `using_snapshot: true` + `snapshot_age_seconds` (`SRS-F-25`);
+   kalau belum ada snapshot sama sekali, balasannya `503` dengan
+   `{"error":"no_snapshot"}`. Keduanya diuji.
+6. **Endpoint status kuota FIRMS** (`mapserver/mapkey_status/?MAP_KEY=...`)
+   dipakai untuk mengukur biaya transaksi — berguna setiap kali jumlah tarikan
+   berubah.
+7. **Panggilan luar disuntikkan sebagai dependensi** (`get_firms_fetcher`) atas
+   izin pemilik repo, sehingga uji tidak memakan kuota kunci; basis data dan join
+   tetap dijalankan sungguhan. Aturannya dicatat sebagai aturan 9 di
+   `docs/CONVENTIONS.md`.
+
+### Putaran perbaikan setelah tinjauan (2026-11-17)
+
+Tinjauan independen menolak versi pertama (`passed: false`). Yang diperbaiki,
+beserta buktinya:
+
+1. **Kunci API bisa bocor ke badan `503`.** `httpx.HTTPStatusError` membawa URL,
+   dan URL FIRMS memuat kunci. Sekarang kegagalan hulu dibungkus
+   `UpstreamHttpError`/`UpstreamAuthError` yang hanya membawa kode status, dan
+   pesan `503` hanya menyebut jenis galatnya. Ada uji yang menyisipkan rahasia ke
+   pesan galat lalu memastikan rahasia itu **tidak** muncul di balasan.
+2. **Satu tarikan melayani semua penunggu.** Sebelumnya N permintaan bersamaan
+   saat cache kedaluwarsa menjalankan N tarikan — melanggar kontrak bagian 5 dan
+   `NF-11`. Ditambah kunci penyegaran dengan pemeriksaan ulang di dalamnya, plus
+   **jeda 60 detik** setelah kegagalan supaya gangguan hulu tidak menjadi
+   percobaan sebanyak jumlah permintaan pengguna. Keduanya diuji.
+3. **`window_start` dan penyaring jendela dari `fetched_at`**, bukan jam permintaan
+   (kontrak bagian 1). Terukur di layanan: selisih tepat 24 jam; sebelumnya
+   selisihnya bergantung jarak waktu antara dua permintaan, sehingga `/latest` dan
+   `/latest/summary` bisa berbeda di batas jendela.
+4. **Keputusan 9 #2 dipenuhi:** ketersediaan dihitung dari baris yang kembali,
+   tanpa panggilan `data_availability`. Efeknya penyegaran turun dari 4 ke
+   **3 permintaan HTTP** dan biaya kuota dari 29 ke **24 transaksi** (diukur
+   36 → 60 pada `mapkey_status`).
+5. **Keputusan 9 #3 dipenuhi:** snapshot berisi **hasil join** dengan bentuk badan
+   `/latest` — diperiksa di berkas nyata: `{fetched_at, points, satellites,
+   window_hours}` dengan `region_code` terisi (snapshot bentuk lama dihapus agar
+   ditulis ulang). Penulisannya kini atomik (berkas sementara + `os.replace`) dan
+   kegagalannya masuk jurnal; sebelumnya `write_text` bisa meninggalkan JSON
+   terpotong yang lalu dianggap "tidak ada snapshot".
+6. **Bentuk `422` seragam.** `window=abc` dan `window=` (kosong) dulu dijawab
+   bentuk bawaan FastAPI tanpa medan `error`; sekarang keduanya
+   `{"error":"invalid_parameter","detail":...}` di kedua endpoint. Urutannya juga
+   dibalik: **validasi dulu, baru batas laju**, sehingga masukan salah tidak
+   menghabiskan kuota 60 permintaan/menit.
+7. **Batas laju per IP benar-benar per IP.** nginx yang mem-proxy permintaan, jadi
+   unit systemd kini memakai `--proxy-headers --forwarded-allow-ips=127.0.0.1`;
+   dibuktikan dari jurnal: permintaan ber-`X-Forwarded-For: 9.9.9.9` tercatat
+   sebagai klien `9.9.9.9`, bukan `127.0.0.1`.
+8. Perapian lain: bbox permintaan ke FIRMS disamakan dengan batas sah pengguna
+   supaya bbox yang lolos validasi selalu bisa dipenuhi; satu klien HTTP untuk
+   seluruh penyegaran (satu jabat tangan TLS, bukan tiga); pagar memori 120.000
+   titik per generasi; peta batas laju dibersihkan dari IP tidak aktif; kunci
+   dedupe ikut memuat `confidence` dan `frp`; `snapshot_age_seconds` dihitung
+   ulang tiap permintaan.
+
+Bukti akhir setelah perbaikan (kunci FIRMS sungguhan, lewat nginx):
+
+| Uji | Hasil |
+|---|---|
+| penyegaran dingin `window=24` | 200 · **11,34 dtk** · 237.563 B · **1.001 titik** · 262 di luar poligon · `X-Cache: MISS` |
+| biaya kuota per penyegaran | **24 transaksi** (36 → 60) untuk 3 permintaan HTTP |
+| `window_start` | tepat 24,0 jam sebelum `fetched_at` |
+| `satellites` | tiga sumber yang dicoba, semuanya `available: true`, `last_acq_date` 2026-11-16 |
+| snapshot | kunci kontrak lengkap, `region_code` terisi, tanpa berkas `.tmp` tertinggal |
+| snapshot saat basis data mati | 200 dari snapshot (DSN diarahkan ke port kosong) — janji keputusan 9 #3 diuji, bukan diandaikan |
+| uji | **31 uji** di berkas ini · seluruh suite **69 passed** |
 
 ---
 

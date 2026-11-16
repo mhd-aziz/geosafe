@@ -39,6 +39,14 @@ di sini — beberapa keputusan tampak sepele tapi menutup jebakan nyata.
    satu mesin. Karena itu isinya wajib tertulis lengkap di `docs/ITERATIONS.md`
    (penyisipan 09a dan 09b), dan memindahkan proyek ke mesin lain berarti menulis
    ulang kedua berkas itu dari catatan tersebut.
+9. **Satu pengecualian aturan "tidak ada mock", disetujui pemilik repo
+   2026-11-17:** panggilan ke layanan **luar** (NASA FIRMS pada `P2`) disuntikkan
+   sebagai dependensi FastAPI, sehingga uji memakai penarik palsu dan tidak
+   memakan kuota kunci. Batasnya tegas — yang boleh diganti hanya penarik luar;
+   basis data, geometri, dan join wilayah tetap dijalankan sungguhan di
+   PostgreSQL, dan uji tetap gagal kalau basis data mati. Alasannya: kuota kunci
+   FIRMS berbayar secara harfiah (5.000 transaksi/10 menit, terukur ±29 transaksi
+   per penyegaran) dan hasil uji tidak boleh bergantung pada isi langit hari itu.
 
 ## 2. Keputusan penamaan (dikunci 2026-11-16)
 

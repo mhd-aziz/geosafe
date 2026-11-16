@@ -6,7 +6,7 @@ Hanya berisi pembuatan aplikasi dan endpoint dasar. Router per kelompok fitur
 
 from fastapi import FastAPI
 
-from app.routers import analysis, maps, panels, search, transparency
+from app.routers import analysis, latest, maps, panels, search, transparency
 
 app = FastAPI(
     title="GeoSafe API",
@@ -23,6 +23,7 @@ app.include_router(maps.router)
 app.include_router(panels.router)
 app.include_router(search.router)
 app.include_router(analysis.router)
+app.include_router(latest.router)
 
 
 @app.get("/health", tags=["internal"])

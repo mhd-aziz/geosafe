@@ -71,7 +71,8 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 09a | deploy: API sebagai unit systemd pengguna | ✅ PR #10, tag `iter-09a-api-service` |
 | 09b | deploy: nginx menyajikan halaman hasil build + proxy API (port 8080); berkas `deploy/` dikeluarkan dari git | ✅ PR #13, tag `iter-09b-nginx` |
 | 09c | `feat/frontend-basemap` — basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps | ✅ PR #14, tag `iter-09c-basemap` |
-| 10 | P2 titik panas terkini (FIRMS + cache 15 menit) | setelah MVP jalan |
+| 10a | `feat/api-latest-hotspots` — `P2`/`W1` di API: tarikan FIRMS, cache 15 menit, snapshot, join kabupaten/kota saat permintaan | sedang dikerjakan (cabang `feat/api-latest-hotspots`) |
+| 10b | `feat/frontend-latest` — lapisan terkini di peta, pemilih 24/48/72 jam, panel `W1` | setelah 10a |
 | 11 | P4 kerawanan versi B + uji sensitivitas bobot | setelah ada pembanding |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
