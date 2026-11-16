@@ -55,8 +55,9 @@ sendiri di `/docs` dan `/openapi.json`, jangan dibuatkan berkas daftar endpoint.
 - Nama berkas/fungsi/kelas/variabel/kolom JSON: Inggris, `snake_case` (fungsi & variabel), `PascalCase`
   (kelas), kolom JSON sama persis dengan kolom DB (`hotspot_count`, `region_code`). Komentar dan
   docstring: **Bahasa Indonesia**. README dan `docs/`: Bahasa Indonesia.
-- Nama fungsi uji Bahasa Inggris, melekat ke perilaku (`test_empty_tile_answers_204`; perhatikan: aturan
-  ini berlaku untuk **seluruh** nama fungsi, uji termasuk). Uji backend memakai `TestClient` dan menembak
+- Nama fungsi uji Python Bahasa Inggris, melekat ke perilaku (`test_empty_tile_answers_204`;
+  perhatikan: aturan ini berlaku untuk **seluruh** nama fungsi Python, uji termasuk); deskripsi
+  `it()` di frontend Bahasa Indonesia seperti suite yang sudah ada. Uji backend memakai `TestClient` dan menembak
   basis data hidup, lalu memeriksa angka nyata (mis. `len(body) > 47_657`); tidak ada tiruan/mock —
   kalau DB mati, uji memang harus gagal. Uji frontend sebaliknya: jsdom, tanpa DB dan jaringan.
 - Balasan: tile tanpa poligon → `204` tanpa isi; wilayah tak dikenal → `404`, bukan objek kosong.
@@ -104,6 +105,11 @@ dokumen boleh langsung ke `main`.
     luar repo sebelum berpindah cabang; pulihkan dengan `git show <commit-sebelum-merge>:<path>`.
 11. `gh` di sesi Hermes bisa menolak "not logged into any GitHub hosts" karena `XDG_CONFIG_HOME`
     menunjuk `~/.hermes/bot-desktop/xdg` — pakai `GH_CONFIG_DIR="$HOME/.config/gh"`.
+12. Basemap 216 MB ada di `../planning-GeoSafe/data/basemap/indonesia.pmtiles` (di luar repo) dan
+    dilayani nginx pada `/pmtiles/`; `npm run dev` meneruskan `/pmtiles` ke nginx, jadi nginx harus
+    hidup. Kalau peta kosong: `curl -r 0-99 -D- http://127.0.0.1:8080/pmtiles/indonesia.pmtiles`
+    harus menjawab `206` + `Content-Range`. Tanpa internet nama tempat hilang (font dan sprite
+    diambil dari `protomaps.github.io/basemaps-assets`), geometri tetap tergambar.
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.

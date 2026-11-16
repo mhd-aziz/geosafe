@@ -24,9 +24,9 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 | Bagian | Keadaan |
 |---|---|
 | Backend (`backend/`) | berjalan — 10 endpoint, `uv run pytest` 38 passed |
-| Frontend (`frontend/`) | berjalan — 3 halaman (peta · tren · sumber data), `npm test` 44 passed |
-| Deploy (**berkas di mesin, tidak di git**) | sebagian — API sebagai unit systemd pengguna, nginx menyajikan halaman + proxy API di `127.0.0.1:8080`; basemap PMTiles menyusul |
-| Iterasi selesai | 08 (+ penyisipan 06b, 07a, 08a, 09a, 09b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Frontend (`frontend/`) | berjalan — 3 halaman (peta · tren · sumber data), basemap PMTiles z12, `npm test` 50 passed |
+| Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna, nginx menyajikan halaman, proxy API, dan basemap PMTiles z12 (216 MB) di `127.0.0.1:8080` |
+| Iterasi selesai | 08 (+ penyisipan 06b, 07a, 08a, 09a, 09b, 09c) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -99,8 +99,9 @@ uv run uvicorn app.main:app --reload    # http://127.0.0.1:8000
 Cara pakai: uvicorn dapat dinyalakan manual seperti di atas, atau (di homelab) lewat
 unit systemd pengguna `geosafe-api.service` — lihat [`docs/ITERATIONS.md`](docs/ITERATIONS.md)
 penyisipan 09a. Halaman hasil build disajikan nginx di `http://127.0.0.1:8080`
-(penyisipan 09b): `/` peta, `/tren` dan `/sumber` diarahkan ke `index.html`, dan
-`/api` serta `/tiles` diteruskan ke API di port 8000.
+(penyisipan 09b): `/` peta, `/tren` dan `/sumber` diarahkan ke `index.html`, `/api`
+serta `/tiles` diteruskan ke API di port 8000, dan `/pmtiles/` menyajikan basemap
+216 MB yang tersimpan di luar repo (penyisipan 09c).
 
 Memuat kode backend yang baru: `systemctl --user restart geosafe-api`.
 Memuat konfigurasi nginx yang baru: `npm run build` di `frontend/`, lalu

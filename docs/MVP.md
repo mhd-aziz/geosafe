@@ -5,8 +5,9 @@ GeoSafe bisa didemokan dan dinilai, dan apa yang sengaja ditunda.
 
 Status: 2026-11-17 · kelima fitur MVP (P1, C1, W2, A1, T1) selesai dan alurnya sudah
 bisa dijalankan lewat satu alamat (`http://127.0.0.1:8080`, nginx menyajikan halaman
-hasil build dan meneruskan `/api` serta `/tiles` ke API). Sisa yang direncanakan:
-basemap PMTiles, lalu iterasi 10 (P2) dan 11 (P4).
+hasil build, meneruskan `/api` serta `/tiles` ke API, dan melayani basemap
+`/pmtiles/`). Sisa yang direncanakan: iterasi 10 (P2 titik panas terkini) dan
+11 (P4 kerawanan versi B).
 
 ---
 
@@ -69,7 +70,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 08 | `feat/frontend-t1-trend` — halaman tren (A1) + Sumber & Batas Data (T1) + router | ✅ PR #12, tag `iter-08-frontend-t1` |
 | 09a | deploy: API sebagai unit systemd pengguna | ✅ PR #10, tag `iter-09a-api-service` |
 | 09b | deploy: nginx menyajikan halaman hasil build + proxy API (port 8080); berkas `deploy/` dikeluarkan dari git | ✅ PR #13, tag `iter-09b-nginx` |
-| 09 (sisa) | deploy: basemap PMTiles (ekstrak 216 MB, dilayani nginx) | |
+| 09c | `feat/frontend-basemap` — basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps | sedang dikerjakan (cabang `feat/frontend-basemap`) |
 | 10 | P2 titik panas terkini (FIRMS + cache 15 menit) | setelah MVP jalan |
 | 11 | P4 kerawanan versi B + uji sensitivitas bobot | setelah ada pembanding |
 

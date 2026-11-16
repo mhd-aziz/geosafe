@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl';
+import { Map as MapLibreMap, addProtocol, setWorkerUrl } from 'maplibre-gl';
+import { Protocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 // Alamat worker harus dikunci: MapLibre v6 menurunkan URL worker dari
 // `import.meta.url`, dan di dev server berkas hasil `optimizeDeps` membuat URL
@@ -9,28 +10,21 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
 import { tileSourceLayer, tileUrlTemplate } from '../../api/geosafe';
 import { fillColorExpression } from '../../lib/choropleth';
+import { basemapStyle } from '../../lib/map-style';
 import type { MapLevel, SearchLevel } from '../../types/geosafe';
 
 setWorkerUrl(maplibreWorkerUrl);
 
+// Protokol `pmtiles://` harus terdaftar sebelum gaya dipasang; basemap dibaca per
+// rentang byte dari berkas yang dilayani nginx (`/pmtiles/`). Di maplibre-gl
+// 6.18.0 `addProtocol` hanya menimpa entri `REGISTERED_PROTOCOLS` (diperiksa di
+// `node_modules/maplibre-gl/dist/maplibre-gl-dev.mjs`), jadi tidak ada galat yang
+// perlu ditangkap dan pemanggilan ulang tidak berbahaya.
+addProtocol('pmtiles', new Protocol().tile);
+
 const SOURCE_ID = 'hotspot';
 const FILL_LAYER_ID = 'hotspot-fill';
 const LINE_LAYER_ID = 'hotspot-line';
-
-// Latar polos: MVP sengaja belum memuat basemap PMTiles (216 MB, ditunda ke
-// iterasi deploy). Yang penting geometri wilayah sendiri tetap terbaca.
-const BLANK_STYLE = {
-  version: 8 as const,
-  name: 'geosafe-blank',
-  sources: {},
-  layers: [
-    {
-      id: 'background',
-      type: 'background' as const,
-      paint: { 'background-color': '#e8f0f8' },
-    },
-  ],
-};
 
 const CODE_PROPERTY: Record<MapLevel, string> = {
   regency: 'region_code',
@@ -55,6 +49,10 @@ export function MapView({ year, level, focusBounds, onSelectRegion }: MapViewPro
   const mapRef = useRef<MapLibreMap | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Galat memuat sumber/gaya tidak menggagalkan kejadian `load` dan tidak tampil
+  // di antarmuka; sudah dua kali kejadian peta tampak kosong tanpa pesan apa pun,
+  // jadi pesannya ditangkap dan ditampilkan.
+  const [loadError, setLoadError] = useState<string | null>(null);
   // Handler peta tidak dibuat ulang setiap render, jadi nilai terbaru dibaca
   // lewat ref: kalau tidak, klik selalu memakai tingkat wilayah yang lama.
   const latest = useRef({ level, onSelectRegion });
@@ -69,7 +67,7 @@ export function MapView({ year, level, focusBounds, onSelectRegion }: MapViewPro
     try {
       map = new MapLibreMap({
         container: containerRef.current,
-        style: BLANK_STYLE,
+        style: basemapStyle(),
         center: [118, -2.5],
         zoom: 3.2,
         attributionControl: false,
@@ -81,6 +79,11 @@ export function MapView({ year, level, focusBounds, onSelectRegion }: MapViewPro
 
     mapRef.current = map;
     map.on('load', () => setReady(true));
+
+    map.on('error', (event) => {
+      const cause = (event as { error?: unknown }).error;
+      setLoadError(cause instanceof Error ? cause.message : 'galat peta tidak dikenal');
+    });
 
     map.on('click', (event) => {
       if (!map.getLayer(FILL_LAYER_ID)) {
@@ -151,6 +154,10 @@ export function MapView({ year, level, focusBounds, onSelectRegion }: MapViewPro
         // `src/lib/choropleth.test.ts`).
         'fill-color': fillColorExpression() as never,
         'fill-outline-color': '#ffffff',
+        // Tembus pandang 0,72: pada 0,82 jalan dan sungai dari basemap tak lagi
+        // terlihat di bawah kelas warna (diperiksa di peramban, tidak cukup dari
+        // kode), sementara kelas warnanya masih terpisah jelas.
+        'fill-opacity': 0.72,
       },
     });
     map.addLayer({
@@ -184,6 +191,15 @@ export function MapView({ year, level, focusBounds, onSelectRegion }: MapViewPro
         <p className="absolute inset-0 flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-700">
           Peta vektor butuh WebGL pada peramban ini, sehingga peta tidak dapat digambar. Panel dan
           pencarian tetap bisa dipakai. Penyebab: {error}
+        </p>
+      ) : null}
+      {loadError ? (
+        <p
+          className="absolute inset-x-2 bottom-2 rounded border border-amber-300 bg-amber-50/95 px-3 py-2 text-xs text-amber-900"
+          data-testid="map-load-error"
+        >
+          Sebagian latar peta gagal dimuat ({loadError}). Geometri wilayah tetap tergambar dan panel
+          tetap bisa dipakai.
         </p>
       ) : null}
     </div>

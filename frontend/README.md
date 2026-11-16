@@ -18,7 +18,10 @@ npm run dev       # http://127.0.0.1:5173
 
 Selama pengembangan, Vite mem-proxy `/api` dan `/tiles` ke `127.0.0.1:8000`
 (lihat `vite.config.ts`), jadi tidak ada alamat API di dalam kode dan tidak ada
-kunci rahasia di sisi peramban.
+kunci rahasia di sisi peramban. `/pmtiles` ikut di-proxy, tetapi ke nginx
+(`127.0.0.1:8080`) karena berkas basemap 216 MB tinggal di luar repo dan nginx
+yang melayaninya — jadi **nginx harus hidup** saat `npm run dev` ingin menampilkan
+basemap.
 
 Perintah lain:
 
@@ -61,7 +64,7 @@ frontend/
     │   └── common/             DataNotes
     ├── hooks/                  useDebouncedValue · useRegionSearch · useRegionPanel ·
     │                           useSourceSummary · useRemoteData (baca-saja halaman)
-    ├── lib/                    constants · format · choropleth · transparency-content
+    ├── lib/                    constants · format · choropleth · map-style · transparency-content
     ├── types/geosafe.ts        bentuk balasan API (nama medan = nama kolom DB)
     └── test/setup.ts           pembersihan DOM antar uji
 ```
@@ -83,12 +86,20 @@ tampilan diff.
    perubahan, sehingga halaman melaporkan "Unexpected token '<'".
 3. **Uji jsdom dan `tsc` tidak menangkap dua hal di atas.** Halaman wajib dibuka
    sekali di peramban sungguhan sebelum sebuah iterasi ditutup.
+4. **Basemap butuh tiga hal sekaligus, dan kalau satu hilang gejalanya berbeda:**
+   berkas PMTiles lewat `/pmtiles/` (kalau nginx mati atau proxy salah → peta
+   kosong), protokol `pmtiles` terdaftar sebelum gaya dipasang (kalau tidak →
+   sumber gagal dimuat), dan berkas font/sprite dari
+   `protomaps.github.io/basemaps-assets` (kalau tanpa internet → geometri tetap
+   tergambar tetapi semua nama tempat hilang). Periksa berkasnya per rentang byte:
+   `curl -r 0-99 -D- http://127.0.0.1:8080/pmtiles/indonesia.pmtiles` harus menjawab
+   `206` dengan `Content-Range`.
 
 ## Yang sengaja belum ada
 
 | Hal | Alasan |
 |---|---|
-| basemap PMTiles | berkas 216 MB ditunda ke iterasi deploy; peta memakai latar polos |
+| basemap PMTiles | **sudah ada** sejak penyisipan 09c: berkas 216 MB di `../planning-GeoSafe/data/basemap/`, dilayani nginx `/pmtiles/`, gaya dari `@protomaps/basemaps` |
 | heatmap titik panas (`SRS-F-14`) | endpoint tile titik belum ada (titik berkoordinat, bukan agregat wilayah) |
 | kendali penyaring `confidence` di toolbar (`SRS-F-15`) | API sudah menerima `?confidence=h|n|l` untuk tile kabupaten/kota; kendalinya menyusul |
 | panel kecamatan dan desa (`W3`, `W4`) | angka pendukung, bukan unit analisis; panelnya belum dikerjakan |
