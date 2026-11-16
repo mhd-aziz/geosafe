@@ -1,0 +1,8 @@
+@import 'tailwindcss';
+
+/* Peta memakai kontainer sendiri supaya tinggi canvas tidak mengikuti isi. */
+html,
+body,
+#root {
+  height: 100%;
+}
