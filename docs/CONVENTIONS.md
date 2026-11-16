@@ -9,9 +9,10 @@ di sini — beberapa keputusan tampak sepele tapi menutup jebakan nyata.
 
 1. **Akar repo tanpa manifest dependensi.** `pyproject.toml` (uv) di `backend/`,
    `package.json` (npm) di `frontend/`. Tidak ada `package.json` di akar.
-2. **Data besar tidak masuk repo.** Basemap PMTiles (216 MB), `siap-pakai/tabel/`
-   (31 MB), dan `titik/*.csv.gz` (13 MB) tetap di `../planning-GeoSafe/data/`;
-   nginx menunjuk ke sana lewat `deploy/nginx/`.
+2. **Data besar tidak masuk repo.** Basemap PMTiles (216 MB) ada di
+   `../planning-GeoSafe/data/basemap/indonesia.pmtiles`, `siap-pakai/tabel/`
+   (31 MB) dan `titik/*.csv.gz` (13 MB) di `../planning-GeoSafe/data/`; nginx
+   menunjuk ke sana lewat `deploy/nginx/` (lokasi `/pmtiles/`).
 3. **`.env` hanya di `backend/`.** Kunci NASA FIRMS tidak pernah sampai ke
    `frontend/` dan tidak memakai awalan `VITE_` (variabel `VITE_*` ikut terkirim
    ke peramban).

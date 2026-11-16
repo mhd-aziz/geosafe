@@ -24,6 +24,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 07 | `feat/frontend-app` | frontend: peta choropleth + pencarian + panel (alur MVP) | #9 | `iter-07-frontend` |
 | 09a | `chore/deploy-api-service` | API berjalan sebagai unit systemd pengguna (`Restart=always`) | #10 | `iter-09a-api-service` |
 | 09b | `chore/deploy-nginx` | nginx menyajikan halaman hasil build + proxy API; berkas `deploy/` dikeluarkan dari git | #13 | `iter-09b-nginx` |
+| 09c | `feat/frontend-basemap` | basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps di frontend | — | — (diisi setelah digabung) |
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 
@@ -440,6 +441,27 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Basemap statis (216 MB) di luar repo: satu berkas PMTiles yang ditarik klien
+    # per rentang byte, jadi balasan `206` + `Accept-Ranges` wajib ada (nginx
+    # melakukannya sendiri untuk berkas statis). Lokasinya **berkas** ini, bukan
+    # seluruh folder — berkas lain yang nanti ditaruh di folder itu tidak ikut
+    # tersaji. `add_header` di dalam `location` menggantikan header warisan dari
+    # `server`, jadi keduanya diulang. Umur cache pendek supaya basemap hasil
+    # ekstrak ulang tidak tertahan sehari di peramban.
+    location = /pmtiles/indonesia.pmtiles {
+        alias "/media/bazyngan/DATA/Documents/mata kuliah sistem informasi geografis/planning-GeoSafe/data/basemap/indonesia.pmtiles";
+        add_header X-Frame-Options "SAMEORIGIN";
+        add_header X-Content-Type-Options "nosniff";
+        add_header Cache-Control "public, max-age=300";
+    }
+
+    # Selain berkas di atas, tidak ada yang boleh tersaji di bawah `/pmtiles/`.
+    # Tanpa blok ini permintaan seperti `/pmtiles/apa-saja` jatuh ke fallback SPA
+    # dan dijawab `index.html` dengan kode 200 — balasan yang menyesatkan.
+    location /pmtiles/ {
+        return 404;
+    }
+
     # API FastAPI: psycopg sinkron, satu koneksi per permintaan, hanya baca.
     location /api/ {
         proxy_pass http://127.0.0.1:8000;
@@ -583,6 +605,120 @@ Temuan:
    berpindah cabang setelah mengeluarkan berkas dari pelacakan, **salin dulu**
    berkasnya ke luar repo (mis. `~/geosafe-deploy/`), dan periksa keberadaannya
    setelah `git switch`.
+
+---
+
+## Penyisipan 09c — basemap PMTiles
+
+Sisa terakhir iterasi 09: peta berhenti memakai latar polos. Berkas basemap
+`indonesia.pmtiles` **216.138.172 byte** (207 MiB) berada di luar kedua repo —
+`../planning-GeoSafe/data/basemap/` — sesuai aturan 2 `CONVENTIONS.md`, dan
+dilayani nginx pada `/pmtiles/`.
+
+Ekstraksi (sekali, 227 MB terkirim dari build protomaps `20261112`, bbox
+`94.5,-11.5,141.5,6.5`, `--maxzoom=12`, selesai dalam **2 menit 15 detik** dengan
+99 permintaan), lalu diperiksa dengan `pmtiles show`:
+spec v3 · tile MVT · zoom 0–12 · 148.173 petak beralamat · 71.949 entri ·
+sha256 berawalan `a3f17cc4`.
+
+Berkas yang berubah di repo:
+
+- `frontend/src/lib/map-style.ts` (baru) — gaya dasar dari `@protomaps/basemaps`
+  5.7.2: `layers(BASEMAP_SOURCE_ID, LIGHT, { lang: 'id' })` menghasilkan 71 layer
+  (layer pertama `background`), sumber vektor `pmtiles:///pmtiles/indonesia.pmtiles`,
+  plus `glyphs` dan `sprite` dari aset publik Protomaps (tanpa kunci API).
+- `frontend/src/components/map/MapView.tsx` — `BLANK_STYLE` dihapus, protokol
+  `pmtiles` didaftarkan sekali (dibungkus `try/catch` karena pendaftaran kedua
+  melempar galat dan Vite HMR bisa menjalankan modul ulang), dan layer choropleth
+  diberi `fill-opacity` 0,72.
+- `frontend/vite.config.ts` — proxy `/pmtiles` → `127.0.0.1:8080` supaya dev server
+  ikut menyajikan basemap (nginx harus hidup saat `npm run dev`).
+- `frontend/package.json` — dua dependensi baru: `pmtiles` 4.5.0 (380.312 B) dan
+  `@protomaps/basemaps` 5.7.2 (442.916 B), keduanya versi terkunci.
+- `deploy/nginx/geosafe.conf` (di luar git) — `location /pmtiles/` dengan `alias`
+  ke folder basemap; isinya ikut ditulis di bagian penyisipan 09b di atas.
+
+Bukti:
+
+- `curl -r 0-99 http://127.0.0.1:8080/pmtiles/indonesia.pmtiles` → **206** ·
+  `Content-Range: bytes 0-99/216138172`; 7 byte pertama isinya `PMTiles`.
+  Unduhan utuh → 200 · 216.138.172 B · 0,19 dtk (lokal). `/pmtiles/tidak-ada.pmtiles`
+  → 404.
+- Dari peramban (Chrome lewat nginx): **211 permintaan `206`** ke berkas itu dengan
+  total **5.064.503 byte** — 2,3 % dari arsip, jadi benar per rentang byte, bukan
+  unduhan utuh. 18 permintaan tile wilayah ikut tercatat.
+- `npm test` **50 passed** (9 berkas) · `tsc --noEmit` bersih · `npm run build`
+  13,65 / 15,96 / 22,80 dtk pada tiga pengukuran berbeda (waktu build bergerak,
+  jangan dibaca sebagai angka tunggal) · `pytest` **38 passed**. Uji gaya peta
+  mula-mula 5 berkas uji; setelah peninjau meminta asersi yang lebih bermakna,
+  menjadi 6 dan jumlah total 50.
+- Di peramban: peta menampilkan air laut, garis pantai, sungai, batas administrasi,
+  dan nama tempat berbahasa Indonesia (`MALAYSIA`, `PAPUA NUGINI`, `TIMOR LESTE`,
+  `LAUT TIONGKOK SELATAN`); pencarian `3173` → peta memperbesar ke Jakarta Barat →
+  panel memuat angka nyata; jalan dan label jalan (`Jalan Tol Jakarta`) terlihat
+  setelah opasitas choropleth diturunkan.
+
+Temuan:
+
+1. **Jalan basemap ada di data, tapi tertutup layer choropleth.** Diperiksa langsung
+   pada arsip: petak z6/z10/z12 memuat layer `roads`, `places`, `boundaries`, `water`
+   (`pmtiles tile ... | gunzip -c | strings` — keluarannya ter-gzip, jadi harus
+   di-`gunzip` dulu). Pada opasitas 0,82 jalan tidak terlihat; pada **0,72** jalan
+   dan labelnya terbaca sementara kelas warna masih terpisah. Angka itu dipilih
+   lewat pemeriksaan di peramban, bukan dari perhitungan.
+2. **Pembacaan gambar otomatis tidak boleh dipercaya tanpa verifikasi.** Dua klaim
+   salah muncul pada pemeriksaan yang sama: "basemap tidak dimuat" (padahal air laut
+   berwarna basemap) dan "poligon DKI salah diberi abu-abu" — basis data menunjukkan
+   `3171` dan `3174` memang belum punya baris tahunan 2026 (hanya seri `nrt`), jadi
+   abu-abu itu **benar** sesuai aturan "celah berarti nol". Warna dan angka diverifikasi
+   ke basis data sebelum disimpulkan.
+3. **Ketidakcocokan kode kecamatan ada di data sumber.** Di
+   `data/batas-administrasi/atribut/kecamatan.csv`, kecamatan berawalan `3173`
+   (`Cempaka Putih` 3173050, `Gambir` 3173080, `Johar Baru` 3173040) berpasangan
+   dengan induk `31.71` Kota Administrasi Jakarta Pusat. Aplikasi menampilkan induk
+   apa adanya dari basis data; yang salah adalah awalan kode di sumber, bukan panel.
+4. **Satu-satunya kunci ganda di `region_facts`** adalah 7 baris metrik
+   `hotspot_coverage_pct` tingkat nasional (tahun 2020–2026, sumber `BNPB-EVENT`).
+   Jalur peta tidak terpengaruh (baris itu tanpa `region_code`), tetapi endpoint
+   `point_coverage` membaca metrik itu — dicatat supaya tidak dikira temuan baru.
+5. **`podman ps` kosong di sesi ini walau unit quadlet `pg.service` aktif.** Jangan
+   menyimpulkan basis data mati dari situ; pakai DSN dengan psycopg
+   (`backend/.venv/bin/python`) atau HTTP API.
+6. **Basemap bergantung pada aset publik Protomaps** untuk berkas font dan sprite
+   (`protomaps.github.io/basemaps-assets`, diperiksa: 200). Tanpa internet, layer
+   teks gagal dimuat dan peta hanya kehilangan nama tempat — geometri tetap ada.
+7. **Tinjauan independen menemukan klaim yang salah di komentar kode.** Kode saya
+   menyatakan pendaftaran protokol kedua "melempar galat". Diperiksa di
+   `node_modules/maplibre-gl/dist/maplibre-gl-dev.mjs` baris 3226: `addProtocol`
+   hanya menimpa `config.REGISTERED_PROTOCOLS[customProtocol] = loadFn`, tanpa
+   galat apa pun — jadi `try/catch` di `MapView` adalah kode mati dan alasannya
+   tidak terverifikasi. Pembungkusnya dihapus dan komentarnya diganti dengan
+   pernyataan yang bisa ditunjuk sumbernya. Pelajaran: komentar yang menjelaskan
+   *mengapa* harus diuji seperti kode.
+8. **`/pmtiles/` diperketat setelah peninjau memeriksa permukaannya.** Semula
+   `alias` ke seluruh folder, artinya berkas apa pun yang nanti ditaruh di folder
+   basemap otomatis tersaji, dan `add_header` di dalam `location` menggantikan
+   header warisan sehingga `X-Frame-Options` hilang pada balasan itu. Sekarang
+   lokasinya **berkas** tunggal (`location = /pmtiles/indonesia.pmtiles`) dengan
+   header lengkap, dan umur cache diturunkan dari 86400 ke **300** detik supaya
+   basemap hasil ekstrak ulang tidak tertahan sehari di peramban. Perubahan itu
+   membuka celah baru yang langsung ditutup: permintaan lain di bawah `/pmtiles/`
+   jatuh ke fallback SPA dan dijawab `200 index.html`, jadi ditambah
+   `location /pmtiles/ { return 404; }`. Diverifikasi ulang: berkas → **206**,
+   `/pmtiles/` · `/pmtiles/berkas-lain.txt` · `/pmtiles/tidak-ada.pmtiles` → **404**,
+   sementara `/`, `/tren`, `/sumber`, `/api/v1/sources`, `/health` tetap 200.
+9. **`listen 8080` mengikat `0.0.0.0`**, jadi arsip basemap terjangkau dari
+   LAN/tailnet, bukan hanya localhost. Dibiarkan karena aplikasi ini memang
+   disiapkan diakses lewat Cloudflare Tunnel (`ARSITEKTUR.md`) dan basemap-nya data
+   terbuka; kalau jaringan dianggap tidak tepercaya, ubah jadi
+   `listen 127.0.0.1:8080`.
+10. **Galat peta sekarang tampil, tidak sunyi lagi.** Kegagalan memuat sumber atau
+    gaya **tidak** menggagalkan kejadian `load`, jadi peta tetap memasang
+    choropleth dan pengguna hanya melihat latar kosong. Ditambahkan
+    `map.on('error')` yang menampilkan pita peringatan. Diperiksa di peramban:
+    pita itu **tidak** muncul pada pemuatan normal. Uji jsdom tidak menjangkau
+    jalur ini karena `MapView` di-mock di seluruh suite frontend — pembuktiannya
+    tetap harus di peramban.
 
 ---
 

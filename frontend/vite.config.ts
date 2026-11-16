@@ -13,6 +13,9 @@ export default defineConfig({
     proxy: {
       '/api': 'http://127.0.0.1:8000',
       '/tiles': 'http://127.0.0.1:8000',
+      // Basemap 216 MB tinggal di luar repo dan dilayani nginx pada port 8080;
+      // dev server meneruskannya ke sana (nginx harus hidup saat `npm run dev`).
+      '/pmtiles': 'http://127.0.0.1:8080',
     },
   },
   test: {
