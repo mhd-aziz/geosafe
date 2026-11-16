@@ -1,0 +1,164 @@
+"""A1 — tren nasional 2020–2026, dua seri berdampingan.
+
+Grafik `A1` menampilkan **dua seri yang alat ukurnya berbeda**: jumlah titik panas
+(deteksi satelit FIRMS) dan jumlah kejadian karhutla (pencatatan BNPB). Keduanya
+tidak boleh dijumlahkan maupun ditaruh pada satu sumbu (`SRS-F-45`, `SRS-F-46`).
+
+Luas terbakar nasional (GWIS) dikirim terpisah sebagai **konteks**, bukan seri
+ketiga data penelitian, dan hanya tersedia sampai 2025 pada tingkat nasional
+(`SRS-F-47`, `SRS-F-48`) — kenyataan itu ikut dinyatakan di medan `notes`.
+
+Seri titik panas tidak digabung diam-diam: `series` dikirim apa adanya, ditambah
+`archive_total` (main + fill) sebagai garis arsip, sedangkan `nrt` berdiri sendiri
+karena pemrosesannya berbeda. ETL tidak menulis baris bernilai nol, jadi tahun
+yang tidak punya baris disebutkan di `notes`, bukan diisi nol.
+"""
+
+from typing import Any
+
+import psycopg
+from fastapi import APIRouter, Depends
+from psycopg.rows import dict_row
+
+from app.db import get_connection
+
+router = APIRouter(prefix="/api/v1/analysis", tags=["A1 tren dua seri"])
+
+# Rentang data proyek; dipakai untuk mengenali tahun yang tidak punya baris.
+EXPECTED_YEARS: tuple[int, ...] = (2020, 2021, 2022, 2023, 2024, 2025, 2026)
+
+# Metrik yang dibaca grafik ini. Menambah seri = menambah daftar ini.
+METRICS: tuple[str, ...] = ("hotspot_count", "event_count", "burned_area_ha")
+
+# Baris tingkat nasional ditandai `region_code` dan `province_code` sama-sama kosong.
+QUERY_NATIONAL_FACTS = """
+select f.metric_code,
+       f.year,
+       f.series,
+       f.value
+  from region_facts f
+ where f.region_code is null
+   and f.province_code is null
+   and f.month is null
+   and f.confidence is null
+   and f.metric_code = any(%(metrics)s)
+ order by f.metric_code, f.year, f.series
+"""
+
+# Nama dan satuan diambil dari tabel `metrics`, bukan ditulis ulang di kode.
+QUERY_METRIC_LABELS = """
+select metric_code, metric_name, unit
+  from metrics
+ where metric_code = any(%(metrics)s)
+"""
+
+
+def _tahun_hilang(tahun_ada: set[int]) -> list[int]:
+    """Tahun dalam rentang proyek yang tidak punya baris sama sekali."""
+    return [year for year in EXPECTED_YEARS if year not in tahun_ada]
+
+
+def _catatan(
+    hotspot: list[dict[str, Any]],
+    events: list[dict[str, Any]],
+    burned: list[dict[str, Any]],
+) -> list[str]:
+    """Batasan yang wajib ikut tampil di bawah grafik, bukan disembunyikan."""
+    notes = [
+        "titik panas dan kejadian memakai alat ukur berbeda: titik panas adalah "
+        "deteksi satelit (FIRMS), kejadian adalah pencatatan kejadian karhutla "
+        "(BNPB), sehingga keduanya tidak boleh dijumlahkan dan digambar pada dua "
+        "sumbu terpisah",
+        "luas terbakar nasional (GWIS) hanya konteks, bukan seri ketiga data "
+        "penelitian; seri ini hanya tersedia sampai 2025 dan hanya pada tingkat "
+        "nasional",
+    ]
+
+    if any(row["nrt"] is not None for row in hotspot):
+        notes.append(
+            "seri nrt berasal dari pemrosesan berbeda dan tidak sebanding dengan "
+            "seri arsip; angkanya dikirim terpisah dan tidak masuk archive_total"
+        )
+
+    tahun_fill = sorted({row["year"] for row in hotspot if "fill" in row["series"]})
+    if tahun_fill:
+        notes.append(
+            "archive_total = seri main + seri fill; seri fill hanya punya baris "
+            f"untuk tahun {', '.join(str(y) for y in tahun_fill)}"
+        )
+
+    for label, rows in (
+        ("titik panas", hotspot),
+        ("kejadian", events),
+    ):
+        hilang = _tahun_hilang({row["year"] for row in rows})
+        if hilang:
+            notes.append(
+                f"seri {label} tidak memuat baris untuk tahun "
+                f"{', '.join(str(y) for y in hilang)} karena ETL tidak menulis "
+                "baris bernilai nol; tahun yang hilang berarti nol deteksi atau nol "
+                "kejadian tercatat"
+            )
+
+    tahun_burned = {row["year"] for row in burned}
+    if 2026 not in tahun_burned:
+        notes.append(
+            "luas terbakar 2026 tidak tersedia; seri GWIS berhenti di 2025 sehingga "
+            "tahun itu dikosongkan, bukan diisi nol"
+        )
+    return notes
+
+
+@router.get("/national_trend")
+def national_trend(
+    conn: psycopg.Connection = Depends(get_connection),
+) -> dict[str, Any]:
+    """Tren nasional 2020–2026: titik panas dan kejadian, plus luas terbakar
+    sebagai konteks."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(QUERY_NATIONAL_FACTS, {"metrics": list(METRICS)})
+        facts = cur.fetchall()
+        cur.execute(QUERY_METRIC_LABELS, {"metrics": list(METRICS)})
+        labels = cur.fetchall()
+
+    hotspot: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
+    burned: list[dict[str, Any]] = []
+
+    # Kumpulkan nilai titik panas per tahun supaya seri dan totalnya bisa disusun
+    # dalam satu baris per tahun.
+    per_tahun: dict[int, dict[str, float]] = {}
+    for row in facts:
+        if row["metric_code"] == "hotspot_count":
+            per_tahun.setdefault(row["year"], {})[row["series"]] = row["value"]
+        elif row["metric_code"] == "event_count":
+            events.append({"year": row["year"], "event_count": row["value"]})
+        elif row["metric_code"] == "burned_area_ha":
+            burned.append({"year": row["year"], "burned_area_ha": row["value"]})
+
+    for year in sorted(per_tahun):
+        series = per_tahun[year]
+        # main dan fill sama-sama seri arsip; nrt dipisah karena beda pemrosesan.
+        arsip = [series[nama] for nama in ("main", "fill") if nama in series]
+        hotspot.append(
+            {
+                "year": year,
+                "series": series,
+                "archive_total": sum(arsip) if arsip else None,
+                "nrt": series.get("nrt"),
+            }
+        )
+
+    events.sort(key=lambda row: row["year"])
+    burned.sort(key=lambda row: row["year"])
+
+    return {
+        "scope": "national",
+        "years": list(EXPECTED_YEARS),
+        "hotspot_by_year": hotspot,
+        "event_by_year": events,
+        "burned_area_by_year": burned,
+        "units": {row["metric_code"]: row["unit"] for row in labels},
+        "metric_names": {row["metric_code"]: row["metric_name"] for row in labels},
+        "notes": _catatan(hotspot, events, burned),
+    }
