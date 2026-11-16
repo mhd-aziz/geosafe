@@ -24,9 +24,9 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 | Bagian | Keadaan |
 |---|---|
 | Backend (`backend/`) | berjalan — 12 endpoint, `uv run pytest` 69 passed |
-| Frontend (`frontend/`) | berjalan — 3 halaman (peta · tren · sumber data), basemap PMTiles z12, `npm test` 50 passed |
+| Frontend (`frontend/`) | berjalan — 3 halaman (peta + lapisan titik terkini · tren · sumber data), basemap PMTiles z12, `npm test` 78 passed |
 | Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna, nginx menyajikan halaman, proxy API, dan basemap PMTiles z12 (216 MB) di `127.0.0.1:8080` |
-| Iterasi selesai | 08 (+ penyisipan 06b, 07a, 08a, 09a, 09b, 09c) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | **10b** (P2/W1 di API pada 10a, basemap 09c, nginx 09b, unit systemd 09a, penyisipan 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 

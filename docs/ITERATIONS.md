@@ -26,6 +26,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 09b | `chore/deploy-nginx` | nginx menyajikan halaman hasil build + proxy API; berkas `deploy/` dikeluarkan dari git | #13 | `iter-09b-nginx` |
 | 09c | `feat/frontend-basemap` | basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps di frontend | #14 | `iter-09c-basemap` |
 | 10a | `feat/api-latest-hotspots` | `P2`/`W1` di API: tarikan FIRMS, cache 15 menit, snapshot, join kabupaten/kota saat permintaan | #15 | `iter-10a-latest-api` |
+| 10b | `feat/frontend-latest` | `P2`/`W1` di antarmuka: lapisan titik terkini, pemilih 24/48/72 jam, panel ringkasan nasional | #16 | `iter-10b-frontend-latest` |
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 
@@ -933,6 +934,87 @@ Temuan:
 
 ---
 
+## Iterasi 10b — `feat/frontend-latest` (PR #16)
+
+Tag `iter-10b-frontend-latest` menandai commit hasil *squash merge* di `main`
+(`100618c`).
+
+Bagian kedua iterasi 10: `P2` (lapisan titik panas terkini) dan `W1` (ringkasan
+nasionalnya) sampai ke antarmuka, mengikuti kontrak yang sudah disetujui di
+`../planning-GeoSafe/docs/API-P2.md`.
+
+Berkas: `frontend/src/hooks/useLatestHotspots.ts` (baru) ·
+`frontend/src/components/map/LatestControl.tsx` (baru) ·
+`frontend/src/components/panel/LatestPanel.tsx` (baru) ·
+`frontend/src/lib/latest-layer.ts` (baru) · `frontend/src/lib/format.ts` ·
+`frontend/src/api/geosafe.ts` · `frontend/src/types/geosafe.ts` ·
+`frontend/src/components/map/MapView.tsx` · `frontend/src/pages/MapPage.tsx` ·
+`frontend/README.md`. Uji: empat berkas baru (`latest-layer`, `LatestControl`,
+`LatestPanel`, `useLatestHotspots`) + `App.test.tsx` diperbarui.
+
+Bentuknya: titik terkini digambar sebagai lapisan `circle` dari GeoJSON **di atas**
+choropleth; titik dan ringkasan diambil bersama oleh satu hook supaya keduanya
+dilayani generasi cache yang sama; penyegaran otomatis 15 menit tanpa memuat ulang
+halaman plus tombol segarkan manual; angka terkini tidak pernah dijumlahkan dengan
+arsip 2020–2026 dan panelnya menyatakan itu.
+
+Bukti — lewat HTTP di jalur aplikasi (`http://127.0.0.1:8080`, nginx mem-proxy
+`/api`), kunci FIRMS sungguhan:
+
+| Uji | Hasil |
+|---|---|
+| `/api/v1/latest/summary?window=24` pertama (tarikan dingin) | **200** · 5,629 dtk · 1.308 B · `X-Cache: MISS` · **1.001 titik** · 103 kabupaten/kota · 262 di luar poligon (26,2 %) |
+| `/api/v1/latest?window=24` | 200 · **0,042 dtk** · 237.563 B · `X-Cache: HIT` · 1.001 titik (sama dengan ringkasan) |
+| `/api/v1/latest?window=48` | 200 · 0,050 dtk · 558.257 B · **2.353 titik** · 379 di luar poligon |
+| `/api/v1/latest?window=72` | 200 · 0,082 dtk · 1.106.937 B · **4.666 titik** · 591 di luar poligon (12,7 %) · di bawah pagar 2 MB |
+| invarian kontrak bagian 2 | `fetched_at` dan `point_count` identik antara `/latest` dan `/latest/summary` pada jendela yang sama |
+| `npm run typecheck` · `npm test` · `npm run build` | bersih · **78 lulus** (13 berkas, dari 50 di `main`) · 13,95 dtk |
+| `uv run pytest` (backend, tidak disentuh) | **69 lulus** |
+
+Di peramban sungguhan (halaman hasil build di `:8080`): kanvas 1008 × 596;
+**2.217 piksel** berwarna kelas choropleth dan **876 + 26 + 78 piksel** tiga kelas
+keyakinan titik terkini tergambar (dihitung dari potret layar, bukan dari
+keterangan); klik `24 jam` mengubah angka menjadi 1.001 titik / 103 kabupaten/kota /
+262 di luar poligon — sama dengan angka HTTP jendela itu; tanpa pita galat peta.
+
+Temuan:
+
+1. **Salinan lama berkas worker `.mjs` di cache peramban tidak pernah
+   kedaluwarsa.** Peta tampak kosong dengan pita "Worker failed to load" padahal
+   `curl -sI` pada berkas `.mjs` hasil build menjawab `text/javascript`. Sebabnya
+   bukan kode: nama berkas worker diturunkan dari isi berkasnya sehingga namanya
+   tetap antar build, sementara peramban yang pernah membukanya **sebelum** nginx
+   memetakan `.mjs` masih memegang salinan `application/octet-stream`, dan header
+   `immutable` melarang validasi ulang. Dibuktikan dengan
+   `fetch(url, {cache:'reload'})` di konsol halaman → `text/javascript`. Ditutup
+   dengan kunci cache baru (`?v=mjs-mime` pada `setWorkerUrl`) dan dibuktikan:
+   **muat ulang biasa** di tab yang cache-nya sudah rusak kini menggambar peta yang
+   sama (876/26/78 piksel). Jebakannya masuk `frontend/README.md`.
+2. **`sed` pada berkas DSN yang berkutip menghasilkan nilai berkutip.** Perintah di
+   `AGENTS.md` jebakan 8 (`sed -n 's/^GEOSAFE_DATABASE_URL=//p'`) dipakai apa
+   adanya untuk menjalankan `pytest` → **52 gagal, 17 lulus** karena psycopg
+   menolak DSN berawalan tanda kutip. Setelah tanda kutipnya dibuang:
+   **69 lulus** (angka yang benar, sama dengan klaim `README.md`). Perbaikan
+   `AGENTS.md` **menunggu persetujuan pemilik repo** — berkas itu dibaca setiap
+   sesi, jadi angka dan perintah yang salah di dalamnya menyesatkan sesi berikutnya.
+3. **Putaran perbaikan setelah tinjauan.** Versi pertama ditolak
+   (`passed: false`) dengan lima temuan yang semuanya diperbaiki: kegagalan
+   penyegaran tadinya sunyi (kendali dan panel kini menyebutnya), angka jendela lama
+   tetap tampil di sebelah tombol jendela baru, saran pada `truncated` mustahil
+   diikuti (24 jam adalah jendela terpendek, dan penyempitan `bbox` memang belum
+   ada di antarmuka), dua komentar mengklaim lebih dari yang dijamin kode (dua
+   permintaan HTTP bisa jatuh di dua generasi cache), dan identifier Indonesia yang
+   tersisa di uji/lib. Uji bertambah 75 → 78.
+4. **`truncated` belum punya jalur keluar di antarmuka.** Kontrak meminta klien
+   mengulang dengan `bbox` lebih sempit, tetapi antarmuka tidak punya kendali kotak
+   wilayah. Yang dilakukan sekarang: menyatakan titiknya tidak digambar dan
+   mengarahkan pembaca ke panel. Kendali `bbox` (atau pemotongan per tingkat zoom)
+   masuk daftar yang belum dikerjakan di `frontend/README.md`.
+5. **Penyegaran memakai `setInterval` biasa**, jadi peramban yang menahan timer di
+   tab latar bisa meleset lebih dari 15 menit. `SRS-F-24` menyebut batas *paling
+   sering* 15 menit, bukan jaminan tepat 15 menit — dicatat sebagai keputusan, bukan
+   cacat.
+
 ## Versi yang terkunci
 
 Dari `uv.lock` (2026-11-16): Python **3.13.14** (venv) · fastapi **0.163.1** ·
@@ -945,6 +1027,8 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 
 | Tanggal | Dokumen | Perubahan |
 |---|---|---|
+| 2026-11-17 | `docs/SRS-GeoSafe.md` → **v1.7** | baris `SRS-NF-09` dikoreksi: bukan lagi "≤ 4 permintaan ke API FIRMS per jam", melainkan **4 penyegaran per jam (cache 15 menit) = 12 permintaan satelit per jam** beserta biaya kuota terukur; `docx`/`pdf` dibangun ulang (33 halaman, daftar isi 47/47 judul). Jumlah kebutuhan tetap 126 |
+| 2026-11-17 | `CATATAN-DISKUSI.md` | bagian F: keputusan join `STRtree` di Python ditandai **DIBATALKAN** dan diganti join SQL — kontrak `API-P2.md` bagian 6 dan aturan repo nomor 4 menuntut satu implementasi join di SQL |
 | 2026-11-17 | `PETA-DIREKTORI.md` · `data/README.md` | baris `data/basemap/` (basemap PMTiles 216 MB: latar peta aplikasi, dilayani nginx, tidak masuk repo kode) ditambahkan ke tabel pencarian, pohon struktur, dan tabel isi folder — sebelumnya folder itu tidak terdaftar di penunjuk mana pun |
 | 2026-11-16 | `docs/SRS-GeoSafe.md` → **v1.6** | `SRS-NF-04` dikoreksi jadi 0,25–0,30 dtk (jalur HTTP); `NF-05`/`NF-06`/`NF-08` ditandai "diukur di `psql`"; satu cacat lama di tabel riwayat diperbaiki. SRS 32 halaman, pengenal `SRS-*` tetap 132 |
 | 2026-11-16 | `data/pembangun/LAPORAN-MUAT-POSTGRES.md` | bagian **6b**: koreksi angka 93 ms + pemisahan biaya SQL/HTTP |

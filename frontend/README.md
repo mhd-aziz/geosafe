@@ -117,7 +117,7 @@ tampilan diff.
 |---|---|
 | basemap PMTiles | **sudah ada** sejak penyisipan 09c: berkas 216 MB di `../planning-GeoSafe/data/basemap/`, dilayani nginx `/pmtiles/`, gaya dari `@protomaps/basemaps` |
 | heatmap titik panas (`SRS-F-14`) | endpoint tile titik belum ada (titik berkoordinat, bukan agregat wilayah) |
-| kendali penyaring `confidence` di toolbar (`SRS-F-15`) | API sudah menerima `?confidence=h|n|l` untuk tile kabupaten/kota; kendalinya menyusul |
+| kendali penyaring `confidence` di toolbar (`SRS-F-15`) | API sudah menerima `?confidence=h\|n\|l` untuk tile kabupaten/kota; kendalinya menyusul |
 | panel kecamatan dan desa (`W3`, `W4`) | angka pendukung, bukan unit analisis; panelnya belum dikerjakan |
 | grafik A2 dan A3 | turunan dari A1, belum dikerjakan |
 | Apache ECharts | rencana awal memakai ECharts; grafik A1 cukup dua garis + tujuh titik, jadi digambar sebagai SVG tanpa pustaka tambahan. ECharts masuk saat A2/A3 butuh batang dan peringkat |

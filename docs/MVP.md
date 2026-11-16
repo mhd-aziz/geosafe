@@ -6,8 +6,9 @@ GeoSafe bisa didemokan dan dinilai, dan apa yang sengaja ditunda.
 Status: 2026-11-17 · kelima fitur MVP (P1, C1, W2, A1, T1) selesai dan alurnya sudah
 bisa dijalankan lewat satu alamat (`http://127.0.0.1:8080`, nginx menyajikan halaman
 hasil build, meneruskan `/api` serta `/tiles` ke API, dan melayani basemap
-`/pmtiles/`). Sisa yang direncanakan: iterasi 10 (P2 titik panas terkini) dan
-11 (P4 kerawanan versi B).
+`/pmtiles/`). Iterasi 10 (P2 titik panas terkini + W1 panelnya) selesai di API
+(10a) dan di antarmuka (10b). Sisa yang direncanakan: iterasi 11 (P4 kerawanan
+versi B).
 
 ---
 
@@ -72,7 +73,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 09b | deploy: nginx menyajikan halaman hasil build + proxy API (port 8080); berkas `deploy/` dikeluarkan dari git | ✅ PR #13, tag `iter-09b-nginx` |
 | 09c | `feat/frontend-basemap` — basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps | ✅ PR #14, tag `iter-09c-basemap` |
 | 10a | `feat/api-latest-hotspots` — `P2`/`W1` di API: tarikan FIRMS, cache 15 menit, snapshot, join kabupaten/kota saat permintaan | ✅ PR #15, tag `iter-10a-latest-api` |
-| 10b | `feat/frontend-latest` — lapisan terkini di peta, pemilih 24/48/72 jam, panel `W1` | setelah 10a |
+| 10b | `feat/frontend-latest` — lapisan terkini di peta, pemilih 24/48/72 jam, panel `W1` | ✅ PR #16, tag `iter-10b-frontend-latest` |
 | 11 | P4 kerawanan versi B + uji sensitivitas bobot | setelah ada pembanding |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
