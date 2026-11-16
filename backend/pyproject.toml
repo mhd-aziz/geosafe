@@ -1,0 +1,22 @@
+[project]
+name = "geosafe-api"
+version = "0.1.0"
+description = "HTTP API for the GeoSafe web GIS prototype: hotspot mapping and karhutla risk"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "psycopg[binary]>=3.2",
+    "httpx>=0.27",
+]
+
+# Perkakas pengembangan: hanya pytest (pengujian endpoint dan join titik-wilayah)
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Supaya `from app.main import app` bisa diimpor tanpa memasang paket ini
+pythonpath = ["."]
