@@ -17,16 +17,24 @@ project-GeoSafe/
 │   │   ├── db.py           (menyusul) koneksi ke PostgreSQL `geosafe`
 │   │   ├── cache.py        (menyusul) cache 15 menit + snapshot.json
 │   │   ├── firms.py        (menyusul) tarik NASA FIRMS
-│   │   └── routers/        satu berkas per kelompok fitur:
-│   │                       peta · panel · analisis · cari · terkini · transparansi
+│   │   └── routers/        satu berkas per kelompok fitur (nama Inggris):
+│   │                       maps · panels · analysis · search · latest · transparency
 │   └── tests/              pytest: endpoint + join titik→wilayah
 ├── frontend/               React + TypeScript · Vite 7.3.8 · MapLibre · ECharts
 └── deploy/                 nginx (SPA + reverse proxy) · systemd (Restart=always)
 ```
 
-Nama berkas di `backend/app/routers/` sengaja sama dengan kode fitur di dokumen
-perencanaan — `peta` = P1–P5, `panel` = W1–W4, `analisis` = A1–A3, `cari` = C1,
-`terkini` = P2, `transparansi` = T1.
+Nama berkas di `backend/app/routers/` memakai **Bahasa Inggris** (aturan penamaan
+2026-11-16). Peta ke kode fitur di dokumen perencanaan:
+
+| Berkas | Fitur | Isi |
+|---|---|---|
+| `maps.py` | P1–P5 | sebaran titik panas, terkini, kejadian, kerawanan, titik kejadian, tile MVT |
+| `panels.py` | W1–W4 | panel wilayah per tingkat (kabupaten/kota, kecamatan, desa) |
+| `analysis.py` | A1–A3 | tren, komposisi wilayah, peringkat |
+| `search.py` | C1 | pencarian tiga tingkat wilayah |
+| `latest.py` | P2 | titik panas terkini 24/48/72 jam + cache 15 menit |
+| `transparency.py` | T1 | sumber & batas data, unduh CSV |
 
 ## Aturan yang mengikat
 
@@ -74,3 +82,42 @@ systemd dan berkas nginx.
 
 Nama folder repo (`project-GeoSafe` dan `planning-GeoSafe`) **sengaja tidak
 diubah** — keputusan 2026-11-16, jadi jangan dirapikan tanpa persetujuan.
+
+## Konvensi penulisan (dikunci 2026-11-16)
+
+| Hal | Aturan |
+|---|---|
+| Nama folder dan berkas | Bahasa Inggris. Python: huruf kecil, `snake_case` (`maps.py`, `hotspot_series.py`). Konfigurasi: `kebab-case` (`geosafe-api.service`, `geosafe.conf`) |
+| Nama fungsi, kelas, variabel | Bahasa Inggris. Python: `snake_case` untuk fungsi/variabel, `PascalCase` untuk kelas. TypeScript: `camelCase` untuk fungsi, `PascalCase` untuk komponen React |
+| Nama kolom JSON / API | Bahasa Inggris, sama persis dengan nama kolom basis data (`hotspot_count`, `region_code`, `event_count`) |
+| Komentar dan docstring | Bahasa Inggris, mengikuti bahasa kode (bisa diubah bila Anda mau komentar Indonesia) |
+| Pesan commit | Bahasa Inggris, Conventional Commits |
+| `README.md` dan berkas penunjuk repo | Bahasa Indonesia |
+| Dokumen perencanaan (SRS, proposal, ERD) | Bahasa Indonesia, tetap di `../planning-GeoSafe/` |
+
+Kode fitur di dokumen perencanaan (P1–P5, W1–W4, A1–A3, C1, T1) tetap dipakai
+**sebagai penanda traceability**, bukan sebagai nama berkas.
+
+### Format pesan commit (Conventional Commits)
+
+```
+<type>(<scope>): <subject imperatif, huruf kecil, tanpa titik di akhir>
+```
+
+- **type**: `feat` · `fix` · `docs` · `refactor` · `perf` · `test` · `build` · `ci` · `chore` · `style`
+- **scope**: bagian yang disentuh — `api` · `frontend` · `deploy` · `db` · `docs`
+- baris judul ≤ 72 karakter; alasan perubahan masuk badan pesan, bukan daftar berkas
+
+Contoh yang benar:
+
+```
+feat(api): add choropleth tile endpoint for hotspot series
+fix(api): return null instead of zero when a hotspot count is missing
+perf(api): index village geometry to cut tile time
+test(api): cover point-in-polygon join for recent hotspots
+docs: record naming and commit conventions
+chore(api): add pyproject and uv lockfile
+build(deploy): add nginx site config and systemd unit
+```
+
+Dilarang: pesan berbahasa Indonesia, `update file`, `fix bug`, `wip`, `revisi`.
