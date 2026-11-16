@@ -23,10 +23,11 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 07a | `feat/api-province-tiles` | tile provinsi untuk saklar tingkat tampilan (P1) | #8 | `iter-07a-province-tiles` |
 | 07 | `feat/frontend-app` | frontend: peta choropleth + pencarian + panel (alur MVP) | #9 | `iter-07-frontend` |
 | 09a | `chore/deploy-api-service` | API berjalan sebagai unit systemd pengguna (`Restart=always`) | #10 | `iter-09a-api-service` |
+| 09b | `chore/deploy-nginx` | nginx menyajikan halaman hasil build + proxy API; berkas `deploy/` dikeluarkan dari git | — | — (diisi setelah digabung) |
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 
-Semua dikerjakan 2026-11-16. Cabang **tidak dihapus** setelah digabung (lihat
+Semua dikerjakan 2026-11-16, kecuali penyisipan 09b (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
@@ -346,7 +347,230 @@ Bukti: `systemctl --user enable --now` → `enabled` + `active`; `ss -ltnp` →
 aktif** dan `/health` → 200 (jurnal mencatat `Started geosafe-api.service`).
 
 Cara pakai sehari-hari: `systemctl --user status|restart|stop geosafe-api`.
-Frontend tetap manual (`npm run dev`) sesuai permintaan pemilik repo.
+Frontend tetap manual (`npm run dev`) sesuai permintaan pemilik repo — sampai
+penyisipan 09b, ketika halaman hasil build mulai disajikan nginx.
+
+> Catatan 2026-11-17 (penyisipan 09b): berkas unit ini **dikeluarkan dari git** atas
+> permintaan pemilik repo (aturan 8 di `CONVENTIONS.md`). Symlink
+> `~/.config/systemd/user/geosafe-api.service`, isi unit, dan layanannya tidak
+> berubah; yang berubah hanya apakah berkasnya masuk repo. Isi unit tetap tertulis
+> di catatan ini supaya bisa ditulis ulang dari nol. Berkas nginx dapat ditulis
+> ulang dari bagian penyisipan 09b di bawah.
+
+---
+
+## Penyisipan 09b — `chore/deploy-nginx`
+
+Nomor PR dan tag diisi setelah pekerjaan ini digabung ke `main`; sebelum itu kolom
+di tabel ringkasan dibiarkan kosong, karena tag yang belum ada tidak boleh tertulis
+seolah sudah ada.
+
+Bagian penyajian dari iterasi 09. Sebelum ini aplikasi hanya bisa dipakai lewat dua
+proses manual (`uvicorn` di 8000 + `npm run dev` di 5173); sekarang satu alamat:
+**`http://127.0.0.1:8080`** menyajikan halaman hasil build dan meneruskan `/api`
+serta `/tiles` ke API.
+
+Berkas baru `deploy/nginx/geosafe.conf` — **di luar git** (keputusan pemilik repo
+2026-11-17, aturan 8 di `CONVENTIONS.md`), tapi isinya ditulis lengkap di sini:
+
+```nginx
+# Situs GeoSafe: melayani hasil build frontend (SPA) dan meneruskan `/api` serta
+# `/tiles` ke API FastAPI di 127.0.0.1:8000.
+#
+# Berkas ini hidup di mesin ini dan **tidak** masuk git (keputusan 2026-11-17,
+# aturan 8 di docs/CONVENTIONS.md). Dipakai lewat symlink
+# `/etc/nginx/sites-enabled/geosafe` ke jalur ini; isinya juga tertulis di
+# docs/ITERATIONS.md penyisipan 09b supaya bisa ditulis ulang dari nol.
+#
+# Port 8080 dipilih supaya tidak berebut dengan API (8000) maupun situs lain di
+# mesin ini. Memuat ulang setelah mengubah berkas: `sudo systemctl reload nginx`.
+
+server {
+    listen 8080;
+    server_name _;
+
+    # Hasil `npm run build` di frontend/ (diabaikan git, 1,9 MB).
+    root "/media/bazyngan/DATA/Documents/mata kuliah sistem informasi geografis/project-GeoSafe/frontend/dist";
+    index index.html;
+    charset utf-8;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    # `mime.types` bawaan Ubuntu belum memetakan `.mjs`. Tanpa pemetaan ini berkas
+    # worker MapLibre dikirim sebagai `application/octet-stream`, Chrome menolak
+    # menjalankannya, dan peta tampak kosong TANPA galat di antarmuka (penyebabnya
+    # hanya terbaca di konsol peramban). Blok `types` menggantikan peta tipe warisan,
+    # jadi pemetaannya ditaruh di lokasi yang hanya melayani `.mjs`.
+    location ~* \.mjs$ {
+        types {
+            text/javascript mjs;
+        }
+        # `add_header` di dalam `location` menggantikan header warisan dari `server`,
+        # jadi keduanya diulang di sini — tanpa itu berkas `.mjs` (dan `.js`/`.css`
+        # di bawah) kehilangan X-Content-Type-Options dan X-Frame-Options.
+        add_header X-Frame-Options "SAMEORIGIN";
+        add_header X-Content-Type-Options "nosniff";
+        # Satu header saja: `expires` + `add_header Cache-Control` akan memancarkan
+        # dua header Cache-Control sekaligus.
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Rute SPA: `/tren` dan `/sumber` tidak punya berkas sendiri, jadi permintaan
+    # yang tidak menemukan berkas dikembalikan ke index.html supaya tidak 404
+    # saat halaman dibuka langsung atau di-refresh.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Berkas build Vite memakai nama ber-hash, jadi isinya tidak pernah berubah
+    # untuk nama yang sama.
+    location /assets/ {
+        add_header X-Frame-Options "SAMEORIGIN";
+        add_header X-Content-Type-Options "nosniff";
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Endpoint API di luar prefiks `/api` dan `/tiles`: pemeriksaan kesehatan dan
+    # dokumentasi FastAPI. Tanpa blok ini ketiganya jatuh ke fallback SPA dan
+    # dijawab `index.html` dengan kode 200 — bentuk balasan yang menyesatkan.
+    location ~ ^/(health|docs|redoc|openapi\.json)$ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # API FastAPI: psycopg sinkron, satu koneksi per permintaan, hanya baca.
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Beberapa endpoint menunggu basis data (tile satu tahun 0,26–0,30 dtk,
+        # tren tujuh tahun ±1,6 dtk); batas bawaan 60 dtk sudah longgar.
+        proxy_read_timeout 60s;
+    }
+
+    # Vector tile MVT per tingkat wilayah dan tahun.
+    location /tiles/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}
+```
+
+Unit systemd yang dipakai sejak 09a, juga **di luar git** sejak penyisipan ini:
+
+```ini
+[Unit]
+Description=GeoSafe API (FastAPI, port 8000)
+Documentation=https://github.com/mhd-aziz/geosafe
+After=network-online.target pg.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/media/bazyngan/DATA/Documents/mata kuliah sistem informasi geografis/project-GeoSafe/backend
+# DSN basis data dibaca dari berkas DI LUAR repo (~/.config/geosafe/geosafe.env,
+# chmod 600): repo aplikasi tidak menyimpan rahasia, dan berkasnya dipakai unit
+# ini maupun sesi pengembangan.
+EnvironmentFile=%h/.config/geosafe/geosafe.env
+# Jalur mutlak (bukan `uv run`): unit tidak mewarisi PATH session pengguna.
+ExecStart="/media/bazyngan/DATA/Documents/mata kuliah sistem informasi geografis/project-GeoSafe/backend/.venv/bin/python" -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
+```
+
+Pemasangan (sekali per mesin):
+
+```bash
+sudo ln -sfn "<repo>/deploy/nginx/geosafe.conf" /etc/nginx/sites-enabled/geosafe
+sudo nginx -t && sudo systemctl enable --now nginx
+```
+
+Situs `sia-iti` **dilepas** dari `sites-enabled` karena `listen 8000` miliknya sama
+dengan port API dan nginx menolak start saat portnya bentrok. Berkas
+`sites-available/sia-iti` tidak diubah; mengembalikannya:
+`sudo ln -s /etc/nginx/sites-available/sia-iti /etc/nginx/sites-enabled/sia-iti`
+(proyek itu sendiri sudah tidak aktif — `php8.5-fpm-sia` mati dan socket-nya tidak
+ada). Karena `deploy/` keluar dari git, pull request ini hanya memuat `.gitignore`
+dan dokumen; `deploy/systemd/geosafe-api.service` dihapus dari pelacakan
+(`git rm --cached`) dan salinannya tetap ada di disk.
+
+Bukti — lewat HTTP di jalur yang dipakai peramban, `http://127.0.0.1:8080`:
+
+- `/` · `/tren` · `/sumber` → 200 · 584 B · 1–2,5 ms (fallback SPA bekerja);
+  `/assets/tidak-ada.js` → **404**, jadi fallback tidak menelan permintaan berkas.
+- `/assets/index-*.js` 200 · 1.356.214 B · `.css` 200 · 86.468 B · worker
+  `maplibre-gl-worker-*.mjs` 200 · 519.547 B.
+- `/api/v1/sources` 200 · 1.842 B · `national_trend` 200 · 2.200 B · 0,035 dtk ·
+  `point_coverage?year=2023` hangat 0,37–0,39 dtk (langsung ke API 8000:
+  0,37–0,38 dtk, jadi nginx menambah ±0,01 dtk). Panggilan **pertama** setelah
+  nginx hidup 2,10 dtk — jangan melaporkan pembacaan pertama sebagai angka biasa.
+- Tile kabupaten 2020 200 · 49.920 B · hangat 0,28–0,29 dtk; tile provinsi
+  200 · 12.857 B · 0,22–0,23 dtk.
+- Peramban sungguhan (Chrome 157 lewat CDP): worker termuat, peta meminta 6 petak
+  tile (204 untuk petak tanpa poligon; 200 sebesar 13.009 / 44.286 / 98.452 B), dan
+  tangkapan layar menunjukkan choropleth tergambar (krem → merah tua) dengan legenda
+  yang cocok. `/tren` menggambar grafik SVG dan menyebut data sampai 2026-11-12;
+  `/sumber` memuat 29 tautan unduhan.
+- `pytest` **38 passed** (11,35 dtk) · `npm test` **44 passed** (8 berkas) ·
+  `npm run build` 13,40 dtk.
+
+Temuan:
+
+1. **nginx mengirim `.mjs` sebagai `application/octet-stream`** karena `mime.types`
+   bawaan Ubuntu belum memetakan ekstensi itu; Chrome menolak worker ber-tipe salah
+   dan peta **kosong tanpa galat di antarmuka** — kelas yang sama dengan jebakan
+   MapLibre di iterasi 07, kini di lapisan penyajian. Perbaikan ada di konfigurasi
+   di atas. Blok `types` menggantikan peta tipe warisan, jadi ia harus berada di
+   lokasi yang hanya melayani `.mjs`; menaruhnya di tingkat `server` membuat `.css`
+   dan `.js` ikut kehilangan tipenya.
+2. **`systemctl reload nginx` tidak seketika.** Permintaan tepat setelah reload
+   masih dilayani worker lama, jadi pembacaan pertama sempat melihat tipe lama
+   padahal konfigurasi baru sudah benar. Ukur ulang setelah jeda.
+3. **`Page.reload(ignoreCache)` tidak memaksa worker diunduh ulang** karena
+   `Cache-Control: immutable`; Chrome memakai salinan lama ber-tipe salah sehingga
+   perbaikan tampak gagal. Yang berhasil: membuka lewat origin lain
+   (`http://100.82.26.92:8080`) supaya cache-key-nya berbeda.
+4. **Berkas `.env` di luar repo tidak mengutip DSN**, sehingga `source` di bash
+   memotongnya menjadi `host=127.0.0.1` saja dan `pytest` gagal 33 uji (mencoba port
+   5432). systemd membacanya utuh, jadi API tidak pernah terpengaruh. Sementara ini
+   DSN diambil dengan
+   `export GEOSAFE_DATABASE_URL="$(sed -n 's/^GEOSAFE_DATABASE_URL=//p' ~/.config/geosafe/geosafe.env)"`.
+5. Halaman masih **tanpa basemap** (latar polos) — PMTiles tetap pekerjaan berikutnya,
+   dan sejak penyisipan ini berkas nginx hanya ada di disk mesin ini.
+6. **Tinjauan independen menolak versi pertama** dan menemukan dua cacat nyata di
+   konfigurasi, keduanya diperbaiki sebelum commit:
+   - `add_header` di dalam `location` menggantikan header warisan dari `server`,
+     sehingga `X-Content-Type-Options`/`X-Frame-Options` **tidak terkirim** pada
+     `.js`, `.css`, dan `.mjs`. Sekarang kedua header diulang di lokasi statis.
+   - `/health`, `/docs`, dan `/openapi.json` berada di luar prefiks yang diteruskan,
+     jadi ketiganya dijawab `index.html` **200** — balasan yang menyesatkan (README
+     sendiri menyebut dokumentasi API hidup di `/docs`). Ditambah satu lokasi
+     regex untuk keempat jalur itu (`health|docs|redoc|openapi.json`).
+   Perbaikan diverifikasi lewat `curl -I` di `127.0.0.1:8080`: `.js`/`.css`/`.mjs`
+   kini memuat `X-Frame-Options`, `X-Content-Type-Options`, dan **satu**
+   `Cache-Control: public, max-age=31536000, immutable` (sebelumnya `expires 1y`
+   dan `add_header` memancarkan dua header sekaligus); `/health` 200 · 57 B JSON,
+   `/docs` 200 · 1.010 B HTML, `/openapi.json` 200 · 9.168 B JSON, sementara `/`,
+   `/tren`, `/sumber` tetap 200 dan `/assets/tidak-ada.js` tetap 404.
+7. **Tag dan nomor PR tidak boleh ditulis sebelum ada.** Versi pertama dokumen ini
+   menandai `✅ PR #13` dan `iter-09b-nginx` padahal belum ada commit, merge, maupun
+   tag — pelanggaran aturan "angka di dokumen adalah hasil pengukuran nyata" yang
+   ditemukan peninjau. Baris ringkasan dikosongkan lagi sampai pekerjaan benar-benar
+   digabung.
 
 ---
 

@@ -3,7 +3,10 @@
 *Minimum Viable Product.* Batasan **apa yang harus jalan lebih dulu** supaya
 GeoSafe bisa didemokan dan dinilai, dan apa yang sengaja ditunda.
 
-Status: 2026-11-16 · iterasi 01–08 selesai, MVP belum lengkap.
+Status: 2026-11-17 · kelima fitur MVP (P1, C1, W2, A1, T1) selesai dan alurnya sudah
+bisa dijalankan lewat satu alamat (`http://127.0.0.1:8080`, nginx menyajikan halaman
+hasil build dan meneruskan `/api` serta `/tiles` ke API). Sisa yang direncanakan:
+basemap PMTiles, lalu iterasi 10 (P2) dan 11 (P4).
 
 ---
 
@@ -64,7 +67,9 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 06 | `feat/api-trend` — tren nasional dua seri (A1) | ✅ PR #6, tag `iter-06-api-trend` |
 | 07 | `feat/frontend-app` — frontend: peta choropleth + pencarian + panel (Vite 7.3.8) | ✅ PR #9, tag `iter-07-frontend` |
 | 08 | `feat/frontend-t1-trend` — halaman tren (A1) + Sumber & Batas Data (T1) + router | ✅ PR #12, tag `iter-08-frontend-t1` |
-| 09 | deploy: nginx + systemd, basemap PMTiles | |
+| 09a | deploy: API sebagai unit systemd pengguna | ✅ PR #10, tag `iter-09a-api-service` |
+| 09b | deploy: nginx menyajikan halaman hasil build + proxy API (port 8080); berkas `deploy/` dikeluarkan dari git | sedang dikerjakan (cabang `chore/deploy-nginx`) |
+| 09 (sisa) | deploy: basemap PMTiles (ekstrak 216 MB, dilayani nginx) | |
 | 10 | P2 titik panas terkini (FIRMS + cache 15 menit) | setelah MVP jalan |
 | 11 | P4 kerawanan versi B + uji sensitivitas bobot | setelah ada pembanding |
 

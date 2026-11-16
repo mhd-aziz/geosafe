@@ -35,7 +35,7 @@ Jangan menyalin isinya ke sini — cukup menunjuk:
 |---|---|
 | `API.md` | daftar endpoint selalu hidup di `/docs` dan `/openapi.json` (dibuat FastAPI); berkas terpisah pasti tertinggal |
 | `CHANGELOG.md` | fungsinya sudah dipegang `ITERATIONS.md` + tag `iter-NN-*` + halaman PR |
-| `RUNBOOK.md` | belum ada yang bisa dijalankan sebagai layanan sebelum iterasi deploy (nginx + systemd) |
+| `RUNBOOK.md` | belum dibuat walau layanan sudah ada (nginx + unit systemd): cara menjalankan, memuat ulang, dan menyiapkan ulang dari nol masih tercatat di [`ITERATIONS.md`](ITERATIONS.md) penyisipan 09a/09b dan `../README.md`. Kandidat berikutnya kalau langkahnya mulai sering dipakai |
 | `decisions/` (ADR) | keputusan yang sudah dikunci ada di `CONVENTIONS.md`; keputusan lintas-sesi di `CATATAN-DISKUSI.md` |
 
 Aturan penulisan: bahasa Indonesia untuk isi dokumen; nama berkas, nama simbol,
