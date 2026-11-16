@@ -90,7 +90,7 @@ diubah** — keputusan 2026-11-16, jadi jangan dirapikan tanpa persetujuan.
 | Nama folder dan berkas | Bahasa Inggris. Python: huruf kecil, `snake_case` (`maps.py`, `hotspot_series.py`). Konfigurasi: `kebab-case` (`geosafe-api.service`, `geosafe.conf`) |
 | Nama fungsi, kelas, variabel | Bahasa Inggris. Python: `snake_case` untuk fungsi/variabel, `PascalCase` untuk kelas. TypeScript: `camelCase` untuk fungsi, `PascalCase` untuk komponen React |
 | Nama kolom JSON / API | Bahasa Inggris, sama persis dengan nama kolom basis data (`hotspot_count`, `region_code`, `event_count`) |
-| Komentar dan docstring | Bahasa Inggris, mengikuti bahasa kode (bisa diubah bila Anda mau komentar Indonesia) |
+| Komentar dan docstring | **Bahasa Indonesia** (keputusan 2026-11-16). Nama fungsi, kelas, variabel, dan kolom tetap Inggris; hanya penjelasan di dalam kode yang Indonesia |
 | Pesan commit | Bahasa Inggris, Conventional Commits |
 | `README.md` dan berkas penunjuk repo | Bahasa Indonesia |
 | Dokumen perencanaan (SRS, proposal, ERD) | Bahasa Indonesia, tetap di `../planning-GeoSafe/` |
