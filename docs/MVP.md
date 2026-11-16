@@ -59,7 +59,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 01 | `feat/api-database` — koneksi PostgreSQL + `GET /api/v1/sources` | ✅ PR #1, tag `iter-01-api-database` |
 | 02 | `feat/api-tiles` — tile MVT kabupaten/kota (dasar P1) | ✅ PR #2, tag `iter-02-api-tiles` |
 | 03 | `feat/api-panel` — panel kabupaten/kota (W2) | ✅ PR #3, tag `iter-03-api-panel` |
-| 04 | `fix/tile-missing-regions` — tile memuat wilayah yang belum punya baris fakta (39 wilayah pada 2020) | berikutnya |
+| 04 | `fix/tile-missing-regions` — tile memuat wilayah yang belum punya baris fakta (39 wilayah pada 2020) | ✅ PR #4, tag `iter-04-tile-missing-regions` |
 | 05 | pencarian wilayah (C1) | |
 | 06 | tren dua seri (A1) | |
 | 07 | frontend: halaman peta + panel + pencarian (Vite 7.3.8) | |
