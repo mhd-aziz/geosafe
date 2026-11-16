@@ -99,7 +99,7 @@ Endpoint yang sudah ada:
 |---|---|---|
 | `GET /health` | status proses API | — |
 | `GET /api/v1/sources` | daftar dataset sumber + jumlah baris | tabel `data_sources` |
-| `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | vector tile MVT kabupaten/kota + jumlah titik panas tahun itu | tabel `regions` ⋈ `region_facts` |
+| `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | vector tile MVT kabupaten/kota + jumlah titik panas tahun itu (properti `has_fact` menandai wilayah yang belum punya baris fakta) | tabel `regions` ⋈ `region_facts` |
 | `GET /api/v1/panel/kabupaten_kota/{kode}` | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI | `regions` ⋈ `provinces` ⋈ `region_facts` |
 
 Hasil nyata 2026-11-16 (setelah cabang `feat/api-database`): `uv sync` memasang
@@ -136,6 +136,13 @@ adalah ≤ 300 ms.
 | `panel/kabupaten_kota/3204` (Bandung Barat) | 0,038 · 0,041 · 0,037 dtk | 2.157 B |
 | `panel/kabupaten_kota/1401` (Kampar) | 0,035 · 0,036 · 0,034 dtk | 2.083 B |
 | `panel/kabupaten_kota/9999` (tidak ada) | kode **404** | — |
+
+Hasil nyata 2026-11-16 (setelah cabang `fix/tile-missing-regions`): `uv run pytest`
+**11 passed**; tile 2020 kini memuat wilayah yang sebelumnya hilang — **50.145 byte**
+(sebelumnya 47.657 byte) dengan 39 wilayah bertanda `has_fact = 0`, yang jumlahnya
+dikonfirmasi lewat SQL langsung (`left join` menghitung 39 wilayah tanpa baris
+fakta 2020). Waktu 0,24–0,48 dtk (panggilan pertama paling lambat) — masih di bawah
+ambang `SRS-NF-04` ≤ 500 ms; tile padat Jawa 0,144 dtk / 16.571 byte.
 
 Versi yang terkunci: Python **3.13.14** (venv), fastapi **0.163.1**,
 starlette **1.10.0**, uvicorn **0.54.0**, psycopg **3.3.9**, httpx **0.28.1**,
