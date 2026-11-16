@@ -22,6 +22,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 06b | `refactor/api-english-identifiers` | seluruh identifier jadi Bahasa Inggris (termasuk nama uji); cabang **dihapus** setelah merge | #7 | `iter-06b-english-names` |
 | 07a | `feat/api-province-tiles` | tile provinsi untuk saklar tingkat tampilan (P1) | #8 | `iter-07a-province-tiles` |
 | 07 | `feat/frontend-app` | frontend: peta choropleth + pencarian + panel (alur MVP) | #9 | `iter-07-frontend` |
+| 09a | `chore/deploy-api-service` | API berjalan sebagai unit systemd pengguna (`Restart=always`) | #10 | `iter-09a-api-service` |
 
 Semua dikerjakan 2026-11-16. Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -321,6 +322,29 @@ Temuan:
 5. Uji frontend **tidak butuh basis data maupun jaringan** (jsdom + mock), sehingga
    bisa dijalankan di laptop tanpa backend hidup; itu alasan berkas ujinya menguji
    perilaku komponen dan bukan penggambaran peta.
+
+---
+
+## Penyisipan 09a — `chore/deploy-api-service` (PR #10)
+
+`deploy/systemd/geosafe-api.service`: unit systemd **pengguna** untuk backend,
+di-`enable`, `Restart=always` `RestartSec=3`. `Linger=yes` sudah aktif untuk akun
+ini, jadi layanan hidup lagi setelah reboot tanpa login.
+
+- DSN ada di `~/.config/geosafe/geosafe.env` (`chmod 600`, **di luar repo**) dan
+  dibaca lewat `EnvironmentFile`; unit boleh masuk git, kredensialnya tidak.
+- `ExecStart` memakai jalur mutlak `.venv/bin/python`: unit systemd pengguna tidak
+  mewarisi `PATH` shell, jadi `uv run` tidak akan ketemu.
+- Berkas di `~/.config/systemd/user/geosafe-api.service` adalah **symlink** ke unit
+  di repo, jadi repo tetap satu sumber kebenaran.
+
+Bukti: `systemctl --user enable --now` → `enabled` + `active`; `ss -ltnp` →
+`127.0.0.1:8000`; `GET /health` → 200; `GET /api/v1/sources` → 200. Uji restart:
+`systemctl --user kill -s KILL` → PID 157605 mati, **7 detik kemudian PID 157851
+aktif** dan `/health` → 200 (jurnal mencatat `Started geosafe-api.service`).
+
+Cara pakai sehari-hari: `systemctl --user status|restart|stop geosafe-api`.
+Frontend tetap manual (`npm run dev`) sesuai permintaan pemilik repo.
 
 ---
 

@@ -25,8 +25,8 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 |---|---|
 | Backend (`backend/`) | berjalan — 7 endpoint, `uv run pytest` 27 passed |
 | Frontend (`frontend/`) | berjalan — 1 halaman (peta + pencarian + panel), `npm test` 27 passed |
-| Deploy (`deploy/`) | belum mulai (nginx + systemd menyusul) |
-| Iterasi selesai | 7 — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Deploy (`deploy/`) | sebagian — API berjalan sebagai unit systemd pengguna; nginx + basemap menyusul |
+| Iterasi selesai | 7 (+ penyisipan 09a) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -89,6 +89,10 @@ export GEOSAFE_DATABASE_URL="host=127.0.0.1 port=5433 dbname=geosafe user=... pa
 uv run pytest -q                        # uji endpoint (butuh basis data hidup)
 uv run uvicorn app.main:app --reload    # http://127.0.0.1:8000
 ```
+
+Cara pakai: uvicorn dapat dinyalakan manual seperti di atas, atau (di homelab) lewat
+unit systemd pengguna `geosafe-api.service` yang menunjuk berkas di
+`deploy/systemd/` — lihat [`docs/ITERATIONS.md`](docs/ITERATIONS.md) penyisipan 09a.
 
 Dokumentasi API hidup sendiri di `/docs` dan `/openapi.json` — dibuat FastAPI
 dari kode, jadi tidak ada berkas daftar endpoint yang bisa tertinggal.
