@@ -119,3 +119,59 @@ def test_province_tile_reuses_province_fact_rows() -> None:
 
 def test_empty_province_tile_answers_204() -> None:
     assert client.get(OCEAN_PROVINCE_TILE, params={"year": 2020}).status_code == 204
+
+
+def test_penyaring_confidence_mengubah_isi_tile_kabupaten_kota() -> None:
+    semua = client.get(WORLD_TILE, params={"year": 2020})
+    kelas_h = client.get(WORLD_TILE, params={"year": 2020, "confidence": "h"})
+
+    assert semua.status_code == 200
+    assert kelas_h.status_code == 200
+    assert kelas_h.headers["content-type"] == MEDIA_TYPE_MVT
+    # kelas h hanya sebagian kecil deteksi 2020 (2.186 dari 91.348), jadi tile-nya
+    # harus lebih kecil daripada tile tanpa penyaring
+    assert len(kelas_h.content) < len(semua.content)
+
+
+def test_kelas_confidence_kabupaten_kota_menjumlah_ke_angka_tanpa_penyaring() -> None:
+    """Kelas `h` + `n` + `l` harus sama dengan angka tanpa penyaring setiap tahun.
+
+    Kalau suatu hari ETL berhenti memecah baris per kelas, atau salah satu kelas
+    tidak lagi ditulis, uji ini gagal dan penyaring `confidence` perlu ditinjau.
+    """
+    with psycopg.connect(database_url(), row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                select year,
+                       sum(value) filter (where confidence is null) as tanpa_kelas,
+                       sum(value) filter (where confidence = 'h') as kelas_h,
+                       sum(value) filter (where confidence = 'n') as kelas_n,
+                       sum(value) filter (where confidence = 'l') as kelas_l
+                  from region_facts
+                 where metric_code = 'hotspot_count' and series = 'main'
+                   and month is null and region_code is not null
+                 group by year
+                 order by year
+                """
+            )
+            rows = cur.fetchall()
+
+    assert len(rows) == 7
+    for row in rows:
+        assert row["kelas_h"] + row["kelas_n"] + row["kelas_l"] == row["tanpa_kelas"]
+    assert rows[0]["tanpa_kelas"] == 91_348  # 2020
+
+
+def test_penyaring_confidence_ditolak_di_tingkat_provinsi() -> None:
+    """Tingkat provinsi tidak punya baris per kelas; permintaan harus gagal jelas."""
+    response = client.get(WORLD_PROVINCE_TILE, params={"year": 2020, "confidence": "h"})
+
+    assert response.status_code == 422
+    assert "kabupaten/kota" in response.json()["detail"]
+
+
+def test_kelas_confidence_tak_dikenal_ditolak_validasi() -> None:
+    response = client.get(WORLD_TILE, params={"year": 2020, "confidence": "x"})
+
+    assert response.status_code == 422

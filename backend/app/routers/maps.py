@@ -15,8 +15,9 @@ Satu implementasi join tetap di SQL; JavaScript tidak menghitung apa pun.
 """
 
 import psycopg
-from fastapi import APIRouter, Depends, Path, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from psycopg.rows import dict_row
+from typing import Literal
 
 from app.db import get_connection
 
@@ -50,7 +51,7 @@ mvt_rows as (
        and f.metric_code = 'hotspot_count'
        and f.year = %(year)s
        and f.month is null
-       and f.confidence is null
+       and f.confidence is not distinct from %(confidence)s
        and f.series = 'main'
       cross join tile
      where r.geom is not null
@@ -114,6 +115,14 @@ def _render_tile(tile: bytes | None) -> Response:
 @router.get("/regions/{z}/{x}/{y:int}.mvt")
 def region_tile(
     year: int = Query(ge=2020, le=2026, description="Tahun seri titik panas"),
+    confidence: Literal["h", "n", "l"] | None = Query(
+        default=None,
+        description=(
+            "Tingkat kepercayaan deteksi. Kosong = seluruh kelas (angka resmi "
+            "tabel siap pakai). Kelas h+n+l terbukti menjumlah tepat ke angka "
+            "tanpa penyaring untuk setiap tahun 2020–2026."
+        ),
+    ),
     z: int = Path(ge=0, le=14),
     x: int = Path(ge=0),
     y: int = Path(ge=0),
@@ -122,10 +131,14 @@ def region_tile(
     """Tile kabupaten/kota dengan jumlah titik panas tahun bersangkutan.
 
     Tile tanpa poligon dibalas **204 tanpa isi** supaya peramban tidak mengurai
-    muatan kosong.
+    muatan kosong. Penyaring `confidence` hanya berlaku di tingkat ini (`SRS-F-15`):
+    baris fakta tingkat provinsi dan nasional tidak dipecah per kelas.
     """
     with conn.cursor(row_factory=dict_row) as cur:
-        cur.execute(QUERY_REGION_TILE, {"z": z, "x": x, "y": y, "year": year})
+        cur.execute(
+            QUERY_REGION_TILE,
+            {"z": z, "x": x, "y": y, "year": year, "confidence": confidence},
+        )
         row = cur.fetchone()
 
     return _render_tile(row["tile"] if row else None)
@@ -134,6 +147,13 @@ def region_tile(
 @router.get("/provinces/{z}/{x}/{y:int}.mvt")
 def province_tile(
     year: int = Query(ge=2020, le=2026, description="Tahun seri titik panas"),
+    confidence: Literal["h", "n", "l"] | None = Query(
+        default=None,
+        description=(
+            "Tidak didukung di tingkat provinsi: basis data tidak menyimpan baris "
+            "provinsi per kelas kepercayaan. Dikirim apa pun → 422."
+        ),
+    ),
     z: int = Path(ge=0, le=14),
     x: int = Path(ge=0),
     y: int = Path(ge=0),
@@ -144,6 +164,15 @@ def province_tile(
     Saklar tingkat tampilan di `SRS-F-13` memakai tile ini. Wilayah tanpa baris
     fakta tetap terkirim dengan `has_fact = 0`, sama seperti tile kabupaten/kota.
     """
+    if confidence is not None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "penyaring confidence hanya tersedia untuk tile kabupaten/kota; "
+                "basis data tidak punya baris provinsi per kelas kepercayaan"
+            ),
+        )
+
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(QUERY_PROVINCE_TILE, {"z": z, "x": x, "y": y, "year": year})
         row = cur.fetchone()
