@@ -76,7 +76,11 @@ dan antrean di `docs/MVP.md`.
 
 1. uvicorn latar + port 8000 masih dipegang proses lama → proses baru mati
    diam-diam dengan `address already in use` dan pengukuran membaca kode lama.
-   Cek `ss -ltnp` dulu.
+   Cek `ss -ltnp` dulu. **Backend sudah berjalan sebagai unit systemd pengguna**
+   (`geosafe-api.service`, symlink dari `deploy/systemd/`), jadi jangan
+   menyalakannya manual: `systemctl --user restart geosafe-api` untuk memuat kode
+   baru, `systemctl --user status geosafe-api` untuk memeriksa, dan DSN-nya ada di
+   `~/.config/geosafe/geosafe.env` (di luar repo, `chmod 600`).
 2. `uv run` tidak selalu ada di PATH sesi latar → pakai jalur mutlak
    `backend/.venv/bin/python`.
 3. pytest hanya menemukan paket `app` karena `pythonpath = ["."]` di
