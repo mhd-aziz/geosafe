@@ -20,13 +20,15 @@ project-GeoSafe/
 │   │   ├── db.py               koneksi psycopg ke PostgreSQL `geosafe`
 │   │   ├── routers/
 │   │   │   ├── maps.py         P1 — GET /tiles/regions/{z}/{x}/{y}.mvt
+│   │   │   ├── panels.py       W2 — GET /api/v1/panel/kabupaten_kota/{kode}
 │   │   │   └── transparency.py T1 — GET /api/v1/sources
 │   │   ├── cache.py            (menyusul) cache 15 menit + snapshot.json
 │   │   └── firms.py            (menyusul) tarik NASA FIRMS
 │   └── tests/
 │       ├── test_health.py
 │       ├── test_sources.py     pytest (butuh basis data hidup)
-│       └── test_tiles.py
+│       ├── test_tiles.py
+│       └── test_panels.py
 ├── docs/                       dokumen kerja: PRD.md · MVP.md · README.md (penunjuk)
 ├── frontend/                   kosong — React + TypeScript · Vite 7.3.8
 └── deploy/                     kosong — nginx (SPA + proxy) · systemd
@@ -66,6 +68,12 @@ Nama berkas di `backend/app/routers/` memakai **Bahasa Inggris** (aturan penamaa
 6. **Komentar dan docstring Bahasa Indonesia**, sedangkan nama folder, berkas,
    fungsi, kelas, variabel, kolom JSON, dan pesan commit Bahasa Inggris (aturan
    2026-11-16, rincian di bagian Konvensi penulisan).
+7. **Gap berarti nol, dan itu harus dinyatakan.** ETL tidak menulis baris
+   bernilai nol (`panel_kabupaten_kota.csv` mengisinya dengan 0, basis data
+   tidak). Karena itu setiap endpoint yang angkanya bisa nol **wajib**
+   menyebutkan tahun/seri mana yang tidak punya baris — panel melakukannya lewat
+   medan `notes`, dan antarmuka yang menampilkan "0" harus ikut menampilkan
+   catatan itu. Jangan menambah baris nol diam-diam di aplikasi.
 
 Rujukan keputusan (di `../planning-GeoSafe/docs/`): `ARSITEKTUR.md` (penempatan
 fisik) · `API-P2.md` (kontrak alur terkini) · `SRS-GeoSafe.md` (kebutuhan ber-ID) ·
@@ -92,6 +100,7 @@ Endpoint yang sudah ada:
 | `GET /health` | status proses API | — |
 | `GET /api/v1/sources` | daftar dataset sumber + jumlah baris | tabel `data_sources` |
 | `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | vector tile MVT kabupaten/kota + jumlah titik panas tahun itu | tabel `regions` ⋈ `region_facts` |
+| `GET /api/v1/panel/kabupaten_kota/{kode}` | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI | `regions` ⋈ `provinces` ⋈ `region_facts` |
 
 Hasil nyata 2026-11-16 (setelah cabang `feat/api-database`): `uv sync` memasang
 25 paket; `uv run pytest` **2 passed**; server hidup dan `GET /api/v1/sources`
@@ -116,6 +125,17 @@ karena MVT mensyaratkan Web Mercator. Jadi angka yang benar untuk `SRS-NF-04`
 adalah hasil jalur HTTP ini (0,25–0,30 dtk), bukan 93 ms. Membuka koneksi
 psycopg per permintaan hanya 0,028–0,029 dtk, jadi `psycopg_pool` belum
 diperlukan — ditambahkan hanya kalau pengukuran berikutnya menuntut.
+
+Hasil nyata 2026-11-16 (setelah cabang `feat/api-panel`): `uv run pytest`
+**9 passed**; panel diukur lewat HTTP untuk tiga wilayah, ambang `SRS-NF-10`
+adalah ≤ 300 ms.
+
+| Permintaan | Waktu (3 kali) | Ukuran |
+|---|---|---|
+| `panel/kabupaten_kota/9301` (Merauke) | 0,095 · 0,035 · 0,036 dtk | 2.095 B |
+| `panel/kabupaten_kota/3204` (Bandung Barat) | 0,038 · 0,041 · 0,037 dtk | 2.157 B |
+| `panel/kabupaten_kota/1401` (Kampar) | 0,035 · 0,036 · 0,034 dtk | 2.083 B |
+| `panel/kabupaten_kota/9999` (tidak ada) | kode **404** | — |
 
 Versi yang terkunci: Python **3.13.14** (venv), fastapi **0.163.1**,
 starlette **1.10.0**, uvicorn **0.54.0**, psycopg **3.3.9**, httpx **0.28.1**,
