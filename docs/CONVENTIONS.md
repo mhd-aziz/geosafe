@@ -164,3 +164,18 @@ Antrean iterasi ada di [`MVP.md`](MVP.md) bagian 5; catatan hasil tiap iterasi d
 4. **`fastapi.testclient` + `httpx`** memunculkan `StarletteDeprecationWarning`
    (menyarankan `httpx2`). Baru peringatan; `httpx` tetap dipakai karena juga
    dipakai menarik data NASA FIRMS.
+5. **`git rm --cached` + `.gitignore` + berpindah cabang = berkas hilang dari disk.**
+   Berkas yang dikeluarkan dari pelacakan tetap ada di disk sampai Anda memindahkan
+   cabang: di cabang asal ia *untracked*, tetapi begitu masuk cabang yang masih
+   melacaknya, commit yang menghapusnya ikut dijalankan dan berkasnya lenyap.
+   Kejadian 2026-11-17 pada `deploy/systemd/geosafe-api.service` (unitnya bertahan
+   hanya karena sudah termuat di memori; restart/reboot akan gagal). Sebelum
+   berpindah cabang: salin `deploy/` ke luar repo (mis. `~/geosafe-deploy/`),
+   berpindah, lalu pastikan berkasnya masih ada. Memulihkan isi berkas dari
+   riwayat: `git show <commit-sebelum-merge>:<path> > <path>`, lalu bandingkan
+   dengan `diff` terhadap versi riwayat.
+6. **Sesi Hermes dapat mengarahkan `XDG_CONFIG_HOME` ke
+   `~/.hermes/bot-desktop/xdg`**, sehingga `gh` mencari konfigurasi di sana dan
+   melaporkan "not logged into any GitHub hosts" walau `~/.config/gh/hosts.yml`
+   utuh. Jalankan perintah `gh` dengan `GH_CONFIG_DIR="$HOME/.config/gh"` di sesi
+   seperti itu.

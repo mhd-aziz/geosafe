@@ -23,7 +23,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 07a | `feat/api-province-tiles` | tile provinsi untuk saklar tingkat tampilan (P1) | #8 | `iter-07a-province-tiles` |
 | 07 | `feat/frontend-app` | frontend: peta choropleth + pencarian + panel (alur MVP) | #9 | `iter-07-frontend` |
 | 09a | `chore/deploy-api-service` | API berjalan sebagai unit systemd pengguna (`Restart=always`) | #10 | `iter-09a-api-service` |
-| 09b | `chore/deploy-nginx` | nginx menyajikan halaman hasil build + proxy API; berkas `deploy/` dikeluarkan dari git | — | — (diisi setelah digabung) |
+| 09b | `chore/deploy-nginx` | nginx menyajikan halaman hasil build + proxy API; berkas `deploy/` dikeluarkan dari git | #13 | `iter-09b-nginx` |
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 
@@ -359,11 +359,9 @@ penyisipan 09b, ketika halaman hasil build mulai disajikan nginx.
 
 ---
 
-## Penyisipan 09b — `chore/deploy-nginx`
+## Penyisipan 09b — `chore/deploy-nginx` (PR #13)
 
-Nomor PR dan tag diisi setelah pekerjaan ini digabung ke `main`; sebelum itu kolom
-di tabel ringkasan dibiarkan kosong, karena tag yang belum ada tidak boleh tertulis
-seolah sudah ada.
+Tag `iter-09b-nginx` menandai commit hasil *squash merge* di `main`.
 
 Bagian penyajian dari iterasi 09. Sebelum ini aplikasi hanya bisa dipakai lewat dua
 proses manual (`uvicorn` di 8000 + `npm run dev` di 5173); sekarang satu alamat:
@@ -571,6 +569,20 @@ Temuan:
    tag — pelanggaran aturan "angka di dokumen adalah hasil pengukuran nyata" yang
    ditemukan peninjau. Baris ringkasan dikosongkan lagi sampai pekerjaan benar-benar
    digabung.
+8. **`git rm --cached` + `.gitignore` + berpindah cabang MENGHAPUS berkas dari
+   disk.** Setelah merge, `git switch main && git pull` menghilangkan
+   `deploy/systemd/geosafe-api.service`: di cabang berkas itu *untracked*, tetapi
+   setelah berpindah ke `main` ia *tracked* lagi dan commit merge yang menghapusnya
+   ikut dijalankan — berkasnya lenyap, symlink `~/.config/systemd/user/` menggantung,
+   dan layanan hanya bertahan karena sudah termuat di memori (restart atau reboot
+   akan gagal). Dipulihkan dengan mengambil isinya dari riwayat dan membandingkannya:
+   `mkdir -p deploy/systemd && git show <commit-sebelum-merge>:deploy/systemd/geosafe-api.service > deploy/systemd/geosafe-api.service`,
+   lalu `diff` terhadap versi riwayat (identik), `systemctl --user daemon-reload`,
+   dan bukti uji: `systemctl --user restart geosafe-api` → `active`,
+   `/health` lewat nginx → 200. Pelajaran untuk langkah berikutnya: sebelum
+   berpindah cabang setelah mengeluarkan berkas dari pelacakan, **salin dulu**
+   berkasnya ke luar repo (mis. `~/geosafe-deploy/`), dan periksa keberadaannya
+   setelah `git switch`.
 
 ---
 

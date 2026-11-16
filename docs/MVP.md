@@ -68,7 +68,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 07 | `feat/frontend-app` — frontend: peta choropleth + pencarian + panel (Vite 7.3.8) | ✅ PR #9, tag `iter-07-frontend` |
 | 08 | `feat/frontend-t1-trend` — halaman tren (A1) + Sumber & Batas Data (T1) + router | ✅ PR #12, tag `iter-08-frontend-t1` |
 | 09a | deploy: API sebagai unit systemd pengguna | ✅ PR #10, tag `iter-09a-api-service` |
-| 09b | deploy: nginx menyajikan halaman hasil build + proxy API (port 8080); berkas `deploy/` dikeluarkan dari git | sedang dikerjakan (cabang `chore/deploy-nginx`) |
+| 09b | deploy: nginx menyajikan halaman hasil build + proxy API (port 8080); berkas `deploy/` dikeluarkan dari git | ✅ PR #13, tag `iter-09b-nginx` |
 | 09 (sisa) | deploy: basemap PMTiles (ekstrak 216 MB, dilayani nginx) | |
 | 10 | P2 titik panas terkini (FIRMS + cache 15 menit) | setelah MVP jalan |
 | 11 | P4 kerawanan versi B + uji sensitivitas bobot | setelah ada pembanding |
