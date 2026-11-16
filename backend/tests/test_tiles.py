@@ -19,6 +19,9 @@ client = TestClient(app)
 WORLD_TILE = "/tiles/regions/0/0/0.mvt"
 # z=1, x=0, y=1 = separuh barat dan selatan bumi: tidak memuat Indonesia.
 OCEAN_TILE = "/tiles/regions/1/0/1.mvt"
+# Tingkat provinsi (saklar tampilan `SRS-F-13`): 38 provinsi pada satu tile dunia.
+WORLD_PROVINCE_TILE = "/tiles/provinces/0/0/0.mvt"
+OCEAN_PROVINCE_TILE = "/tiles/provinces/1/0/1.mvt"
 
 
 def test_world_tile_contains_regions_layer() -> None:
@@ -77,3 +80,42 @@ def test_database_holds_regions_without_fact_rows() -> None:
 def test_year_outside_range_is_rejected() -> None:
     assert client.get(WORLD_TILE, params={"year": 2019}).status_code == 422
     assert client.get(WORLD_TILE, params={"year": 2027}).status_code == 422
+
+
+def test_province_tile_contains_provinces_layer() -> None:
+    response = client.get(WORLD_PROVINCE_TILE, params={"year": 2020})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == MEDIA_TYPE_MVT
+    body = response.content
+    assert len(body) > 5_000  # 38 poligon provinsi
+    assert b"provinces" in body
+
+
+def test_province_tile_reuses_province_fact_rows() -> None:
+    """Tile provinsi membaca baris tingkat provinsi, bukan menjumlahkan kabupaten/kota.
+
+    Kalau suatu hari ETL berhenti menulis baris tingkat provinsi, uji ini gagal
+    dan keputusan memakai baris itu perlu ditinjau ulang.
+    """
+    with psycopg.connect(database_url(), row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                select count(*) as province_rows, count(distinct province_code) as provinces
+                  from region_facts
+                 where region_code is null and province_code is not null
+                  and metric_code = 'hotspot_count' and series = 'main' and year = 2020
+                  and month is null and confidence is null
+                """
+            )
+            rows = cur.fetchone()
+            cur.execute("select count(*) as n from provinces where level = 'province'")
+            province_count = cur.fetchone()["n"]
+
+    assert rows["province_rows"] == 38
+    assert rows["provinces"] == province_count == 38
+
+
+def test_empty_province_tile_answers_204() -> None:
+    assert client.get(OCEAN_PROVINCE_TILE, params={"year": 2020}).status_code == 204
