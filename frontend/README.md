@@ -133,10 +133,11 @@ berasal dari generasi cache yang sama — invarian kontrak `API-P2.md` bagian 2
 menuntut `fetched_at` dan `point_count` identik antara titik di peta dan angka di
 panel.
 
-Tiga hal yang disengaja:
+Empat hal yang disengaja:
 
 | Hal | Alasan |
 |---|---|
 | titik digambar tanpa penyaring kelas keyakinan | kelas dipakai untuk warna (`confidence_class`), bukan untuk menyembunyikan titik; penyaring kelas butuh keputusan penyaring mana yang dipakai pengguna |
-| penyempitan `bbox` otomatis saat `truncated` | API mengganti `points` dengan `null` bila muatan melewati 2 MB; antarmuka menyuruh pengguna memilih jendela lebih pendek alih-alih menebak kotak wilayah mana |
+| penyempitan `bbox` otomatis saat `truncated` | API mengganti `points` dengan `null` bila muatan melewati 2 MB; antarmuka tidak punya kendali kotak wilayah, jadi ia menyatakan titiknya tidak digambar dan mengarahkan pembaca ke panel — bukan menebak kotak mana yang harus dipersempit |
 | batas laju 429 | API menahan 60 permintaan/menit per IP; satu peramban memakai 2 permintaan per penyegaran sehingga batas itu tidak pernah tersentuh dari antarmuka |
+| penyegaran memakai `setInterval` biasa | peramban menahan timer di tab latar, jadi jarak tarikan nyata bisa lebih dari 15 menit; `SRS-F-24` menyebut batas *paling sering* 15 menit, bukan jaminan tepat 15 menit |

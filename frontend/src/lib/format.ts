@@ -74,8 +74,8 @@ export function formatMoment(iso: string | null | undefined): string {
   if (!iso) {
     return '—';
   }
-  const waktu = new Date(iso);
-  return Number.isNaN(waktu.getTime()) ? '—' : `${momentFormat.format(waktu)} WIB`;
+  const moment = new Date(iso);
+  return Number.isNaN(moment.getTime()) ? '—' : `${momentFormat.format(moment)} WIB`;
 }
 
 /** Bagian dari keseluruhan sebagai persen; pembagi nol berarti "—", bukan 0 %. */

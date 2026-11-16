@@ -6,11 +6,14 @@ const WINDOWS: LatestWindow[] = [24, 48, 72];
 export interface LatestControlProps {
   windowHours: LatestWindow;
   onWindowChange: (windowHours: LatestWindow) => void;
+  /** Data yang tampil sudah berasal dari jendela terpilih; `false` = masih memuat. */
+  loading: boolean;
   fetchedAt: string | null;
   satellites: LatestSatellite[];
   usingSnapshot: boolean;
   pointCount: number | null;
   truncated: boolean;
+  error: string | null;
   onRefresh: () => void;
 }
 
@@ -20,15 +23,21 @@ export interface LatestControlProps {
  * mengirim titik pada tarikan itu. Tombol segarkan tetap ada meskipun penyegaran
  * otomatis berjalan setiap 15 menit (`SRS-F-24`): pengguna perlu bisa memaksa
  * tarikan baru tanpa menunggu jendela itu habis.
+ *
+ * Angka jendela sebelumnya tidak ditampilkan saat pengguna baru berganti jendela
+ * (`loading`): tombol yang sudah menunjuk jendela baru sementara angkanya masih
+ * jendela lama adalah dua bacaan berbeda di satu layar.
  */
 export function LatestControl({
   windowHours,
   onWindowChange,
+  loading,
   fetchedAt,
   satellites,
   usingSnapshot,
   pointCount,
   truncated,
+  error,
   onRefresh,
 }: LatestControlProps) {
   const available = satellites.filter((satellite) => satellite.available).map((s) => s.name);
@@ -67,13 +76,27 @@ export function LatestControl({
         </button>
       </div>
 
-      <p className="mt-1 text-slate-700">
-        {formatCount(pointCount)} titik · tarikan {formatMoment(fetchedAt)}
-      </p>
-      <p className="text-slate-600">
-        Satelit tersedia:{' '}
-        {available.length > 0 ? available.join(' · ') : 'belum ada satelit yang mengirim titik'}
-      </p>
+      {loading ? (
+        <p className="mt-1 text-slate-700">memuat jendela {windowHours} jam...</p>
+      ) : (
+        <>
+          <p className="mt-1 text-slate-700">
+            {formatCount(pointCount)} titik · tarikan {formatMoment(fetchedAt)}
+          </p>
+          <p className="text-slate-600">
+            Satelit tersedia:{' '}
+            {available.length > 0 ? available.join(' · ') : 'belum ada satelit yang mengirim titik'}
+          </p>
+        </>
+      )}
+
+      {error ? (
+        // Tarikan gagal setelah data pernah tampil: angkanya sengaja tidak
+        // dikosongkan, jadi kegagalan itu harus terlihat di sebelah angkanya.
+        <p data-testid="latest-error" className="mt-1 text-amber-800">
+          Tarikan terakhir gagal ({error}).
+        </p>
+      ) : null}
 
       {usingSnapshot ? (
         <p data-testid="latest-snapshot" className="mt-1 text-amber-800">
@@ -83,7 +106,8 @@ export function LatestControl({
 
       {truncated ? (
         <p data-testid="latest-truncated" className="mt-1 text-amber-800">
-          Titik tidak digambar: muatan melewati 2 MB. Pilih jendela jam yang lebih pendek.
+          Titik tidak digambar: muatan melewati 2 MB. Penyempitan wilayah belum tersedia di
+          antarmuka ini, dan jumlah titiknya tetap terbaca di panel.
         </p>
       ) : null}
     </div>

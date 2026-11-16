@@ -103,6 +103,15 @@ describe('LatestPanel', () => {
     expect(screen.getByText('Provinsi dengan titik terbanyak (0)')).toBeTruthy();
   });
 
+  it('menyebut kegagalan penyegaran tanpa menyembunyikan angka lama (`SRS-F-25`)', () => {
+    render(<LatestPanel summary={SUMMARY} status="error" error="upstream_http 503" />);
+
+    expect(screen.getByTestId('latest-panel-error').textContent).toContain(
+      'Tarikan terakhir gagal (upstream_http 503); angka di bawah berasal dari tarikan sebelumnya.',
+    );
+    expect(screen.getByText('880')).toBeTruthy();
+  });
+
   it('menyebut kegagalan memuat ringkasan apa adanya', () => {
     render(<LatestPanel summary={null} status="error" error="tarikan gagal (503)" />);
 

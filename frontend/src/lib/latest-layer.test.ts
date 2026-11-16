@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { LATEST_CLASS_COLORS, latestCircleColorExpression, pointsToGeoJson } from './latest-layer';
 import type { LatestPoint } from '../types/geosafe';
 
-function titik(point: Partial<LatestPoint> = {}): LatestPoint {
+function point(overrides: Partial<LatestPoint> = {}): LatestPoint {
   return {
     latitude: -9.03452,
     longitude: 140.99622,
@@ -15,13 +15,13 @@ function titik(point: Partial<LatestPoint> = {}): LatestPoint {
     brightness: 333.19,
     frp: 46.43,
     region_code: '9413',
-    ...point,
+    ...overrides,
   };
 }
 
 describe('pointsToGeoJson', () => {
   it('menulis koordinat dengan urutan bujur lalu lintang, bukan sebaliknya', () => {
-    const geojson = pointsToGeoJson([titik()]);
+    const geojson = pointsToGeoJson([point()]);
 
     // Kebalikan urutan tidak memunculkan galat apa pun; titiknya hanya muncul di
     // tempat yang salah, jadi urutan ini yang diuji.
@@ -31,7 +31,7 @@ describe('pointsToGeoJson', () => {
   });
 
   it('membawa medan yang dipakai pewarnaan dan penyaringan titik', () => {
-    const geojson = pointsToGeoJson([titik({ confidence_class: null, region_code: null })]);
+    const geojson = pointsToGeoJson([point({ confidence_class: null, region_code: null })]);
 
     expect(geojson.features[0].properties).toEqual({
       observed_at: '2026-11-17T04:33:00Z',

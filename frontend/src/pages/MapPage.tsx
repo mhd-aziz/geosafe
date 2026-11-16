@@ -36,6 +36,11 @@ export function MapPage() {
   const [focusBounds, setFocusBounds] = useState<Bounds | null>(null);
   const [latestWindow, setLatestWindow] = useState<LatestWindow>(72);
   const latest = useLatestHotspots(latestWindow);
+  // Data hanya dipakai bila berasal dari jendela yang sedang dipilih: saat pengguna
+  // berganti jendela, angka jendela lama tidak boleh tetap tampil di sebelah tombol
+  // jendela baru, dan bila tarikan jendela baru gagal hal itu disebut apa adanya.
+  const latestMatchesWindow =
+    latest.data?.window_hours === latestWindow && latest.summary?.window_hours === latestWindow;
 
   const handleSelectFromMap = useCallback(
     (region: { code: string; name: string; level: SearchLevel }) => {
@@ -77,11 +82,13 @@ export function MapPage() {
             <LatestControl
               windowHours={latestWindow}
               onWindowChange={setLatestWindow}
-              fetchedAt={latest.data?.fetched_at ?? null}
-              satellites={latest.data?.satellites ?? []}
-              usingSnapshot={latest.data?.using_snapshot ?? false}
-              pointCount={latest.data?.point_count ?? null}
-              truncated={latest.data?.truncated ?? false}
+              loading={!latestMatchesWindow}
+              fetchedAt={latestMatchesWindow ? (latest.data?.fetched_at ?? null) : null}
+              satellites={latestMatchesWindow ? (latest.data?.satellites ?? []) : []}
+              usingSnapshot={latestMatchesWindow ? (latest.data?.using_snapshot ?? false) : false}
+              pointCount={latestMatchesWindow ? (latest.data?.point_count ?? null) : null}
+              truncated={latestMatchesWindow ? (latest.data?.truncated ?? false) : false}
+              error={latest.error}
               onRefresh={latest.refresh}
             />
           </div>
@@ -94,7 +101,11 @@ export function MapPage() {
       <aside className="w-full shrink-0 space-y-4 overflow-y-auto border-t border-slate-200 bg-white p-4 lg:w-[24rem] lg:border-t-0 lg:border-l">
         <SearchBox onSelect={handleSelectFromSearch} />
 
-        <LatestPanel summary={latest.summary} status={latest.status} error={latest.error} />
+        <LatestPanel
+          summary={latestMatchesWindow ? latest.summary : null}
+          status={latest.status}
+          error={latest.error}
+        />
 
         {selected ? (
           selected.level === 'regency' ? (

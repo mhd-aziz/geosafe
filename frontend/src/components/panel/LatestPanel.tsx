@@ -42,6 +42,17 @@ export function LatestPanel({ summary, status, error }: LatestPanelProps) {
         </p>
       </header>
 
+      {error ? (
+        // Data lama sengaja tidak dikosongkan saat penyegaran gagal, jadi
+        // kegagalannya harus terbaca di sebelah angka yang masih ditampilkan.
+        <p
+          data-testid="latest-panel-error"
+          className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900"
+        >
+          Tarikan terakhir gagal ({error}); angka di bawah berasal dari tarikan sebelumnya.
+        </p>
+      ) : null}
+
       {summary.using_snapshot ? (
         <p
           data-testid="latest-panel-snapshot"

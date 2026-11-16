@@ -14,11 +14,13 @@ function renderControl(overrides: Partial<Parameters<typeof LatestControl>[0]> =
   const props = {
     windowHours: 24 as const,
     onWindowChange: vi.fn(),
+    loading: false,
     fetchedAt: '2026-11-17T06:20:11Z',
     satellites: SATELLITES,
     usingSnapshot: false,
     pointCount: 880,
     truncated: false,
+    error: null,
     onRefresh: vi.fn(),
     ...overrides,
   };
@@ -52,10 +54,25 @@ describe('LatestControl', () => {
 
     // Waktu API adalah UTC; ditampilkan dalam WIB agar tidak terbaca meleset 7 jam.
     expect(screen.getByText(/880 titik · tarikan 17 Nov 2026, 13\.20 WIB/)).toBeTruthy();
-    const satelit = screen.getByText(/Satelit tersedia/);
-    expect(satelit.textContent).toContain('VIIRS_NOAA20_NRT');
-    expect(satelit.textContent).toContain('MODIS_NRT');
-    expect(satelit.textContent).not.toContain('VIIRS_SNPP_NRT');
+    const satelliteLine = screen.getByText(/Satelit tersedia/);
+    expect(satelliteLine.textContent).toContain('VIIRS_NOAA20_NRT');
+    expect(satelliteLine.textContent).toContain('MODIS_NRT');
+    expect(satelliteLine.textContent).not.toContain('VIIRS_SNPP_NRT');
+  });
+
+  it('menyebut kegagalan tarikan tepat di sebelah angka yang masih tampil', () => {
+    renderControl({ error: 'upstream_http 503' });
+
+    expect(screen.getByTestId('latest-error').textContent).toContain('upstream_http 503');
+    expect(screen.getByText(/880 titik/)).toBeTruthy();
+  });
+
+  it('tidak menampilkan angka jendela lama saat pengguna baru berganti jendela', () => {
+    renderControl({ windowHours: 48, loading: true, pointCount: null, fetchedAt: null });
+
+    expect(screen.getByText('memuat jendela 48 jam...')).toBeTruthy();
+    expect(screen.queryByText(/titik · tarikan/)).toBeNull();
+    expect(screen.queryByText(/Satelit tersedia/)).toBeNull();
   });
 
   it('menyebut snapshot apa adanya saat tarikan terakhir gagal (`SRS-F-25`)', () => {
@@ -66,10 +83,15 @@ describe('LatestControl', () => {
     );
   });
 
-  it('menyatakan titik tidak digambar ketika muatan dipotong 2 MB', () => {
+  it('menyatakan titik tidak digambar ketika muatan dipotong 2 MB, tanpa saran yang mustahil', () => {
     renderControl({ truncated: true, pointCount: 0 });
 
-    expect(screen.getByTestId('latest-truncated').textContent).toContain('melewati 2 MB');
+    const pesan = screen.getByTestId('latest-truncated').textContent ?? '';
+    expect(pesan).toContain('melewati 2 MB');
+    // 24 jam adalah jendela terpendek: menyuruh pengguna memilih jendela lebih
+    // pendek tidak bisa diikuti.
+    expect(pesan).not.toContain('jendela jam yang lebih pendek');
+    expect(pesan).toContain('Penyempitan wilayah belum tersedia');
   });
 
   it('tidak menampilkan pita snapshot pada tarikan yang sehat', () => {

@@ -18,10 +18,16 @@ export interface LatestState {
 
 /** Lapisan titik panas terkini (`P2`) dan ringkasannya (`W1`).
  *
- * Titik dan ringkasan diambil bersama-sama, bukan oleh dua komponen terpisah:
- * keduanya wajib berasal dari generasi cache yang sama (invarian kontrak
- * `API-P2.md` bagian 2 — `fetched_at` dan `point_count` identik), dan memisahkan
- * pengambilannya hanya membuka peluang keduanya berbeda di layar.
+ * Titik dan ringkasan diambil bersama dalam satu langkah, bukan oleh dua
+ * komponen terpisah: keduanya dilayani satu generasi cache di server
+ * (`API-P2.md` bagian 2 — `fetched_at` dan `point_count` identik), dan mengambilnya
+ * terpisah hanya menambah peluang keduanya jatuh di generasi berbeda.
+ *
+ * Invarian itu **tidak** dipaksakan di peramban: bila salah satu dari dua
+ * permintaan jatuh tepat di batas 15 menit, server sudah menyegarkan cache di
+ * antara keduanya, sehingga `fetched_at` kedua balasan bisa berbeda. Karena itu
+ * panel dan kendali menampilkan `fetched_at` dari balasannya masing-masing, bukan
+ * satu waktu bersama yang tidak dijamin.
  */
 export function useLatestHotspots(windowHours: LatestWindow): LatestState {
   const [state, setState] = useState<Omit<LatestState, 'refresh'>>({
@@ -34,13 +40,10 @@ export function useLatestHotspots(windowHours: LatestWindow): LatestState {
 
   useEffect(() => {
     let cancelled = false;
-    // Penyegaran tidak mengosongkan yang sudah tampil: peta tidak boleh
-    // berkedip kosong setiap 15 menit hanya karena tarikan sedang berjalan.
-    setState((previous) =>
-      previous.data
-        ? { ...previous, error: null }
-        : { status: 'loading', data: null, summary: null, error: null },
-    );
+    // Status kembali 'loading' setiap tarikan, tetapi data yang sudah tampil tidak
+    // dikosongkan: peta tidak boleh berkedip kosong setiap 15 menit hanya karena
+    // tarikan sedang berjalan.
+    setState((previous) => ({ ...previous, status: 'loading', error: null }));
 
     Promise.all([fetchLatest(windowHours), fetchLatestSummary(windowHours)])
       .then(([data, summary]) => {

@@ -59,8 +59,11 @@ export function fetchNationalTrend(): Promise<TrendData> {
 
 /** Titik panas terkini untuk lapisan peta (`P2`).
  *
- * `bbox` tidak dikirim: peta menampilkan seluruh Indonesia, dan penyempitan
- * kotak wilayah baru dilakukan bila balasan menyatakan `truncated`.
+ * `bbox` tidak dikirim: antarmuka selalu menyajikan seluruh Indonesia dan tidak
+ * punya kendali kotak wilayah. Bila balasan menyatakan `truncated` (`points`
+ * bernilai `null` karena muatan melewati 2 MB), lapisan tidak menggambar titik dan
+ * pengguna diberi tahu apa adanya — penyempitan `bbox` yang disebut kontrak
+ * `API-P2.md` bagian 1 belum dikerjakan di antarmuka.
  */
 export function fetchLatest(windowHours: LatestWindow): Promise<LatestResponse> {
   return fetchJson<LatestResponse>(`/api/v1/latest?window=${windowHours}`);
