@@ -1,0 +1,22 @@
+"""Titik masuk aplikasi FastAPI GeoSafe.
+
+Hanya berisi pembuatan aplikasi dan endpoint dasar. Router per kelompok fitur
+(P1-P5, W1-W4, A1-A3, C1, T1) ditambahkan menyusul, satu berkas per kelompok.
+"""
+
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="GeoSafe API",
+    version="0.1.0",
+    description=(
+        "API purwarupa GeoSafe: sebaran titik panas (hotspot) sebagai indikator "
+        "kerawanan kebakaran hutan dan lahan."
+    ),
+)
+
+
+@app.get("/health", tags=["internal"])
+async def health() -> dict[str, str]:
+    """Cek sederhana bahwa proses API hidup. Dipakai uji dan pemantauan."""
+    return {"status": "ok", "service": "geosafe-api", "version": app.version}
