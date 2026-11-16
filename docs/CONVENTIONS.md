@@ -30,6 +30,14 @@ di sini — beberapa keputusan tampak sepele tapi menutup jebakan nyata.
    Jangan menambah baris nol diam-diam di aplikasi.
 7. **Komentar dan docstring Bahasa Indonesia**, sedangkan nama folder, berkas,
    fungsi, kelas, variabel, kolom JSON, dan pesan commit Bahasa Inggris.
+8. **Berkas layanan tidak masuk repo** (keputusan 2026-11-17). `deploy/` diabaikan
+   `.gitignore` — nginx maupun systemd hidup di mesin, karena isinya terikat ke
+   mesin itu (jalur mutlak dengan spasi, nama pengguna, port) sedangkan repo
+   dipublikasikan. Konsekuensi yang harus disadari: `git clone` **tidak** memberi
+   unit atau situs yang bisa dijalankan, dan berkas di `deploy/` hanya ada di disk
+   satu mesin. Karena itu isinya wajib tertulis lengkap di `docs/ITERATIONS.md`
+   (penyisipan 09a dan 09b), dan memindahkan proyek ke mesin lain berarti menulis
+   ulang kedua berkas itu dari catatan tersebut.
 
 ## 2. Keputusan penamaan (dikunci 2026-11-16)
 
@@ -44,7 +52,7 @@ pola yang sudah ada di mesin ini untuk unit systemd serta berkas nginx.
 | proyek Python (`pyproject.toml`) | `geosafe-api` | huruf kecil; `-api` membedakan dari nama basis data |
 | paket npm | `geosafe-frontend` | npm menolak huruf besar |
 | unit systemd | `geosafe-api.service` | pola unit di mesin ini (`backend-abn.service`) |
-| berkas nginx | `deploy/nginx/geosafe.conf` | pola situs di mesin ini (`sia-iti`) |
+| berkas nginx | `deploy/nginx/geosafe.conf` | pola situs di mesin ini (`sia-iti`); berkas ini **tidak** masuk git (aturan 8) |
 | basis data · kontainer · basemap | `geosafe` · `pg` · `indonesia.pmtiles` | sudah sesuai aturan |
 | branch | `main` | konvensi Git |
 
@@ -114,6 +122,7 @@ repo ini publik, tidak ada CI, dan aplikasinya dipakai untuk demo.
 | Hal | Aturan |
 |---|---|
 | `main` | selalu bisa dijalankan; **dilarang** `git push --force` |
+| Berkas yang tidak masuk git | `deploy/` (unit systemd + situs nginx), data besar, `.env` — lihat aturan 1 dan 8 di bagian 1 |
 | Cabang kerja | `feat/<slug>` · `fix/<slug>` · `docs/<slug>` · `chore/<slug>` — huruf kecil, kebab |
 | Umur cabang | satu tujuan, 1–3 sesi; lebih dari itu dipotong jadi lebih kecil |
 | Masuk ke `main` | Pull Request, lalu **squash merge** — `main` jadi satu commit per fitur |

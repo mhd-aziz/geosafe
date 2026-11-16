@@ -28,6 +28,12 @@ backend/cache/
 *.csv.gz
 *.geojson
 
+# berkas layanan — keputusan 2026-11-17: nginx dan systemd hidup di mesin ini,
+# tidak masuk repo. Salinannya ada di `deploy/` (folder tetap di disk), dan
+# `/etc/nginx/sites-enabled/geosafe` serta `~/.config/systemd/user/geosafe-api.service`
+# adalah symlink ke sana.
+deploy/
+
 # editor / OS
 .vscode/
 .idea/

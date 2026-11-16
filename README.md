@@ -25,8 +25,8 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 |---|---|
 | Backend (`backend/`) | berjalan — 10 endpoint, `uv run pytest` 38 passed |
 | Frontend (`frontend/`) | berjalan — 3 halaman (peta · tren · sumber data), `npm test` 44 passed |
-| Deploy (`deploy/`) | sebagian — API berjalan sebagai unit systemd pengguna; nginx + basemap menyusul |
-| Iterasi selesai | 8 (+ penyisipan 09a) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Deploy (**berkas di mesin, tidak di git**) | sebagian — API sebagai unit systemd pengguna, nginx menyajikan halaman + proxy API di `127.0.0.1:8080`; basemap PMTiles menyusul |
+| Iterasi selesai | 08 (+ penyisipan 06b, 07a, 08a, 09a, 09b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -64,9 +64,15 @@ project-GeoSafe/
 │       ├── lib/                        konstanta, format angka, kelas choropleth
 │       ├── types/                      bentuk balasan API
 │       └── test/                       setup Vitest
-├── deploy/                     nginx (SPA + proxy) · systemd (belum diisi)
+├── deploy/                     berkas layanan: nginx (situs) · systemd (unit) — **di luar git**
 └── docs/                       dokumen kerja (PRD, MVP, iterasi, konvensi)
 ```
+
+`deploy/` sengaja **tidak** masuk repo (keputusan 2026-11-17): isinya terikat ke
+mesin ini (jalur mutlak, nama pengguna, port), sedangkan repo dipublikasikan.
+Berkasnya tetap ada di disk dan `/etc/nginx/sites-enabled/geosafe` serta
+`~/.config/systemd/user/geosafe-api.service` adalah symlink ke sana; kalau mesin
+ini hilang, keduanya perlu ditulis ulang dari `docs/ITERATIONS.md`.
 
 Berkas router dinamai Inggris dan dipetakan ke kode fitur dokumen perencanaan
 supaya bisa ditelusuri: `maps.py` (P1–P5) · `panels.py` (W1–W4) ·
@@ -91,8 +97,15 @@ uv run uvicorn app.main:app --reload    # http://127.0.0.1:8000
 ```
 
 Cara pakai: uvicorn dapat dinyalakan manual seperti di atas, atau (di homelab) lewat
-unit systemd pengguna `geosafe-api.service` yang menunjuk berkas di
-`deploy/systemd/` — lihat [`docs/ITERATIONS.md`](docs/ITERATIONS.md) penyisipan 09a.
+unit systemd pengguna `geosafe-api.service` — lihat [`docs/ITERATIONS.md`](docs/ITERATIONS.md)
+penyisipan 09a. Halaman hasil build disajikan nginx di `http://127.0.0.1:8080`
+(penyisipan 09b): `/` peta, `/tren` dan `/sumber` diarahkan ke `index.html`, dan
+`/api` serta `/tiles` diteruskan ke API di port 8000.
+
+Memuat kode backend yang baru: `systemctl --user restart geosafe-api`.
+Memuat konfigurasi nginx yang baru: `npm run build` di `frontend/`, lalu
+`sudo systemctl reload nginx` (permintaan beberapa saat setelah reload masih
+dilayani proses lama — periksa ulang sebelum menyimpulkan).
 
 Dokumentasi API hidup sendiri di `/docs` dan `/openapi.json` — dibuat FastAPI
 dari kode, jadi tidak ada berkas daftar endpoint yang bisa tertinggal.
@@ -135,7 +148,7 @@ wilayah (bukan `404`).
 
 ## Aturan singkat
 
-Empat hal yang paling sering menentukan keputusan harian (lengkapnya di
+Lima hal yang paling sering menentukan keputusan harian (lengkapnya di
 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)):
 
 1. **Angka dan geometri hanya dari PostgreSQL.** Aplikasi tidak membaca CSV
@@ -147,6 +160,8 @@ Empat hal yang paling sering menentukan keputusan harian (lengkapnya di
    tidak punya baris.
 4. **Kode: nama Inggris, penjelasan Indonesia.** Pesan commit Bahasa Inggris
    (Conventional Commits); README dan dokumen Bahasa Indonesia.
+5. **Berkas layanan hidup di mesin, bukan di repo.** `deploy/` diabaikan git —
+   alasan, isi, dan cara memulihkannya ada di [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md).
 
 ## Dokumen
 
