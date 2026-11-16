@@ -3,7 +3,7 @@
 *Minimum Viable Product.* Batasan **apa yang harus jalan lebih dulu** supaya
 GeoSafe bisa didemokan dan dinilai, dan apa yang sengaja ditunda.
 
-Status: 2026-11-16 · iterasi 01–07 selesai, MVP belum lengkap.
+Status: 2026-11-16 · iterasi 01–08 selesai, MVP belum lengkap.
 
 ---
 
@@ -63,7 +63,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 05 | `feat/api-search` — pencarian wilayah empat tingkat (C1) | ✅ PR #5, tag `iter-05-api-search` |
 | 06 | `feat/api-trend` — tren nasional dua seri (A1) | ✅ PR #6, tag `iter-06-api-trend` |
 | 07 | `feat/frontend-app` — frontend: peta choropleth + pencarian + panel (Vite 7.3.8) | ✅ PR #9, tag `iter-07-frontend` |
-| 08 | halaman Sumber & Batas Data (T1) + unduh CSV | |
+| 08 | `feat/frontend-t1-trend` — halaman tren (A1) + Sumber & Batas Data (T1) + router | ✅ PR #12, tag `iter-08-frontend-t1` |
 | 09 | deploy: nginx + systemd, basemap PMTiles | |
 | 10 | P2 titik panas terkini (FIRMS + cache 15 menit) | setelah MVP jalan |
 | 11 | P4 kerawanan versi B + uji sensitivitas bobot | setelah ada pembanding |

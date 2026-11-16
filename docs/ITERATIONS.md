@@ -23,6 +23,8 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 07a | `feat/api-province-tiles` | tile provinsi untuk saklar tingkat tampilan (P1) | #8 | `iter-07a-province-tiles` |
 | 07 | `feat/frontend-app` | frontend: peta choropleth + pencarian + panel (alur MVP) | #9 | `iter-07-frontend` |
 | 09a | `chore/deploy-api-service` | API berjalan sebagai unit systemd pengguna (`Restart=always`) | #10 | `iter-09a-api-service` |
+| 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
+| 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 
 Semua dikerjakan 2026-11-16. Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -345,6 +347,57 @@ aktif** dan `/health` → 200 (jurnal mencatat `Started geosafe-api.service`).
 
 Cara pakai sehari-hari: `systemctl --user status|restart|stop geosafe-api`.
 Frontend tetap manual (`npm run dev`) sesuai permintaan pemilik repo.
+
+---
+
+## Iterasi 08a — `feat/api-transparency-downloads` (PR #11)
+
+Tiga kebutuhan `T1`/`P1` yang belum bisa dilayani API:
+
+1. `GET /api/v1/point_coverage?year=` — 106.800 dari 1.452.263 titik panas (7,35 %)
+   tidak jatuh di poligon wilayah mana pun (`SRS-F-76`, dipakai juga `SRS-F-16`);
+2. `GET /api/v1/downloads` + `…/{berkas}` — 29 tabel siap pakai (31 MB) di folder
+   data di luar repo, disajikan sebagai daftar + unduhan; nama berkas divalidasi
+   terhadap daftar folder, jadi `../` tidak bisa keluar dan berkas asing → 404;
+3. `confidence=h|n|l` pada tile kabupaten/kota (`SRS-F-15`) — kelas `h`+`n`+`l`
+   **terbukti menjumlah tepat** ke angka tanpa penyaring pada setiap tahun
+   2020–2026 (2020: 2.186 + 82.238 + 6.924 = 91.348). Tingkat provinsi menolak
+   parameter itu dengan **422**, bukan mengabaikannya diam-diam.
+
+Bukti (`pytest` **38 passed**): `point_coverage?year=2023` → 0,45–0,66 dtk;
+tanpa tahun (7 tahun) → 1,43–1,58 dtk; `/downloads` → 0,006 dtk, 29 berkas;
+unduhan CSV → 200 · 63.880 B. Optimasi tercatat: filter tahun semula memakai
+`extract(year …)` (1,16–1,27 dtk) lalu diganti rentang tanggal agar indeks
+`ix_po_tanggal` terpakai.
+
+## Iterasi 08 — `feat/frontend-t1-trend` (PR #12)
+
+Tiga halaman di balik router: `/` peta, `/tren` grafik nasional (`A1`), `/sumber`
+Sumber & Batas Data (`T1`). Berkas baru: `pages/{MapPage,TrendPage,SourcesPage}.tsx`,
+`components/analysis/{TrendChart,BurnedAreaChart}.tsx`, `hooks/useRemoteData.ts`,
+`lib/transparency-content.ts`.
+
+Bukti: `tsc --noEmit` bersih · **`npm test` 44 uji lulus** (8 berkas) ·
+`npm run build` 15,66 dtk · unduhan lewat proxy Vite → 200 · 63.880 B.
+
+Di peramban sungguhan: `/tren` menampilkan dua garis pada dua sumbu (kiri
+0–256.003, kanan 0–2.153) dengan label 2020–2026 dan keterangan nrt 600.323;
+`/sumber` menampilkan 7 dataset, 7 baris penempatan titik, 7 celah data, 4 istilah,
+dan 29 tautan unduhan.
+
+Temuan:
+
+1. **Grafik A1 digambar sebagai SVG, bukan ECharts** (rencana awal). Dua seri ×
+   tujuh titik tidak menuntut pustaka grafik; ECharts ditunda ke A2/A3 yang butuh
+   batang dan peringkat. Penyimpangan ini dicatat di `frontend/README.md`.
+2. **Seri nrt tidak digambar pada skala itu** (600.323 akan meratakan garis arsip);
+   angkanya tetap muncul sebagai keterangan berangka beserta alasannya.
+3. **Dev server Vite harus dijalankan ulang** setelah `vite.config.ts` atau
+   dependensi berubah. Tanpa itu `/api` dan `/tiles` dilayani `index.html` dan
+   halaman melaporkan `Unexpected token '<'` — bukan galat backend.
+4. **Tahun terakhir belum penuh.** Dari pemeriksaan peramban: titik panas 2026
+   berhenti pada 2026-11-12; halaman tren kini menyebut tanggal itu supaya penurunan
+   2026 tidak dibaca sebagai penurunan sepanjang tahun.
 
 ---
 

@@ -23,10 +23,10 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 7 endpoint, `uv run pytest` 27 passed |
-| Frontend (`frontend/`) | berjalan — 1 halaman (peta + pencarian + panel), `npm test` 27 passed |
+| Backend (`backend/`) | berjalan — 10 endpoint, `uv run pytest` 38 passed |
+| Frontend (`frontend/`) | berjalan — 3 halaman (peta · tren · sumber data), `npm test` 44 passed |
 | Deploy (`deploy/`) | sebagian — API berjalan sebagai unit systemd pengguna; nginx + basemap menyusul |
-| Iterasi selesai | 7 (+ penyisipan 09a) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | 8 (+ penyisipan 09a) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -124,6 +124,8 @@ yang sengaja belum dikerjakan ada di [`frontend/README.md`](frontend/README.md).
 | `GET /api/v1/panel/kabupaten_kota/{kode}` | W2 | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI |
 | `GET /api/v1/search/regions?q=` | C1 | pencarian wilayah empat tingkat (provinsi, kabupaten/kota, kecamatan, desa/kelurahan), maksimal 20 baris + `bbox` untuk memperbesar peta |
 | `GET /api/v1/analysis/national_trend` | A1 | tren nasional 2020–2026: titik panas (seri `main`/`fill`/`nrt` apa adanya + `archive_total`) dan kejadian, plus luas terbakar sebagai konteks |
+| `GET /api/v1/point_coverage?year=` | T1 | berapa titik panas masuk poligon wilayah, berapa yang di luar (tidak dihitung nol) |
+| `GET /api/v1/downloads` · `…/{berkas}` | T1 | daftar 29 tabel siap pakai + unduhan CSV-nya |
 
 Catatan pemakaian: tile tanpa poligon dibalas `204`; wilayah yang belum punya
 baris fakta tetap terkirim dengan properti `has_fact = 0`; panel menyertakan
