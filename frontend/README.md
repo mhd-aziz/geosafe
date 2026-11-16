@@ -48,32 +48,50 @@ frontend/
 ├── vite.config.ts              plugin React + Tailwind, proxy API, konfigurasi Vitest
 ├── tsconfig.json               strict, noUnusedLocals, verbatimModuleSyntax
 └── src/
-    ├── main.tsx                pemasangan React ke #root
-    ├── App.tsx                 tata letak halaman + keadaan tahun/tingkat/pilihan
+    ├── main.tsx                pemasangan React ke #root + BrowserRouter
+    ├── App.tsx                 kerangka: judul, navigasi, rute, keterangan sumber
     ├── index.css               masuknya Tailwind (`@import 'tailwindcss'`)
+    ├── pages/                  MapPage · TrendPage · SourcesPage (satu berkas per halaman)
     ├── api/                    client.ts (pembungkus fetch) · geosafe.ts (per endpoint)
     ├── components/
     │   ├── map/                MapView · MapToolbar · Legend
     │   ├── search/             SearchBox
     │   ├── panel/              RegionPanel
+    │   ├── analysis/           TrendChart · BurnedAreaChart (SVG, tanpa pustaka grafik)
     │   └── common/             DataNotes
-    ├── hooks/                  useDebouncedValue · useRegionSearch · useRegionPanel · useSourceSummary
-    ├── lib/                    constants.ts · format.ts · choropleth.ts
+    ├── hooks/                  useDebouncedValue · useRegionSearch · useRegionPanel ·
+    │                           useSourceSummary · useRemoteData (baca-saja halaman)
+    ├── lib/                    constants · format · choropleth · transparency-content
     ├── types/geosafe.ts        bentuk balasan API (nama medan = nama kolom DB)
     └── test/setup.ts           pembersihan DOM antar uji
 ```
 
-Uji diletakkan bersebelahan dengan berkas yang diuji (`*.test.ts(x)`), supaya
-perubahan komponen dan ujinya terlihat dalam satu tampilan diff.
+Halaman: `/` peta (P1 + C1 + W2) · `/tren` grafik nasional (A1) · `/sumber` Sumber &
+Batas Data (T1). Uji diletakkan bersebelahan dengan berkas yang diuji
+(`*.test.ts(x)`), supaya perubahan komponen dan ujinya terlihat dalam satu
+tampilan diff.
+
+## Jebakan yang sudah kena
+
+1. **Address worker MapLibre harus dikunci** (`setWorkerUrl` + impor `?url`). Tanpa
+   itu peta **kosong tanpa pesan galat** di antarmuka: MapLibre v6 menurunkan URL
+   worker dari `import.meta.url`, yang di bawah `optimizeDeps` Vite menunjuk berkas
+   yang tidak ada. Penyebabnya hanya terlihat dari konsol peramban.
+2. **Dev server harus dijalankan ulang setelah `vite.config.ts` atau dependensi
+   berubah.** Sekali kejadian: `/api` dan `/tiles` dilayani `index.html` (bukan
+   diteruskan ke backend) karena proses dev server masih memakai konfigurasi sebelum
+   perubahan, sehingga halaman melaporkan "Unexpected token '<'".
+3. **Uji jsdom dan `tsc` tidak menangkap dua hal di atas.** Halaman wajib dibuka
+   sekali di peramban sungguhan sebelum sebuah iterasi ditutup.
 
 ## Yang sengaja belum ada
 
 | Hal | Alasan |
 |---|---|
 | basemap PMTiles | berkas 216 MB ditunda ke iterasi deploy; peta memakai latar polos |
-| heatmap titik panas (`SRS-F-14`) | butuh endpoint titik berkoordinat per tahun; belum dikerjakan |
-| penyaring tingkat kepercayaan (`SRS-F-15`) | endpoint tile belum menerima parameter `confidence` |
-| grafik tren A1 | endpoint `/api/v1/analysis/national_trend` sudah ada, gambarnya menyusul |
-| halaman Sumber & Batas Data (T1) | iterasi berikutnya |
-| router halaman | satu halaman MVP; router ditambahkan saat ada halaman kedua |
+| heatmap titik panas (`SRS-F-14`) | endpoint tile titik belum ada (titik berkoordinat, bukan agregat wilayah) |
+| kendali penyaring `confidence` di toolbar (`SRS-F-15`) | API sudah menerima `?confidence=h|n|l` untuk tile kabupaten/kota; kendalinya menyusul |
+| panel kecamatan dan desa (`W3`, `W4`) | angka pendukung, bukan unit analisis; panelnya belum dikerjakan |
+| grafik A2 dan A3 | turunan dari A1, belum dikerjakan |
+| Apache ECharts | rencana awal memakai ECharts; grafik A1 cukup dua garis + tujuh titik, jadi digambar sebagai SVG tanpa pustaka tambahan. ECharts masuk saat A2/A3 butuh batang dan peringkat |
 | ESLint/Prettier | repo belum punya konfigurasi lint; `tsc --noEmit` + Vitest jadi penjaga mutu |

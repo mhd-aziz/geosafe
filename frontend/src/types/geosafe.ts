@@ -89,6 +89,59 @@ export interface SourcesResponse {
   sources: DataSource[];
 }
 
+/** `GET /api/v1/point_coverage` — penempatan titik panas ke wilayah. */
+export interface PointCoverageYear {
+  year: number;
+  point_count: number;
+  placed_count: number;
+  outside_count: number;
+  series: Record<string, number>;
+}
+
+export interface PointCoverage {
+  year: number | null;
+  totals: {
+    point_count: number;
+    placed_count: number;
+    outside_count: number;
+    outside_share_percent: number | null;
+  };
+  by_year: PointCoverageYear[];
+  notes: string[];
+}
+
+/** `GET /api/v1/downloads` — tabel siap pakai di folder data. */
+export interface DownloadFile {
+  file_name: string;
+  size_bytes: number;
+}
+
+export interface DownloadsResponse {
+  count: number;
+  folder: string;
+  files: DownloadFile[];
+  notes: string[];
+}
+
+/** `GET /api/v1/analysis/national_trend` — tren nasional dua seri. */
+export interface TrendHotspotRow {
+  year: number;
+  series: Record<string, number>;
+  archive_total: number | null;
+  nrt: number | null;
+}
+
+export interface TrendData {
+  scope: string;
+  years: number[];
+  hotspot_by_year: TrendHotspotRow[];
+  event_by_year: { year: number; event_count: number | null }[];
+  burned_area_by_year: { year: number; burned_area_ha: number | null }[];
+  units: Record<string, string>;
+  metric_names: Record<string, string>;
+  notes: string[];
+}
+
 /** Wilayah yang dipilih dari peta atau dari hasil pencarian. */
 export interface SelectedRegion {
   code: string;
