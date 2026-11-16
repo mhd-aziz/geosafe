@@ -1,257 +1,135 @@
-# GeoSafe — aplikasi web pemetaan sebaran titik panas
+# GeoSafe
 
-Purwarupa aplikasi (kode sistem). Ini **bukan** repo perencanaan: data mentah,
-proposal, SRS, ERD, dan alur sistem ada di `../planning-GeoSafe/`.
+Sistem informasi geografis berbasis web untuk memetakan **sebaran titik panas
+(hotspot)** sebagai indikator kerawanan **kebakaran hutan dan lahan (karhutla)**
+di Indonesia, rentang data 1 Januari 2020 sampai sekarang.
 
-Backend **sudah bisa dijalankan** sejak 2026-11-16 (endpoint `/health`); frontend
-belum dikerjakan. Berkas ini penunjuk struktur dan aturan yang sudah diputuskan.
+Pengguna sasarannya **masyarakat umum**: dibuka lewat peramban, tanpa akun, tanpa
+pemasangan. Unit analisisnya **514 kabupaten/kota**; angka kecamatan dan
+desa/kelurahan disajikan sebagai pendukung, sedangkan tingkat nasional dan
+provinsi sebagai konteks.
+
+> **titik panas bukan kebakaran.** Titik panas adalah anomali termal yang
+> terdeteksi satelit — indikasi awal, bukan kebakaran terkonfirmasi. Kejadian
+> karhutla (kategori resmi BNPB) adalah seri terpisah dan tidak pernah
+> dijumlahkan dengan titik panas.
+
+Repo ini berisi **kode aplikasi**. Data mentah, proposal, SRS, ERD, dan alur
+sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
+
+---
+
+## Status
+
+| Bagian | Keadaan |
+|---|---|
+| Backend (`backend/`) | berjalan — 4 endpoint, `uv run pytest` 11 passed |
+| Frontend (`frontend/`) | belum mulai |
+| Deploy (`deploy/`) | belum mulai (nginx + systemd menyusul) |
+| Iterasi selesai | 4 — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+
+Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
+
+## Mulai dari sini
+
+| Kalau Anda ingin tahu… | Buka |
+|---|---|
+| produk ini untuk siapa dan mengerjakan apa | [`docs/PRD.md`](docs/PRD.md) |
+| apa yang harus jalan lebih dulu (batas MVP) | [`docs/MVP.md`](docs/MVP.md) |
+| apa saja yang sudah dikerjakan + hasil ukurnya | [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| aturan penamaan, bahasa, commit, dan alur git | [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) |
+| daftar isi folder `docs/` | [`docs/README.md`](docs/README.md) |
 
 ## Struktur
 
 ```
 project-GeoSafe/
-├── backend/                    ada isi
-│   ├── pyproject.toml          dependensi (uv); requires-python >=3.12
-│   ├── uv.lock                 versi terkunci hasil `uv sync`
-│   ├── app/                    paket Python (huruf kecil sesuai PEP 8)
-│   │   ├── __init__.py
-│   │   ├── main.py             aplikasi FastAPI + /health
-│   │   ├── config.py           baca variabel lingkungan (DSN basis data)
-│   │   ├── db.py               koneksi psycopg ke PostgreSQL `geosafe`
-│   │   ├── routers/
-│   │   │   ├── maps.py         P1 — GET /tiles/regions/{z}/{x}/{y}.mvt
-│   │   │   ├── panels.py       W2 — GET /api/v1/panel/kabupaten_kota/{kode}
-│   │   │   └── transparency.py T1 — GET /api/v1/sources
-│   │   ├── cache.py            (menyusul) cache 15 menit + snapshot.json
-│   │   └── firms.py            (menyusul) tarik NASA FIRMS
-│   └── tests/
-│       ├── test_health.py
-│       ├── test_sources.py     pytest (butuh basis data hidup)
-│       ├── test_tiles.py
-│       └── test_panels.py
-├── docs/                       dokumen kerja: PRD.md · MVP.md · README.md (penunjuk)
-├── frontend/                   kosong — React + TypeScript · Vite 7.3.8
-└── deploy/                     kosong — nginx (SPA + proxy) · systemd
+├── backend/                    FastAPI + PostgreSQL/PostGIS (Python 3.12+)
+│   ├── pyproject.toml · uv.lock        dependensi + versi terkunci (uv)
+│   ├── app/
+│   │   ├── main.py                     aplikasi FastAPI, daftar router
+│   │   ├── config.py                   DSN basis data dari variabel lingkungan
+│   │   ├── db.py                       koneksi psycopg per permintaan
+│   │   └── routers/                    satu berkas per kelompok fitur
+│   └── tests/                          pytest (butuh basis data hidup)
+├── frontend/                   React + TypeScript · Vite 7.3.8 (belum diisi)
+├── deploy/                     nginx (SPA + proxy) · systemd (belum diisi)
+└── docs/                       dokumen kerja (PRD, MVP, iterasi, konvensi)
 ```
 
-Hanya folder `backend/` yang berisi berkas nyata. `frontend/` dan `deploy/`
-masih kosong dan **tidak** dilacak git (lihat aturan 5).
-
-Nama berkas di `backend/app/routers/` memakai **Bahasa Inggris** (aturan penamaan
-2026-11-16). Peta ke kode fitur di dokumen perencanaan:
-
-| Berkas | Fitur | Isi |
-|---|---|---|
-| `maps.py` | P1–P5 | sebaran titik panas, terkini, kejadian, kerawanan, titik kejadian, tile MVT |
-| `panels.py` | W1–W4 | panel wilayah per tingkat (kabupaten/kota, kecamatan, desa) |
-| `analysis.py` | A1–A3 | tren, komposisi wilayah, peringkat |
-| `search.py` | C1 | pencarian tiga tingkat wilayah |
-| `latest.py` | P2 | titik panas terkini 24/48/72 jam + cache 15 menit |
-| `transparency.py` | T1 | sumber & batas data, unduh CSV |
-
-## Aturan yang mengikat
-
-1. **Akar repo tanpa manifest dependensi.** `pyproject.toml` (uv) di `backend/`,
-   `package.json` (npm) di `frontend/`. Tidak ada `package.json` di akar.
-2. **Data besar tidak masuk repo.** PMTiles basemap (216 MB), `siap-pakai/tabel/`
-   (31 MB), dan `titik/*.csv.gz` (13 MB) tetap di `../planning-GeoSafe/data/`;
-   nginx menunjuk ke sana lewat `deploy/nginx/`.
-3. **`.env` hanya di `backend/`.** Kunci NASA FIRMS tidak pernah sampai ke
-   `frontend/` dan tidak memakai awalan `VITE_`.
-4. **Angka dan geometri hanya dari PostgreSQL** (`geosafe`, kontainer podman `pg`,
-   port 5433). Aplikasi tidak membaca CSV `siap-pakai/` langsung, dan tidak
-   mengulang join titik→wilayah di JavaScript.
-5. **Tidak ada berkas atau folder cadangan.** Hanya berkas yang benar-benar
-   dipakai yang dibuat — tidak ada placeholder, fungsi kosong ber-`TODO`,
-   konfigurasi untuk nilai yang belum ada, atau folder kosong ber-`.gitkeep`.
-   Folder `routers/`, `frontend/`, dan `deploy/` dibuat **saat** isinya ditulis.
-6. **Komentar dan docstring Bahasa Indonesia**, sedangkan nama folder, berkas,
-   fungsi, kelas, variabel, kolom JSON, dan pesan commit Bahasa Inggris (aturan
-   2026-11-16, rincian di bagian Konvensi penulisan).
-7. **Gap berarti nol, dan itu harus dinyatakan.** ETL tidak menulis baris
-   bernilai nol (`panel_kabupaten_kota.csv` mengisinya dengan 0, basis data
-   tidak). Karena itu setiap endpoint yang angkanya bisa nol **wajib**
-   menyebutkan tahun/seri mana yang tidak punya baris — panel melakukannya lewat
-   medan `notes`, dan antarmuka yang menampilkan "0" harus ikut menampilkan
-   catatan itu. Jangan menambah baris nol diam-diam di aplikasi.
-
-Rujukan keputusan (di `../planning-GeoSafe/docs/`): `ARSITEKTUR.md` (penempatan
-fisik) · `API-P2.md` (kontrak alur terkini) · `SRS-GeoSafe.md` (kebutuhan ber-ID) ·
-`ERD-GeoSafe.md` (14 tabel) · `alur-sistem.md` (DFD dan kamus data).
+Berkas router dinamai Inggris dan dipetakan ke kode fitur dokumen perencanaan
+supaya bisa ditelusuri: `maps.py` (P1–P5) · `panels.py` (W1–W4) ·
+`analysis.py` (A1–A3) · `search.py` (C1) · `latest.py` (P2) ·
+`transparency.py` (T1). Berkas yang belum ada berarti fiturnya belum dikerjakan.
 
 ## Menjalankan backend
+
+Prasyarat: `uv` terpasang, dan basis data `geosafe` hidup (PostgreSQL 18.7 +
+PostGIS 3.7 pada kontainer `pg`, port 5433). Isinya dimuat dari repo perencanaan
+lewat `data/pembangun/muat_postgres.py`.
 
 ```bash
 cd backend
 uv sync                                 # sekali; membuat .venv + uv.lock
 
-# DSN basis data: di server nanti lewat EnvironmentFile pada unit systemd
-set -a; . ~/pg/env; set +a
-export GEOSAFE_DATABASE_URL="host=127.0.0.1 port=5433 dbname=geosafe user=$POSTGRES_USER password=$POSTGRES_PASSWORD"
+# DSN basis data — di server nanti lewat EnvironmentFile pada unit systemd
+export GEOSAFE_DATABASE_URL="host=127.0.0.1 port=5433 dbname=geosafe user=... password=..."
 
 uv run pytest -q                        # uji endpoint (butuh basis data hidup)
-uv run uvicorn app.main:app --reload    # /health · /api/v1/sources · /docs
+uv run uvicorn app.main:app --reload    # http://127.0.0.1:8000
 ```
 
-Endpoint yang sudah ada:
+Dokumentasi API hidup sendiri di `/docs` dan `/openapi.json` — dibuat FastAPI
+dari kode, jadi tidak ada berkas daftar endpoint yang bisa tertinggal.
 
-| Endpoint | Isi | Sumber angka |
+### Endpoint
+
+| Endpoint | Fitur | Isi |
 |---|---|---|
-| `GET /health` | status proses API | — |
-| `GET /api/v1/sources` | daftar dataset sumber + jumlah baris | tabel `data_sources` |
-| `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | vector tile MVT kabupaten/kota + jumlah titik panas tahun itu (properti `has_fact` menandai wilayah yang belum punya baris fakta) | tabel `regions` ⋈ `region_facts` |
-| `GET /api/v1/panel/kabupaten_kota/{kode}` | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI | `regions` ⋈ `provinces` ⋈ `region_facts` |
+| `GET /health` | — | status proses API |
+| `GET /api/v1/sources` | T1 | daftar dataset sumber, institusi, tanggal akses, jumlah baris |
+| `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT kabupaten/kota + jumlah titik panas tahun itu |
+| `GET /api/v1/panel/kabupaten_kota/{kode}` | W2 | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI |
 
-Hasil nyata 2026-11-16 (setelah cabang `feat/api-database`): `uv sync` memasang
-25 paket; `uv run pytest` **2 passed**; server hidup dan `GET /api/v1/sources`
-balas `count = 7` dengan kode 200 — kode sumbernya `BNPB-EVENT`, `BNPB-REKAP`,
-`BNPB-STATUS`, `FIRMS`, `GEOPORTAL-BNPB`, `GWIS`, `INARISK-IRBI`; waktu respons
-0,028–0,033 detik. `GET /health`, `/docs`, dan `/openapi.json` semua kode 200.
+Catatan pemakaian: tile tanpa poligon dibalas `204`; wilayah yang belum punya
+baris fakta tetap terkirim dengan properti `has_fact = 0`; panel menyertakan
+medan `notes` berisi batasan data yang **wajib** ikut ditampilkan.
 
-Hasil nyata 2026-11-16 (setelah cabang `feat/api-tiles`): `uv run pytest`
-**5 passed**; tile MVT diperiksa lewat HTTP, bukan hanya lewat SQL.
+## Aturan singkat
 
-| Permintaan | Waktu (3 kali) | Ukuran | Anggapan |
-|---|---|---|---|
-| tile dunia `z0/0/0` tahun 2020 (514 poligon) | 0,302 · 0,254 · 0,256 dtk | 47.657 B | ambang `SRS-NF-04` ≤500 ms — **lolos** |
-| tile padat `z6/51/33` (Jawa) tahun 2023 | 0,169 · 0,177 · 0,151 dtk | 15.917 B | idem |
-| tile laut `z1/0/1` | kode **204**, 0 B | — | peramban tidak mengurai muatan kosong |
+Empat hal yang paling sering menentukan keputusan harian (lengkapnya di
+[`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)):
 
-Catatan pengukuran yang harus disebut kalau angkanya dipakai: **248 dari 254 ms
-itu biaya SQL**, bukan HTTP — SQL yang sama dijalankan langsung di `psql`
-memakan 247,993 ms. Angka 93 ms di `LAPORAN-MUAT-POSTGRES.md` diukur **tanpa**
-`ST_Transform` per poligon; endpoint ini memproyeksikan geometri 4326 → 3857
-karena MVT mensyaratkan Web Mercator. Jadi angka yang benar untuk `SRS-NF-04`
-adalah hasil jalur HTTP ini (0,25–0,30 dtk), bukan 93 ms. Membuka koneksi
-psycopg per permintaan hanya 0,028–0,029 dtk, jadi `psycopg_pool` belum
-diperlukan — ditambahkan hanya kalau pengukuran berikutnya menuntut.
+1. **Angka dan geometri hanya dari PostgreSQL.** Aplikasi tidak membaca CSV
+   `siap-pakai/` langsung, dan tidak mengulang join titik ke wilayah di JavaScript.
+2. **Tidak ada berkas atau folder cadangan.** Dibuat saat isinya ditulis, bukan
+   sebagai placeholder.
+3. **Gap berarti nol, dan itu harus dinyatakan.** ETL tidak menulis baris bernilai
+   nol, jadi setiap endpoint yang angkanya bisa nol wajib menyebut tahun/seri yang
+   tidak punya baris.
+4. **Kode: nama Inggris, penjelasan Indonesia.** Pesan commit Bahasa Inggris
+   (Conventional Commits); README dan dokumen Bahasa Indonesia.
 
-Hasil nyata 2026-11-16 (setelah cabang `feat/api-panel`): `uv run pytest`
-**9 passed**; panel diukur lewat HTTP untuk tiga wilayah, ambang `SRS-NF-10`
-adalah ≤ 300 ms.
+## Dokumen
 
-| Permintaan | Waktu (3 kali) | Ukuran |
-|---|---|---|
-| `panel/kabupaten_kota/9301` (Merauke) | 0,095 · 0,035 · 0,036 dtk | 2.095 B |
-| `panel/kabupaten_kota/3204` (Bandung Barat) | 0,038 · 0,041 · 0,037 dtk | 2.157 B |
-| `panel/kabupaten_kota/1401` (Kampar) | 0,035 · 0,036 · 0,034 dtk | 2.083 B |
-| `panel/kabupaten_kota/9999` (tidak ada) | kode **404** | — |
+Dokumen akademik dan data tinggal di repo perencanaan — satu sumber kebenaran,
+tidak disalin ke sini:
 
-Hasil nyata 2026-11-16 (setelah cabang `fix/tile-missing-regions`): `uv run pytest`
-**11 passed**; tile 2020 kini memuat wilayah yang sebelumnya hilang — **50.145 byte**
-(sebelumnya 47.657 byte) dengan 39 wilayah bertanda `has_fact = 0`, yang jumlahnya
-dikonfirmasi lewat SQL langsung (`left join` menghitung 39 wilayah tanpa baris
-fakta 2020). Waktu 0,24–0,48 dtk (panggilan pertama paling lambat) — masih di bawah
-ambang `SRS-NF-04` ≤ 500 ms; tile padat Jawa 0,144 dtk / 16.571 byte.
-
-Versi yang terkunci: Python **3.13.14** (venv), fastapi **0.163.1**,
-starlette **1.10.0**, uvicorn **0.54.0**, psycopg **3.3.9**, httpx **0.28.1**,
-pytest **9.2.0**.
-
-Catatan: `fastapi.testclient` memunculkan peringatan `StarletteDeprecationWarning`
-saat memakai `httpx` dan menyarankan `httpx2`. Baru peringatan; `httpx` tetap
-dipakai karena juga diperlukan untuk menarik data NASA FIRMS.
-
-Frontend belum bisa dijalankan (`frontend/` masih kosong).
-
-## Keputusan penamaan (dikunci 2026-11-16)
-
-Aturan yang dipakai: PEP 8 untuk paket Python (huruf kecil semua, tanda hubung
-membuat impor gagal), aturan npm untuk `package.json` (tidak boleh huruf besar),
-konvensi Git untuk nama repo, dan pola yang sudah ada di mesin ini untuk unit
-systemd dan berkas nginx.
-
-| Benda | Nama | Dasar |
-|---|---|---|
-| paket Python backend | `backend/app/` | huruf kecil semua (PEP 8); mengikuti contoh resmi FastAPI `uvicorn app.main:app` |
-| proyek Python (`pyproject.toml`) | `geosafe-api` | huruf kecil; `-api` membedakan dari basis data |
-| paket npm | `geosafe-frontend` | npm menolak huruf besar |
-| unit systemd | `geosafe-api.service` | pola unit di mesin ini (`backend-abn.service`) |
-| berkas nginx | `deploy/nginx/geosafe.conf` | pola situs di mesin ini (`sia-iti`) |
-| basis data · kontainer · basemap | `geosafe` · `pg` · `indonesia.pmtiles` | sudah sesuai aturan |
-| branch | `main` | konvensi Git |
-
-Nama folder repo (`project-GeoSafe` dan `planning-GeoSafe`) **sengaja tidak
-diubah** — keputusan 2026-11-16, jadi jangan dirapikan tanpa persetujuan.
-
-## Alur kerja git (dikunci 2026-11-16)
-
-Model **trunk-based dengan cabang pendek**. `main` harus selalu bisa dijalankan:
-repo ini publik, tidak ada CI, dan aplikasinya dipakai untuk demo.
-
-| Hal | Aturan |
+| Dokumen | Isi |
 |---|---|
-| `main` | selalu bisa dijalankan; **dilarang** `git push --force` |
-| Cabang kerja | `feat/<slug>` · `fix/<slug>` · `docs/<slug>` · `chore/<slug>` — huruf kecil, kebab |
-| Umur cabang | satu tujuan, 1–3 sesi; lebih dari itu dipotong jadi lebih kecil |
-| Masuk ke `main` | Pull Request, lalu **squash merge** — `main` jadi satu commit per fitur |
-| Cabang setelah digabung | **tidak dihapus** (dipilih 2026-11-16 sebagai jejak saat sidang) |
-| Jejak iterasi | tag `iter-NN-<slug>` pada commit hasil merge, di-push ke GitHub |
-| Deskripsi PR | wajib memuat: apa yang ditambah, kenapa, dan bukti jalannya |
-| Perubahan kode | selalu lewat cabang; dokumentasi/aturan kecil boleh langsung ke `main` |
+| `../planning-GeoSafe/docs/SRS-GeoSafe.md` | 126 kebutuhan ber-ID (`SRS-*`), 32 halaman |
+| `../planning-GeoSafe/docs/ERD-GeoSafe.md` | 14 tabel, 30 relasi |
+| `../planning-GeoSafe/docs/ARSITEKTUR.md` | pilihan bahasa, framework, basis data, penyajian, deploy |
+| `../planning-GeoSafe/docs/alur-sistem.md` | aktor, use case, DFD, kamus data |
+| `../planning-GeoSafe/docs/API-P2.md` | kontrak alur "titik panas terkini" |
+| `../planning-GeoSafe/data/SUMBER.md` | seluruh dataset + URL + tanggal akses |
 
-Alasan memilih squash, bukan merge commit: tanpa CI tidak ada penjaga mutu
-otomatis, jadi commit tengah cabang yang setengah jalan tidak boleh sampai ke
-`main`. Riwayat per-langkah tidak hilang — tetap ada di halaman PR dan di
-`refs/pull/<nomor>/head` di GitHub (bisa diambil dengan
-`git fetch origin pull/<nomor>/head:<nama-lokal>`).
+## Data dan lisensi
 
-Cara menjalankan satu fitur:
-
-```bash
-git switch -c feat/<slug>
-# ... kerja; commit bergaya Conventional Commits ...
-git push -u origin feat/<slug>
-gh pr create --base main --title "<type>(<scope>): <subject>" --body "<apa, kenapa, bukti>"
-gh pr merge <nomor> --squash --subject "<type>(<scope>): <subject>" --body "<ringkasan>"
-git switch main && git pull --ff-only
-git tag iter-NN-<slug> && git push origin iter-NN-<slug>
-```
-
-Riwayat iterasi:
-
-| Tag | PR | Isi |
-|---|---|---|
-| `iter-01-api-database` | #1 | `config.py` · `db.py` · `GET /api/v1/sources` (T1) |
-| `iter-02-api-tiles` | #2 | `maps.py` · `GET /tiles/regions/{z}/{x}/{y}.mvt` (P1) |
-| `iter-03-api-panel` | #3 | `panels.py` · `GET /api/v1/panel/kabupaten_kota/{kode}` (W2) |
-| `iter-04-tile-missing-regions` | #4 | `maps.py` · `has_fact` (LEFT JOIN) — 39 wilayah tanpa baris fakta tetap terkirim |
-
-## Konvensi penulisan (dikunci 2026-11-16)
-
-| Hal | Aturan |
-|---|---|
-| Nama folder dan berkas | Bahasa Inggris. Python: huruf kecil, `snake_case` (`maps.py`, `hotspot_series.py`). Konfigurasi: `kebab-case` (`geosafe-api.service`, `geosafe.conf`) |
-| Nama fungsi, kelas, variabel | Bahasa Inggris. Python: `snake_case` untuk fungsi/variabel, `PascalCase` untuk kelas. TypeScript: `camelCase` untuk fungsi, `PascalCase` untuk komponen React |
-| Nama kolom JSON / API | Bahasa Inggris, sama persis dengan nama kolom basis data (`hotspot_count`, `region_code`, `event_count`) |
-| Komentar dan docstring | **Bahasa Indonesia** (keputusan 2026-11-16). Nama fungsi, kelas, variabel, dan kolom tetap Inggris; hanya penjelasan di dalam kode yang Indonesia |
-| Pesan commit | Bahasa Inggris, Conventional Commits |
-| `README.md` dan berkas penunjuk repo | Bahasa Indonesia |
-| Dokumen perencanaan (SRS, proposal, ERD) | Bahasa Indonesia, tetap di `../planning-GeoSafe/` |
-
-Kode fitur di dokumen perencanaan (P1–P5, W1–W4, A1–A3, C1, T1) tetap dipakai
-**sebagai penanda traceability**, bukan sebagai nama berkas.
-
-### Format pesan commit (Conventional Commits)
-
-```
-<type>(<scope>): <subject imperatif, huruf kecil, tanpa titik di akhir>
-```
-
-- **type**: `feat` · `fix` · `docs` · `refactor` · `perf` · `test` · `build` · `ci` · `chore` · `style`
-- **scope**: bagian yang disentuh — `api` · `frontend` · `deploy` · `db` · `docs`
-- baris judul ≤ 72 karakter; alasan perubahan masuk badan pesan, bukan daftar berkas
-
-Contoh yang benar:
-
-```
-feat(api): add choropleth tile endpoint for hotspot series
-fix(api): return null instead of zero when a hotspot count is missing
-perf(api): index village geometry to cut tile time
-test(api): cover point-in-polygon join for recent hotspots
-docs: record naming and commit conventions
-chore(api): add pyproject and uv lockfile
-build(deploy): add nginx site config and systemd unit
-```
-
-Dilarang: pesan berbahasa Indonesia, `update file`, `fix bug`, `wip`, `revisi`.
+Angka berasal dari sumber terbuka: NASA FIRMS (titik panas), BNPB (kejadian
+karhutla, rekap, status darurat), BNPB/InaRISK (IRBI), GWIS via OWID (luas
+terbakar nasional), dan GeoPortal BNPB (batas administrasi). Masing-masing
+mengikuti lisensi sumbernya; raster bahaya InaRISK **tidak** dipakai karena
+lisensinya menuntut izin tertulis. Tujuh celah data yang diketahui — termasuk
+korban dan kerusakan karhutla yang praktis kosong — tercantum di halaman T1
+aplikasi dan di `docs/PRD.md` bagian 6.
