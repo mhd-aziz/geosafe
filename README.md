@@ -3,26 +3,32 @@
 Purwarupa aplikasi (kode sistem). Ini **bukan** repo perencanaan: data mentah,
 proposal, SRS, ERD, dan alur sistem ada di `../planning-GeoSafe/`.
 
-Aplikasi **belum dibangun**. Berkas ini penunjuk struktur dan aturan yang sudah
-diputuskan; isi kode menyusul.
+Backend **sudah bisa dijalankan** sejak 2026-11-16 (endpoint `/health`); frontend
+belum dikerjakan. Berkas ini penunjuk struktur dan aturan yang sudah diputuskan.
 
 ## Struktur
 
 ```
 project-GeoSafe/
-├── backend/                FastAPI + uvicorn + psycopg + httpx (Python 3.12+)
-│   ├── app/                paket Python (huruf kecil sesuai PEP 8)
-│   │   ├── main.py         (menyusul) aplikasi FastAPI + daftar router
-│   │   ├── config.py       (menyusul) baca .env
-│   │   ├── db.py           (menyusul) koneksi ke PostgreSQL `geosafe`
-│   │   ├── cache.py        (menyusul) cache 15 menit + snapshot.json
-│   │   ├── firms.py        (menyusul) tarik NASA FIRMS
-│   │   └── routers/        satu berkas per kelompok fitur (nama Inggris):
-│   │                       maps · panels · analysis · search · latest · transparency
-│   └── tests/              pytest: endpoint + join titik→wilayah
-├── frontend/               React + TypeScript · Vite 7.3.8 · MapLibre · ECharts
-└── deploy/                 nginx (SPA + reverse proxy) · systemd (Restart=always)
+├── backend/                    ada isi
+│   ├── pyproject.toml          dependensi (uv); requires-python >=3.12
+│   ├── uv.lock                 versi terkunci hasil `uv sync`
+│   ├── app/                    paket Python (huruf kecil sesuai PEP 8)
+│   │   ├── __init__.py
+│   │   ├── main.py             aplikasi FastAPI + endpoint /health
+│   │   ├── config.py           (menyusul) baca .env
+│   │   ├── db.py               (menyusul) koneksi ke PostgreSQL `geosafe`
+│   │   ├── cache.py            (menyusul) cache 15 menit + snapshot.json
+│   │   ├── firms.py            (menyusul) tarik NASA FIRMS
+│   │   └── routers/            (menyusul) satu berkas per kelompok fitur
+│   └── tests/
+│       └── test_health.py      pytest
+├── frontend/                   kosong — React + TypeScript · Vite 7.3.8
+└── deploy/                     kosong — nginx (SPA + proxy) · systemd
 ```
+
+Hanya folder `backend/` yang berisi berkas nyata. `frontend/` dan `deploy/`
+masih kosong dan **tidak** dilacak git (lihat aturan 5).
 
 Nama berkas di `backend/app/routers/` memakai **Bahasa Inggris** (aturan penamaan
 2026-11-16). Peta ke kode fitur di dokumen perencanaan:
@@ -48,20 +54,41 @@ Nama berkas di `backend/app/routers/` memakai **Bahasa Inggris** (aturan penamaa
 4. **Angka dan geometri hanya dari PostgreSQL** (`geosafe`, kontainer podman `pg`,
    port 5433). Aplikasi tidak membaca CSV `siap-pakai/` langsung, dan tidak
    mengulang join titik→wilayah di JavaScript.
+5. **Tidak ada berkas atau folder cadangan.** Hanya berkas yang benar-benar
+   dipakai yang dibuat — tidak ada placeholder, fungsi kosong ber-`TODO`,
+   konfigurasi untuk nilai yang belum ada, atau folder kosong ber-`.gitkeep`.
+   Folder `routers/`, `frontend/`, dan `deploy/` dibuat **saat** isinya ditulis.
+6. **Komentar dan docstring Bahasa Indonesia**, sedangkan nama folder, berkas,
+   fungsi, kelas, variabel, kolom JSON, dan pesan commit Bahasa Inggris (aturan
+   2026-11-16, rincian di bagian Konvensi penulisan).
 
 Rujukan keputusan (di `../planning-GeoSafe/docs/`): `ARSITEKTUR.md` (penempatan
 fisik) · `API-P2.md` (kontrak alur terkini) · `SRS-GeoSafe.md` (kebutuhan ber-ID) ·
 `ERD-GeoSafe.md` (14 tabel) · `alur-sistem.md` (DFD dan kamus data).
 
-## Menjalankan (belum bisa)
-
-Backend dan frontend belum ada isinya. Urutan pengerjaan yang direncanakan:
+## Menjalankan backend
 
 ```bash
-cd backend && uv sync            # menyusul: pyproject.toml
-uv run uvicorn app.main:app --reload
-cd frontend && npm install       # menyusul: package.json (Vite 7.3.8, Node 22 LTS)
+cd backend
+uv sync                                 # sekali; membuat .venv + uv.lock
+uv run pytest -q                        # uji endpoint
+uv run uvicorn app.main:app --reload    # /health · /docs · /openapi.json
 ```
+
+Hasil nyata 2026-11-16: `uv sync` memasang 25 paket dari `uv.lock`; `uv run pytest`
+**1 passed**; server hidup dan `GET /health` balas
+`{"status":"ok","service":"geosafe-api","version":"0.1.0"}` dengan kode 200,
+`/docs` dan `/openapi.json` juga 200.
+
+Versi yang terkunci: Python **3.13.14** (venv), fastapi **0.163.1**,
+starlette **1.10.0**, uvicorn **0.54.0**, psycopg **3.3.9**, httpx **0.28.1**,
+pytest **9.2.0**.
+
+Catatan: `fastapi.testclient` memunculkan peringatan `StarletteDeprecationWarning`
+saat memakai `httpx` dan menyarankan `httpx2`. Baru peringatan; `httpx` tetap
+dipakai karena juga diperlukan untuk menarik data NASA FIRMS.
+
+Frontend belum bisa dijalankan (`frontend/` masih kosong).
 
 ## Keputusan penamaan (dikunci 2026-11-16)
 
