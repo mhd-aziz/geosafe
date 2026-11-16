@@ -117,7 +117,7 @@ repo ini publik, tidak ada CI, dan aplikasinya dipakai untuk demo.
 | Cabang kerja | `feat/<slug>` · `fix/<slug>` · `docs/<slug>` · `chore/<slug>` — huruf kecil, kebab |
 | Umur cabang | satu tujuan, 1–3 sesi; lebih dari itu dipotong jadi lebih kecil |
 | Masuk ke `main` | Pull Request, lalu **squash merge** — `main` jadi satu commit per fitur |
-| Cabang setelah digabung | **tidak dihapus** (dipilih sebagai jejak saat sidang) |
+| Cabang setelah digabung | **tidak dihapus** (dipilih sebagai jejak saat sidang); pengecualian hanya kalau pemilik repo memintanya, dan pengecualian itu dicatat di `ITERATIONS.md` — cabang `refactor/api-english-identifiers` (penyisipan 06b) dihapus atas permintaan pemilik, tag `iter-06b-english-names` tetap ada |
 | Jejak iterasi | tag `iter-NN-<slug>` pada commit hasil merge, di-push ke GitHub |
 | Deskripsi PR | wajib memuat: apa yang ditambah, kenapa, dan bukti jalannya |
 | Perubahan kode | selalu lewat cabang; dokumentasi/aturan boleh langsung ke `main` |

@@ -19,9 +19,12 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 04 | `fix/tile-missing-regions` | tile memuat wilayah tanpa baris fakta | #4 | `iter-04-tile-missing-regions` |
 | 05 | `feat/api-search` | pencarian wilayah empat tingkat (C1) | #5 | `iter-05-api-search` |
 | 06 | `feat/api-trend` | tren nasional dua seri + luas terbakar konteks (A1) | #6 | `iter-06-api-trend` |
+| 06b | `refactor/api-english-identifiers` | seluruh identifier jadi Bahasa Inggris (termasuk nama uji); cabang **dihapus** setelah merge | #7 | `iter-06b-english-names` |
 
 Semua dikerjakan 2026-11-16. Cabang **tidak dihapus** setelah digabung (lihat
-[`CONVENTIONS.md`](CONVENTIONS.md) bagian 4).
+[`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
+`refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
+`iter-06b-english-names` tetap dibuat.
 
 ---
 
@@ -215,6 +218,36 @@ Temuan:
 
 ---
 
+## Penyisipan 06b — `refactor/api-english-identifiers` (PR #7)
+
+Sekadar penggantian nama, tanpa perubahan perilaku. Seluruh identifier Python di
+`backend/` — fungsi, parameter, variabel, konstanta, alias SQL — diganti ke
+Bahasa Inggris; komentar, docstring, dan teks yang dibaca manusia tetap Bahasa
+Indonesia.
+
+| Berkas | Sebelum | Sesudah |
+|---|---|---|
+| `panels.py` | `_nilai_tunggal`, `_catatan`, `tahun_titik_panas`, `tahun_kejadian`, `seri_kurang` | `_single_value`, `_panel_notes`, `hotspot_years`, `event_years`, `missing_series` |
+| `search.py` | `_baris`, `_catatan`, `nilai` | `_result_row`, `_search_notes`, `value` |
+| `analysis.py` | `_tahun_hilang`, `_catatan`, `per_tahun`, `arsip`, `nama`, `hilang`, `tahun_fill`, `tahun_burned` | `_missing_years`, `_trend_notes`, `by_year`, `archive_values`, `name`, `missing`, `fill_years`, `burned_years` |
+| `tests/` | 24 nama uji + `_cari`, `TILE_DUNIA`, `TILE_LAUT`, alias SQL `baris`/`wilayah` | nama uji Inggris + `_search`, `WORLD_TILE`, `OCEAN_TILE`, alias `fact_rows`/`region_count` |
+
+Alasan: `CONVENTIONS.md` menetapkan identifier Inggris, tetapi `AGENTS.md`
+menetapkan nama fungsi uji Indonesia — dua berkas konvensi itu saling
+bertentangan, sehingga setiap kode baru mengikuti tetangga yang dibaca lebih
+dulu. Keduanya kini sepakat: identifier Inggris (uji termasuk), komentar dan
+docstring Indonesia.
+
+Bukti: `uv run pytest -q` → **24 passed, 1 warning**, jumlah sama seperti sebelum
+penggantian nama. `grep` sisa kata Indonesia pada baris `def`/penugasan/`for` di
+`backend/app/**` dan `backend/tests/**` hanya menemukan string dan komentar
+(mis. tag router `"C1 pencarian wilayah"`, `description="Tahun seri titik panas"`).
+
+Cabang dihapus setelah squash merge atas permintaan pemilik repo (pengecualian
+aturan "cabang tidak dihapus"); tag `iter-06b-english-names` tetap ada.
+
+---
+
 ## Versi yang terkunci
 
 Dari `uv.lock` (2026-11-16): Python **3.13.14** (venv) · fastapi **0.163.1** ·
@@ -233,6 +266,7 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 | 2026-11-16 | `CATATAN-DISKUSI.md` | status proyek + entri sesi ke-19 |
 | 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C (baris iterasi 05), bagian G (bukti + 812 desa tanpa kode kecamatan induk), bagian F (antrean menjadi iterasi 06) |
 | 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C (baris iterasi 06), bagian G (bukti tren nasional), bagian H (antrean menjadi iterasi 07) |
+| 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C + H (penyisipan 06b: identifier Inggris, cabang dihapus, tag tetap) |
 
 ## Cara menambah entri
 
