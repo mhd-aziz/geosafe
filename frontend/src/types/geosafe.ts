@@ -149,3 +149,66 @@ export interface SelectedRegion {
   level: SearchLevel;
   bbox: [number, number, number, number] | null;
 }
+
+/** Jendela waktu lapisan terkini yang sah (`SRS-F-21`); nilai lain ditolak API. */
+export type LatestWindow = 24 | 48 | 72;
+
+/** Kelas keyakinan hasil normalisasi dua skala (VIIRS huruf, MODIS 0–100). */
+export type ConfidenceClass = 'low' | 'nominal' | 'high';
+
+export interface LatestSatellite {
+  name: string;
+  available: boolean;
+  /** Tanggal akuisisi terakhir yang pernah terlihat; `null` = belum pernah. */
+  last_acq_date: string | null;
+}
+
+/** Satu titik panas terkini; `region_code` hasil join saat permintaan (`SRS-F-22`). */
+export interface LatestPoint {
+  latitude: number;
+  longitude: number;
+  observed_at: string;
+  /** Nilai asal apa adanya: VIIRS `l/n/h`, MODIS `0`–`100`. */
+  confidence: string | null;
+  confidence_class: ConfidenceClass | null;
+  satellite: string;
+  instrument: string;
+  brightness: number | null;
+  frp: number | null;
+  /** `null` = titik di luar poligon wilayah (laut/batas), bukan wilayah tak dikenal. */
+  region_code: string | null;
+}
+
+/** Medan yang sama pada `/latest` dan `/latest/summary`.
+ *
+ * Tidak ada `hotspot_count` di sini dan itu disengaja (`SRS-F-26`): angka terkini
+ * tidak boleh dijumlahkan dengan angka arsip 2020–2026.
+ */
+export interface LatestBase {
+  fetched_at: string;
+  window_hours: LatestWindow;
+  window_start: string;
+  series: 'nrt';
+  using_snapshot: boolean;
+  snapshot_age_seconds: number;
+  point_count: number;
+  points_outside_polygon: number;
+  satellites: LatestSatellite[];
+}
+
+/** `GET /api/v1/latest` — titik terkini untuk peta (`P2`). */
+export interface LatestResponse extends LatestBase {
+  /** `true` = muatan melewati 2 MB, sehingga `points` diganti `null`. */
+  truncated: boolean;
+  points: LatestPoint[] | null;
+}
+
+/** `GET /api/v1/latest/summary` — ringkasan nasional untuk panel (`W1`). */
+export interface LatestSummary extends LatestBase {
+  regions_with_points: number;
+  top_provinces: {
+    province_code: string;
+    province_name: string;
+    point_count: number;
+  }[];
+}

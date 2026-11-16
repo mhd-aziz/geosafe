@@ -1,12 +1,21 @@
 import { useCallback, useState } from 'react';
 
 import { Legend } from '../components/map/Legend';
+import { LatestControl } from '../components/map/LatestControl';
 import { MapToolbar } from '../components/map/MapToolbar';
 import { MapView } from '../components/map/MapView';
+import { LatestPanel } from '../components/panel/LatestPanel';
 import { RegionPanel } from '../components/panel/RegionPanel';
 import { SearchBox } from '../components/search/SearchBox';
+import { useLatestHotspots } from '../hooks/useLatestHotspots';
 import { DEFAULT_YEAR } from '../lib/constants';
-import type { MapLevel, SearchLevel, SearchResult, SelectedRegion } from '../types/geosafe';
+import type {
+  LatestWindow,
+  MapLevel,
+  SearchLevel,
+  SearchResult,
+  SelectedRegion,
+} from '../types/geosafe';
 
 type Bounds = [number, number, number, number];
 
@@ -15,12 +24,18 @@ type Bounds = [number, number, number, number];
  * Saklar tingkat wilayah memakai tile provinsi (`SRS-F-13`); panel hanya ada
  * untuk kabupaten/kota (`W2`), sehingga tingkat lain cukup memperbesar peta dan
  * menyebutkan bahwa panelnya belum dikerjakan.
+ *
+ * Lapisan titik terkini (`P2`) hidup berdampingan dengan choropleth arsip: dua
+ * seri itu tidak pernah dijumlahkan (`SRS-F-26`) — titik terkini digambar sebagai
+ * titik, choropleth memakai seri `main` per tahun.
  */
 export function MapPage() {
   const [year, setYear] = useState<number>(DEFAULT_YEAR);
   const [level, setLevel] = useState<MapLevel>('regency');
   const [selected, setSelected] = useState<SelectedRegion | null>(null);
   const [focusBounds, setFocusBounds] = useState<Bounds | null>(null);
+  const [latestWindow, setLatestWindow] = useState<LatestWindow>(72);
+  const latest = useLatestHotspots(latestWindow);
 
   const handleSelectFromMap = useCallback(
     (region: { code: string; name: string; level: SearchLevel }) => {
@@ -53,11 +68,22 @@ export function MapPage() {
           year={year}
           level={level}
           focusBounds={focusBounds}
+          latestPoints={latest.data?.points ?? null}
           onSelectRegion={handleSelectFromMap}
         />
         <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto flex flex-col gap-3">
             <MapToolbar year={year} level={level} onYearChange={setYear} onLevelChange={setLevel} />
+            <LatestControl
+              windowHours={latestWindow}
+              onWindowChange={setLatestWindow}
+              fetchedAt={latest.data?.fetched_at ?? null}
+              satellites={latest.data?.satellites ?? []}
+              usingSnapshot={latest.data?.using_snapshot ?? false}
+              pointCount={latest.data?.point_count ?? null}
+              truncated={latest.data?.truncated ?? false}
+              onRefresh={latest.refresh}
+            />
           </div>
           <div className="pointer-events-auto">
             <Legend />
@@ -67,6 +93,8 @@ export function MapPage() {
 
       <aside className="w-full shrink-0 space-y-4 overflow-y-auto border-t border-slate-200 bg-white p-4 lg:w-[24rem] lg:border-t-0 lg:border-l">
         <SearchBox onSelect={handleSelectFromSearch} />
+
+        <LatestPanel summary={latest.summary} status={latest.status} error={latest.error} />
 
         {selected ? (
           selected.level === 'regency' ? (

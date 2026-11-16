@@ -1,8 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchDownloads, fetchPointCoverage, fetchSources } from './api/geosafe';
+import {
+  fetchDownloads,
+  fetchLatest,
+  fetchLatestSummary,
+  fetchPointCoverage,
+  fetchSources,
+} from './api/geosafe';
 import { App } from './App';
 
 // Peta butuh WebGL dan tile jaringan; yang diuji di sini tata letak halaman,
@@ -18,12 +24,50 @@ vi.mock('./api/geosafe', () => ({
   fetchPointCoverage: vi.fn(),
   fetchDownloads: vi.fn(),
   fetchNationalTrend: vi.fn(),
+  fetchLatest: vi.fn(),
+  fetchLatestSummary: vi.fn(),
   downloadFileUrl: (name: string) => `/api/v1/downloads/${name}`,
 }));
 
 const fetchSourcesMock = vi.mocked(fetchSources);
 const fetchPointCoverageMock = vi.mocked(fetchPointCoverage);
 const fetchDownloadsMock = vi.mocked(fetchDownloads);
+const fetchLatestMock = vi.mocked(fetchLatest);
+const fetchLatestSummaryMock = vi.mocked(fetchLatestSummary);
+
+/** Halaman peta menarik lapisan terkini saat dibuka; angkanya cukup satu titik. */
+function mockLatest() {
+  fetchLatestMock.mockResolvedValue({
+    fetched_at: '2026-11-17T06:20:11Z',
+    window_hours: 72,
+    window_start: '2026-11-14T06:20:11Z',
+    series: 'nrt',
+    using_snapshot: false,
+    snapshot_age_seconds: 0,
+    point_count: 4425,
+    points_outside_polygon: 354,
+    truncated: false,
+    satellites: [{ name: 'MODIS_NRT', available: true, last_acq_date: '2026-11-16' }],
+    points: [],
+  });
+  fetchLatestSummaryMock.mockResolvedValue({
+    fetched_at: '2026-11-17T06:20:11Z',
+    window_hours: 72,
+    window_start: '2026-11-14T06:20:11Z',
+    series: 'nrt',
+    using_snapshot: false,
+    snapshot_age_seconds: 0,
+    point_count: 4425,
+    points_outside_polygon: 354,
+    regions_with_points: 231,
+    satellites: [{ name: 'MODIS_NRT', available: true, last_acq_date: '2026-11-16' }],
+    top_provinces: [
+      { province_code: '94', province_name: 'PAPUA SELATAN', point_count: 193 },
+    ],
+  });
+}
+
+beforeEach(mockLatest);
 
 function renderApp(path = '/') {
   render(
@@ -56,6 +100,17 @@ describe('App', () => {
     expect(screen.getByLabelText('Cari wilayah')).toBeTruthy();
     // prinsip yang tidak boleh hilang dari halaman: titik panas bukan kebakaran
     expect(screen.getByText(/Titik panas bukan kebakaran/)).toBeTruthy();
+  });
+
+  it('memuat lapisan titik terkini beserta kendali jendela dan ringkasannya', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp();
+
+    expect(await screen.findByText(/Titik panas terkini/)).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Jendela jam terkini' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '72 jam' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('heading', { name: 'Ringkasan nasional titik panas' })).toBeTruthy();
+    expect(screen.getByText('231')).toBeTruthy();
   });
 
   it('memuat navigasi tiga halaman', async () => {
