@@ -19,12 +19,14 @@ project-GeoSafe/
 │   │   ├── config.py           baca variabel lingkungan (DSN basis data)
 │   │   ├── db.py               koneksi psycopg ke PostgreSQL `geosafe`
 │   │   ├── routers/
+│   │   │   ├── maps.py         P1 — GET /tiles/regions/{z}/{x}/{y}.mvt
 │   │   │   └── transparency.py T1 — GET /api/v1/sources
 │   │   ├── cache.py            (menyusul) cache 15 menit + snapshot.json
 │   │   └── firms.py            (menyusul) tarik NASA FIRMS
 │   └── tests/
 │       ├── test_health.py
-│       └── test_sources.py     pytest (butuh basis data hidup)
+│       ├── test_sources.py     pytest (butuh basis data hidup)
+│       └── test_tiles.py
 ├── frontend/                   kosong — React + TypeScript · Vite 7.3.8
 └── deploy/                     kosong — nginx (SPA + proxy) · systemd
 ```
@@ -88,12 +90,31 @@ Endpoint yang sudah ada:
 |---|---|---|
 | `GET /health` | status proses API | — |
 | `GET /api/v1/sources` | daftar dataset sumber + jumlah baris | tabel `data_sources` |
+| `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | vector tile MVT kabupaten/kota + jumlah titik panas tahun itu | tabel `regions` ⋈ `region_facts` |
 
 Hasil nyata 2026-11-16 (setelah cabang `feat/api-database`): `uv sync` memasang
 25 paket; `uv run pytest` **2 passed**; server hidup dan `GET /api/v1/sources`
 balas `count = 7` dengan kode 200 — kode sumbernya `BNPB-EVENT`, `BNPB-REKAP`,
 `BNPB-STATUS`, `FIRMS`, `GEOPORTAL-BNPB`, `GWIS`, `INARISK-IRBI`; waktu respons
 0,028–0,033 detik. `GET /health`, `/docs`, dan `/openapi.json` semua kode 200.
+
+Hasil nyata 2026-11-16 (setelah cabang `feat/api-tiles`): `uv run pytest`
+**5 passed**; tile MVT diperiksa lewat HTTP, bukan hanya lewat SQL.
+
+| Permintaan | Waktu (3 kali) | Ukuran | Anggapan |
+|---|---|---|---|
+| tile dunia `z0/0/0` tahun 2020 (514 poligon) | 0,302 · 0,254 · 0,256 dtk | 47.657 B | ambang `SRS-NF-04` ≤500 ms — **lolos** |
+| tile padat `z6/51/33` (Jawa) tahun 2023 | 0,169 · 0,177 · 0,151 dtk | 15.917 B | idem |
+| tile laut `z1/0/1` | kode **204**, 0 B | — | peramban tidak mengurai muatan kosong |
+
+Catatan pengukuran yang harus disebut kalau angkanya dipakai: **248 dari 254 ms
+itu biaya SQL**, bukan HTTP — SQL yang sama dijalankan langsung di `psql`
+memakan 247,993 ms. Angka 93 ms di `LAPORAN-MUAT-POSTGRES.md` diukur **tanpa**
+`ST_Transform` per poligon; endpoint ini memproyeksikan geometri 4326 → 3857
+karena MVT mensyaratkan Web Mercator. Jadi angka yang benar untuk `SRS-NF-04`
+adalah hasil jalur HTTP ini (0,25–0,30 dtk), bukan 93 ms. Membuka koneksi
+psycopg per permintaan hanya 0,028–0,029 dtk, jadi `psycopg_pool` belum
+diperlukan — ditambahkan hanya kalau pengukuran berikutnya menuntut.
 
 Versi yang terkunci: Python **3.13.14** (venv), fastapi **0.163.1**,
 starlette **1.10.0**, uvicorn **0.54.0**, psycopg **3.3.9**, httpx **0.28.1**,
