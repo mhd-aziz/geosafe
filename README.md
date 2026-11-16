@@ -15,14 +15,16 @@ project-GeoSafe/
 │   ├── uv.lock                 versi terkunci hasil `uv sync`
 │   ├── app/                    paket Python (huruf kecil sesuai PEP 8)
 │   │   ├── __init__.py
-│   │   ├── main.py             aplikasi FastAPI + endpoint /health
-│   │   ├── config.py           (menyusul) baca .env
-│   │   ├── db.py               (menyusul) koneksi ke PostgreSQL `geosafe`
+│   │   ├── main.py             aplikasi FastAPI + /health
+│   │   ├── config.py           baca variabel lingkungan (DSN basis data)
+│   │   ├── db.py               koneksi psycopg ke PostgreSQL `geosafe`
+│   │   ├── routers/
+│   │   │   └── transparency.py T1 — GET /api/v1/sources
 │   │   ├── cache.py            (menyusul) cache 15 menit + snapshot.json
-│   │   ├── firms.py            (menyusul) tarik NASA FIRMS
-│   │   └── routers/            (menyusul) satu berkas per kelompok fitur
+│   │   └── firms.py            (menyusul) tarik NASA FIRMS
 │   └── tests/
-│       └── test_health.py      pytest
+│       ├── test_health.py
+│       └── test_sources.py     pytest (butuh basis data hidup)
 ├── frontend/                   kosong — React + TypeScript · Vite 7.3.8
 └── deploy/                     kosong — nginx (SPA + proxy) · systemd
 ```
@@ -71,14 +73,27 @@ fisik) · `API-P2.md` (kontrak alur terkini) · `SRS-GeoSafe.md` (kebutuhan ber-
 ```bash
 cd backend
 uv sync                                 # sekali; membuat .venv + uv.lock
-uv run pytest -q                        # uji endpoint
-uv run uvicorn app.main:app --reload    # /health · /docs · /openapi.json
+
+# DSN basis data: di server nanti lewat EnvironmentFile pada unit systemd
+set -a; . ~/pg/env; set +a
+export GEOSAFE_DATABASE_URL="host=127.0.0.1 port=5433 dbname=geosafe user=$POSTGRES_USER password=$POSTGRES_PASSWORD"
+
+uv run pytest -q                        # uji endpoint (butuh basis data hidup)
+uv run uvicorn app.main:app --reload    # /health · /api/v1/sources · /docs
 ```
 
-Hasil nyata 2026-11-16: `uv sync` memasang 25 paket dari `uv.lock`; `uv run pytest`
-**1 passed**; server hidup dan `GET /health` balas
-`{"status":"ok","service":"geosafe-api","version":"0.1.0"}` dengan kode 200,
-`/docs` dan `/openapi.json` juga 200.
+Endpoint yang sudah ada:
+
+| Endpoint | Isi | Sumber angka |
+|---|---|---|
+| `GET /health` | status proses API | — |
+| `GET /api/v1/sources` | daftar dataset sumber + jumlah baris | tabel `data_sources` |
+
+Hasil nyata 2026-11-16 (setelah cabang `feat/api-database`): `uv sync` memasang
+25 paket; `uv run pytest` **2 passed**; server hidup dan `GET /api/v1/sources`
+balas `count = 7` dengan kode 200 — kode sumbernya `BNPB-EVENT`, `BNPB-REKAP`,
+`BNPB-STATUS`, `FIRMS`, `GEOPORTAL-BNPB`, `GWIS`, `INARISK-IRBI`; waktu respons
+0,028–0,033 detik. `GET /health`, `/docs`, dan `/openapi.json` semua kode 200.
 
 Versi yang terkunci: Python **3.13.14** (venv), fastapi **0.163.1**,
 starlette **1.10.0**, uvicorn **0.54.0**, psycopg **3.3.9**, httpx **0.28.1**,
