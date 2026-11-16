@@ -23,10 +23,10 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 5 endpoint, `uv run pytest` 18 passed |
+| Backend (`backend/`) | berjalan — 6 endpoint, `uv run pytest` 24 passed |
 | Frontend (`frontend/`) | belum mulai |
 | Deploy (`deploy/`) | belum mulai (nginx + systemd menyusul) |
-| Iterasi selesai | 5 — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | 6 — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -91,6 +91,7 @@ dari kode, jadi tidak ada berkas daftar endpoint yang bisa tertinggal.
 | `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT kabupaten/kota + jumlah titik panas tahun itu |
 | `GET /api/v1/panel/kabupaten_kota/{kode}` | W2 | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI |
 | `GET /api/v1/search/regions?q=` | C1 | pencarian wilayah empat tingkat (provinsi, kabupaten/kota, kecamatan, desa/kelurahan), maksimal 20 baris + `bbox` untuk memperbesar peta |
+| `GET /api/v1/analysis/national_trend` | A1 | tren nasional 2020–2026: titik panas (seri `main`/`fill`/`nrt` apa adanya + `archive_total`) dan kejadian, plus luas terbakar sebagai konteks |
 
 Catatan pemakaian: tile tanpa poligon dibalas `204`; wilayah yang belum punya
 baris fakta tetap terkirim dengan properti `has_fact = 0`; panel menyertakan

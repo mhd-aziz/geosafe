@@ -18,6 +18,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 03 | `feat/api-panel` | panel kabupaten/kota (W2) | #3 | `iter-03-api-panel` |
 | 04 | `fix/tile-missing-regions` | tile memuat wilayah tanpa baris fakta | #4 | `iter-04-tile-missing-regions` |
 | 05 | `feat/api-search` | pencarian wilayah empat tingkat (C1) | #5 | `iter-05-api-search` |
+| 06 | `feat/api-trend` | tren nasional dua seri + luas terbakar konteks (A1) | #6 | `iter-06-api-trend` |
 
 Semua dikerjakan 2026-11-16. Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4).
@@ -169,6 +170,51 @@ Temuan:
 
 ---
 
+## Iterasi 06 — `feat/api-trend` (PR #6)
+
+`app/routers/analysis.py`: `GET /api/v1/analysis/national_trend` — satu query
+membaca baris nasional (`region_code` dan `province_code` sama-sama kosong) untuk
+tiga metrik: `hotspot_count`, `event_count`, `burned_area_ha`. Nama dan satuan
+metrik dibaca dari tabel `metrics`, bukan ditulis ulang di kode. Router
+didaftarkan di `app/main.py`; `tests/test_analysis.py`: 6 uji.
+
+Bukti (`uv run pytest` → **24 passed**, 1 warning):
+
+| Permintaan | Kode | Waktu (3 kali) | Ukuran |
+|---|---|---|---|
+| `/api/v1/analysis/national_trend` | 200 | 0,091 (panggilan pertama) · 0,036 · 0,038 dtk | 2.200 B |
+
+Angka yang benar-benar keluar:
+
+| Tahun | titik panas `archive_total` | nrt | kejadian | luas terbakar (ha) |
+|---|---|---|---|---|
+| 2020 | 91.348 | — | 618 | 170.481,94 |
+| 2021 | 68.068 | — | 585 | 71.889,19 |
+| 2022 | 62.960 | — | 272 | 52.183,53 |
+| 2023 | 256.003 | — | 2.153 | 1.110.064,36 |
+| 2024 | 112.350 | — | 1.016 | 134.891,52 |
+| 2025 | 95.821 | — | 636 | 98.721,54 |
+| 2026 | 61.157 | 600.323 | 1.103 | tidak tersedia |
+
+Temuan:
+
+1. **Seri `fill` baru ada sejak 2022.** `archive_total` (= main + fill) 2020 dan
+   2021 sama dengan seri main saja, dan itu dinyatakan di `notes` — bukan
+   ditambal dengan nol.
+2. **nrt tetap terpisah.** nrt 2026 (600.323) tidak masuk `archive_total`, dengan
+   alasan yang sama seperti catatan panel W2: pemrosesan berbeda, tidak sebanding.
+3. **Bug yang tertangkap uji sebelum digabung:** versi pertama `_catatan`
+   memeriksa `row["series"] == "nrt"` pada baris yang sudah diubah menjadi dict
+   per tahun, sehingga catatan nrt dan catatan seri `fill` **tidak pernah muncul**
+   sementara balasan tetap `200`. `test_menyatakan_seri_fill_hanya_punya_sebagian_tahun`
+   yang menemukannya.
+4. **Luas terbakar berhenti di 2025** dan hanya tersedia tingkat nasional; tahun
+   2026 tidak dikirim sebagai 0, melainkan dikosongkan + disebut di `notes`.
+5. Latensi 0,036–0,038 dtk setelah panggilan pertama, karena yang dibaca hanya 40
+   baris nasional (bukan 58.665 baris `region_facts`).
+
+---
+
 ## Versi yang terkunci
 
 Dari `uv.lock` (2026-11-16): Python **3.13.14** (venv) · fastapi **0.163.1** ·
@@ -186,6 +232,7 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 | 2026-11-16 | `docs/ARSITEKTUR.md` | bagian 6 tidak lagi menulis `NF-04`/`NF-05`/`NF-06`/`NF-08` "belum diukur" |
 | 2026-11-16 | `CATATAN-DISKUSI.md` | status proyek + entri sesi ke-19 |
 | 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C (baris iterasi 05), bagian G (bukti + 812 desa tanpa kode kecamatan induk), bagian F (antrean menjadi iterasi 06) |
+| 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C (baris iterasi 06), bagian G (bukti tren nasional), bagian H (antrean menjadi iterasi 07) |
 
 ## Cara menambah entri
 

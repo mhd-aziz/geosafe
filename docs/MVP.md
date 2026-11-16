@@ -3,7 +3,7 @@
 *Minimum Viable Product.* Batasan **apa yang harus jalan lebih dulu** supaya
 GeoSafe bisa didemokan dan dinilai, dan apa yang sengaja ditunda.
 
-Status: 2026-11-16 · iterasi 01–05 selesai, MVP belum lengkap.
+Status: 2026-11-16 · iterasi 01–06 selesai, MVP belum lengkap.
 
 ---
 
@@ -61,7 +61,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 03 | `feat/api-panel` — panel kabupaten/kota (W2) | ✅ PR #3, tag `iter-03-api-panel` |
 | 04 | `fix/tile-missing-regions` — tile memuat wilayah yang belum punya baris fakta (39 wilayah pada 2020) | ✅ PR #4, tag `iter-04-tile-missing-regions` |
 | 05 | `feat/api-search` — pencarian wilayah empat tingkat (C1) | ✅ PR #5, tag `iter-05-api-search` |
-| 06 | tren dua seri (A1) | |
+| 06 | `feat/api-trend` — tren nasional dua seri (A1) | ✅ PR #6, tag `iter-06-api-trend` |
 | 07 | frontend: halaman peta + panel + pencarian (Vite 7.3.8) | |
 | 08 | halaman Sumber & Batas Data (T1) + unduh CSV | |
 | 09 | deploy: nginx + systemd, basemap PMTiles | |
