@@ -125,6 +125,46 @@ systemd dan berkas nginx.
 Nama folder repo (`project-GeoSafe` dan `planning-GeoSafe`) **sengaja tidak
 diubah** — keputusan 2026-11-16, jadi jangan dirapikan tanpa persetujuan.
 
+## Alur kerja git (dikunci 2026-11-16)
+
+Model **trunk-based dengan cabang pendek**. `main` harus selalu bisa dijalankan:
+repo ini publik, tidak ada CI, dan aplikasinya dipakai untuk demo.
+
+| Hal | Aturan |
+|---|---|
+| `main` | selalu bisa dijalankan; **dilarang** `git push --force` |
+| Cabang kerja | `feat/<slug>` · `fix/<slug>` · `docs/<slug>` · `chore/<slug>` — huruf kecil, kebab |
+| Umur cabang | satu tujuan, 1–3 sesi; lebih dari itu dipotong jadi lebih kecil |
+| Masuk ke `main` | Pull Request, lalu **squash merge** — `main` jadi satu commit per fitur |
+| Cabang setelah digabung | **tidak dihapus** (dipilih 2026-11-16 sebagai jejak saat sidang) |
+| Jejak iterasi | tag `iter-NN-<slug>` pada commit hasil merge, di-push ke GitHub |
+| Deskripsi PR | wajib memuat: apa yang ditambah, kenapa, dan bukti jalannya |
+| Perubahan kode | selalu lewat cabang; dokumentasi/aturan kecil boleh langsung ke `main` |
+
+Alasan memilih squash, bukan merge commit: tanpa CI tidak ada penjaga mutu
+otomatis, jadi commit tengah cabang yang setengah jalan tidak boleh sampai ke
+`main`. Riwayat per-langkah tidak hilang — tetap ada di halaman PR dan di
+`refs/pull/<nomor>/head` di GitHub (bisa diambil dengan
+`git fetch origin pull/<nomor>/head:<nama-lokal>`).
+
+Cara menjalankan satu fitur:
+
+```bash
+git switch -c feat/<slug>
+# ... kerja; commit bergaya Conventional Commits ...
+git push -u origin feat/<slug>
+gh pr create --base main --title "<type>(<scope>): <subject>" --body "<apa, kenapa, bukti>"
+gh pr merge <nomor> --squash --subject "<type>(<scope>): <subject>" --body "<ringkasan>"
+git switch main && git pull --ff-only
+git tag iter-NN-<slug> && git push origin iter-NN-<slug>
+```
+
+Riwayat iterasi:
+
+| Tag | PR | Isi |
+|---|---|---|
+| `iter-01-api-database` | #1 | `config.py` · `db.py` · `GET /api/v1/sources` (T1) |
+
 ## Konvensi penulisan (dikunci 2026-11-16)
 
 | Hal | Aturan |
