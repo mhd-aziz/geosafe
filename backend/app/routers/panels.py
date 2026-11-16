@@ -71,7 +71,7 @@ def _rows_per_metric(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any
     return grouped
 
 
-def _nilai_tunggal(rows: list[dict[str, Any]], metric: str) -> dict[str, Any] | None:
+def _single_value(rows: list[dict[str, Any]], metric: str) -> dict[str, Any] | None:
     """Ambil satu baris fakta (dipakai untuk metrik tanpa tahun)."""
     for row in rows:
         if row["metric_code"] == metric:
@@ -79,10 +79,10 @@ def _nilai_tunggal(rows: list[dict[str, Any]], metric: str) -> dict[str, Any] | 
     return None
 
 
-def _catatan(
+def _panel_notes(
     grouped: dict[str, list[dict[str, Any]]],
-    tahun_titik_panas: set[int],
-    tahun_kejadian: set[int],
+    hotspot_years: set[int],
+    event_years: set[int],
 ) -> list[str]:
     """Batasan data yang harus ikut tampil, bukan disembunyikan."""
     notes = [
@@ -102,14 +102,14 @@ def _catatan(
             "angkanya diambil dari tabel siap pakai"
         )
 
-    seri_kurang = []
-    if set(EXPECTED_YEARS) - tahun_titik_panas:
-        seri_kurang.append("titik panas")
-    if set(EXPECTED_YEARS) - tahun_kejadian:
-        seri_kurang.append("kejadian")
-    if seri_kurang:
+    missing_series = []
+    if set(EXPECTED_YEARS) - hotspot_years:
+        missing_series.append("titik panas")
+    if set(EXPECTED_YEARS) - event_years:
+        missing_series.append("kejadian")
+    if missing_series:
         notes.append(
-            f"seri {' dan '.join(seri_kurang)} tidak memuat baris untuk semua tahun "
+            f"seri {' dan '.join(missing_series)} tidak memuat baris untuk semua tahun "
             "2020–2026 karena ETL tidak menulis baris bernilai nol; tahun yang "
             "hilang berarti nol deteksi titik panas atau nol kejadian tercatat"
         )
@@ -151,9 +151,9 @@ def panel_kabupaten_kota(
                 return row["value"]
         return None
 
-    irbi_2025 = _nilai_tunggal(grouped.get("irbi_score", []), "irbi_score") or {}
-    irbi_class_2025 = _nilai_tunggal(grouped.get("irbi_class", []), "irbi_class") or {}
-    density = _nilai_tunggal(grouped.get("hotspot_per_1000_km2", []), "hotspot_per_1000_km2") or {}
+    irbi_2025 = _single_value(grouped.get("irbi_score", []), "irbi_score") or {}
+    irbi_class_2025 = _single_value(grouped.get("irbi_class", []), "irbi_class") or {}
+    density = _single_value(grouped.get("hotspot_per_1000_km2", []), "hotspot_per_1000_km2") or {}
 
     return {
         "region": {
@@ -176,7 +176,7 @@ def panel_kabupaten_kota(
         },
         "irbi_karhutla_by_year": irbi_karhutla,
         "hotspot_per_1000_km2": density.get("value"),
-        "notes": _catatan(
+        "notes": _panel_notes(
             grouped,
             {row["year"] for row in hotspot if row["year"]},
             {row["year"] for row in events if row["year"]},
