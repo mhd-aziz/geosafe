@@ -5,6 +5,12 @@ menerima 514 poligon dalam bentuk GeoJSON. Nilai yang diwarnai diambil dari
 `REGION_FACTS` (metrik `hotspot_count`, tahunan, seri `main`, tanpa penyaring
 tingkat kepercayaan).
 
+Wilayah yang **belum punya baris fakta** pada tahun itu tetap dikirim: join-nya
+`LEFT JOIN` dan hasilnya membawa properti `has_fact` (1/0) serta
+`hotspot_count` yang kosong. ETL tidak menulis baris bernilai nol, jadi wilayah
+tanpa baris berarti nol deteksi — peramban yang memutuskan cara menggambarnya,
+bukan endpoint ini (aturan 7 di README).
+
 Satu implementasi join tetap di SQL; JavaScript tidak menghitung apa pun.
 """
 
@@ -36,9 +42,10 @@ mvt_rows as (
            r.region_code,
            r.region_name,
            r.province_code,
-           f.value as hotspot_count
+           f.value as hotspot_count,
+           case when f.metric_code is null then 0 else 1 end as has_fact
       from regions r
-      join region_facts f
+      left join region_facts f
         on f.region_code = r.region_code
        and f.metric_code = 'hotspot_count'
        and f.year = %(year)s
