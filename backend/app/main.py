@@ -6,6 +6,8 @@ Hanya berisi pembuatan aplikasi dan endpoint dasar. Router per kelompok fitur
 
 from fastapi import FastAPI
 
+from app.routers import transparency
+
 app = FastAPI(
     title="GeoSafe API",
     version="0.1.0",
@@ -14,6 +16,9 @@ app = FastAPI(
         "kerawanan kebakaran hutan dan lahan."
     ),
 )
+
+# Satu router per kelompok fitur; ditambah seiring fiturnya dikerjakan.
+app.include_router(transparency.router)
 
 
 @app.get("/health", tags=["internal"])
