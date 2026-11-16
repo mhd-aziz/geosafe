@@ -20,6 +20,8 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 05 | `feat/api-search` | pencarian wilayah empat tingkat (C1) | #5 | `iter-05-api-search` |
 | 06 | `feat/api-trend` | tren nasional dua seri + luas terbakar konteks (A1) | #6 | `iter-06-api-trend` |
 | 06b | `refactor/api-english-identifiers` | seluruh identifier jadi Bahasa Inggris (termasuk nama uji); cabang **dihapus** setelah merge | #7 | `iter-06b-english-names` |
+| 07a | `feat/api-province-tiles` | tile provinsi untuk saklar tingkat tampilan (P1) | #8 | `iter-07a-province-tiles` |
+| 07 | `feat/frontend-app` | frontend: peta choropleth + pencarian + panel (alur MVP) | #9 | `iter-07-frontend` |
 
 Semua dikerjakan 2026-11-16. Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -248,6 +250,80 @@ aturan "cabang tidak dihapus"); tag `iter-06b-english-names` tetap ada.
 
 ---
 
+## Iterasi 07a — `feat/api-province-tiles` (PR #8)
+
+`app/routers/maps.py`: `GET /tiles/provinces/{z}/{x}/{y}.mvt?year=YYYY`. Saklar
+tingkat tampilan (`SRS-F-13`) ada di kriteria P1 versi MVP, jadi tanpa endpoint ini
+frontend hanya punya saklar yang tidak menghasilkan apa pun. Angkanya dibaca dari
+**baris fakta tingkat provinsi** yang sudah dimuat ETL (38 provinsi, tiap tahun
+2020–2026), bukan penjumlahan baris kabupaten/kota. Kedua endpoint tile kini
+memakai satu penolong balasan (`_render_tile`), jadi aturan "tile kosong → 204"
+hanya ada di satu tempat. Uji: 27 passed (24 lama + 3 baru).
+
+| Permintaan | Kode | Waktu (3 kali) | Ukuran |
+|---|---|---|---|
+| `/tiles/provinces/0/0/0.mvt?year=2020` | 200 | 0,279 · 0,240 · 0,229 dtk | 12.857 B (38 poligon) |
+| `/tiles/provinces/1/0/1.mvt?year=2020` (laut) | 204 | 0,117 · 0,131 · 0,121 dtk | 0 B |
+| `/tiles/regions/0/0/0.mvt?year=2020` (pembanding) | 200 | 0,253 · 0,248 · 0,245 dtk | 50.145 B |
+
+Temuan: **tidak ada provinsi tanpa baris fakta pada 2020** (`not exists` → 0),
+tetapi `provinces.geom` tidak punya indeks GiST. Untuk 38 baris itu pemindaian
+penuh tidak terasa (0,23–0,28 dtk sudah termasuk biaya itu), jadi indeksnya belum
+ditambahkan — menunggu pengukuran yang menuntutnya.
+
+## Iterasi 07 — `feat/frontend-app` (PR #9)
+
+`frontend/` berdiri: React 19 + TypeScript + **Vite 7.3.8** + Tailwind CSS 4 +
+MapLibre GL JS, 32 berkas. Satu halaman memuat alur MVP lengkap: pilih tahun →
+peta choropleth → klik wilayah → panel kabupaten/kota. Berkas router dan uji:
+`App.tsx`, `api/`, `components/{map,search,panel,common}`, `hooks/`, `lib/`,
+`types/`; 6 berkas uji bersebelahan dengan komponennya.
+
+Bukti:
+
+| Perintah | Hasil |
+|---|---|
+| `npm ci` | 162 paket |
+| `npx tsc --noEmit` | bersih |
+| `npm test` | **6 berkas, 27 uji lulus**, ~20 dtk |
+| `npm run build` | `dist/index.html` 0,58 kB · CSS 85,25 kB (13,50 gzip) · JS 1.300,94 kB (367,33 gzip) · **12,56 dtk** |
+
+Lewat HTTP (API hidup, jalur peramban lewat proxy Vite): `GET /` → 200 (741 B);
+`/tiles/regions/0/0/0.mvt?year=2020` → 200 · 50.145 B · 0,258 dtk;
+`/tiles/provinces/0/0/0.mvt?year=2020` → 200 · 12.857 B · 0,256 dtk;
+`/api/v1/search/regions?q=bogor` → 200; `/api/v1/sources` → 200.
+
+Di peramban sungguhan (Chrome via CDP, WebGL aktif): kanvas 1016 × 632 px dengan
+choropleth tergambar; saklar `Provinsi` menggambar poligon provinsi; pencarian
+`9301` → `KABUPATEN Merauke 9301 · Papua Selatan`; panel Merauke memuat angka nyata
+(2023 main 22.245; 2020 main 6.246; 2026 main 4.581 + fill 627 + **nrt 62.245
+terpisah**; kepadatan 2.218,60 per 1.000 km²; IRBI 2025 120,98 · Sedang) beserta
+empat catatan batasan data; footer memuat NASA FIRMS, `data sampai 2026-11-12`,
+`diakses 2026-11-12`.
+
+Temuan:
+
+1. **Peta kosong tanpa galat yang terlihat.** MapLibre v6 menurunkan URL worker
+   dari `import.meta.url`; di bawah `optimizeDeps` Vite URL itu menunjuk
+   `node_modules/.vite/deps/maplibre-gl-worker.mjs` yang tidak ada. Halaman tampak
+   selesai dirender, kanvas hanya latar polos, dan tidak ada pesan galat di
+   antarmuka — penyebabnya baru terbaca setelah konsol peramban ditangkap
+   (`Worker failed to load`). Perbaikan: `setWorkerUrl(maplibreWorkerUrl)` dengan
+   `?url`. Pelajaran: uji jsdom dan `tsc` tidak bisa menangkap kelas cacat ini;
+   halaman wajib dibuka sekali di peramban sungguhan.
+2. **`has_fact = 0` diberi warna sendiri (abu-abu)**, bukan kelas terendah, supaya
+   wilayah tanpa baris fakta tidak terbaca sebagai "nol deteksi".
+3. **Seri tetap dipisah**: peta memakai seri `main` (disebut di footer), panel
+   menampilkan `main`/`fill`/`nrt` sebagai kolom terpisah.
+4. **Nama provinsi sempat tertulis dua kali** pada baris hasil kabupaten/kota
+   (`Papua Selatan · Papua Selatan`) karena wilayah induk dan provinsi menunjuk hal
+   yang sama; `parentPath` sekarang tidak mengulang nama identik (ada ujinya).
+5. Uji frontend **tidak butuh basis data maupun jaringan** (jsdom + mock), sehingga
+   bisa dijalankan di laptop tanpa backend hidup; itu alasan berkas ujinya menguji
+   perilaku komponen dan bukan penggambaran peta.
+
+---
+
 ## Versi yang terkunci
 
 Dari `uv.lock` (2026-11-16): Python **3.13.14** (venv) · fastapi **0.163.1** ·
@@ -267,6 +343,7 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 | 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C (baris iterasi 05), bagian G (bukti + 812 desa tanpa kode kecamatan induk), bagian F (antrean menjadi iterasi 06) |
 | 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C (baris iterasi 06), bagian G (bukti tren nasional), bagian H (antrean menjadi iterasi 07) |
 | 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C + H (penyisipan 06b: identifier Inggris, cabang dihapus, tag tetap) |
+| 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C (baris 07a + 07), bagian I/J (tile provinsi, frontend, temuan worker MapLibre), bagian K (antrean menjadi iterasi 08) |
 
 ## Cara menambah entri
 

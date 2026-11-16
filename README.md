@@ -23,10 +23,10 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 6 endpoint, `uv run pytest` 24 passed |
-| Frontend (`frontend/`) | belum mulai |
+| Backend (`backend/`) | berjalan — 7 endpoint, `uv run pytest` 27 passed |
+| Frontend (`frontend/`) | berjalan — 1 halaman (peta + pencarian + panel), `npm test` 27 passed |
 | Deploy (`deploy/`) | belum mulai (nginx + systemd menyusul) |
-| Iterasi selesai | 6 — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | 7 — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -52,7 +52,18 @@ project-GeoSafe/
 │   │   ├── db.py                       koneksi psycopg per permintaan
 │   │   └── routers/                    satu berkas per kelompok fitur
 │   └── tests/                          pytest (butuh basis data hidup)
-├── frontend/                   React + TypeScript · Vite 7.3.8 (belum diisi)
+├── frontend/                   React + TypeScript · Vite 7.3.8 · Tailwind 4 · MapLibre
+│   ├── package.json · package-lock.json
+│   ├── vite.config.ts                  plugin, proxy API, konfigurasi Vitest
+│   ├── README.md                       cara jalan, struktur, yang sengaja belum ada
+│   └── src/
+│       ├── App.tsx                     tata letak halaman + keadaan tahun/tingkat/pilihan
+│       ├── api/                        client fetch + satu fungsi per endpoint
+│       ├── components/                 map/ · search/ · panel/ · common/
+│       ├── hooks/                      pencarian, panel, sumber data, debounce
+│       ├── lib/                        konstanta, format angka, kelas choropleth
+│       ├── types/                      bentuk balasan API
+│       └── test/                       setup Vitest
 ├── deploy/                     nginx (SPA + proxy) · systemd (belum diisi)
 └── docs/                       dokumen kerja (PRD, MVP, iterasi, konvensi)
 ```
@@ -82,6 +93,22 @@ uv run uvicorn app.main:app --reload    # http://127.0.0.1:8000
 Dokumentasi API hidup sendiri di `/docs` dan `/openapi.json` — dibuat FastAPI
 dari kode, jadi tidak ada berkas daftar endpoint yang bisa tertinggal.
 
+## Menjalankan frontend
+
+Prasyarat: **Node 20.19 atau lebih baru** (Vite 7 menolak versi lebih lama).
+Uji tidak butuh basis data; memakai aplikasinya butuh API di atas hidup.
+
+```bash
+cd frontend
+npm ci            # sekali; memasang dari package-lock.json
+npm run dev       # http://127.0.0.1:5173 — Vite mem-proxy /api dan /tiles ke 127.0.0.1:8000
+npm test          # uji Vitest (jsdom), tanpa basis data dan tanpa jaringan
+npm run build     # tsc --noEmit + vite build ke dist/
+```
+
+Rincian struktur, keputusan versi (Vite 7.3.8 karena CPU tanpa AVX), dan daftar
+yang sengaja belum dikerjakan ada di [`frontend/README.md`](frontend/README.md).
+
 ### Endpoint
 
 | Endpoint | Fitur | Isi |
@@ -89,6 +116,7 @@ dari kode, jadi tidak ada berkas daftar endpoint yang bisa tertinggal.
 | `GET /health` | — | status proses API |
 | `GET /api/v1/sources` | T1 | daftar dataset sumber, institusi, tanggal akses, jumlah baris |
 | `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT kabupaten/kota + jumlah titik panas tahun itu |
+| `GET /tiles/provinces/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT provinsi (saklar tingkat tampilan) |
 | `GET /api/v1/panel/kabupaten_kota/{kode}` | W2 | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI |
 | `GET /api/v1/search/regions?q=` | C1 | pencarian wilayah empat tingkat (provinsi, kabupaten/kota, kecamatan, desa/kelurahan), maksimal 20 baris + `bbox` untuk memperbesar peta |
 | `GET /api/v1/analysis/national_trend` | A1 | tren nasional 2020–2026: titik panas (seri `main`/`fill`/`nrt` apa adanya + `archive_total`) dan kejadian, plus luas terbakar sebagai konteks |
