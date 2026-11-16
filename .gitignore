@@ -1,0 +1,34 @@
+# rahasia — kunci NASA FIRMS, DSN basis data
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+
+# runtime aplikasi
+backend/snapshot.json
+backend/cache/
+*.log
+
+# data besar (jangan pernah masuk repo)
+*.pmtiles
+*.csv.gz
+*.geojson
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
