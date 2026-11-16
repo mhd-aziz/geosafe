@@ -17,6 +17,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 02 | `feat/api-tiles` | tile MVT kabupaten/kota (P1) | #2 | `iter-02-api-tiles` |
 | 03 | `feat/api-panel` | panel kabupaten/kota (W2) | #3 | `iter-03-api-panel` |
 | 04 | `fix/tile-missing-regions` | tile memuat wilayah tanpa baris fakta | #4 | `iter-04-tile-missing-regions` |
+| 05 | `feat/api-search` | pencarian wilayah empat tingkat (C1) | #5 | `iter-05-api-search` |
 
 Semua dikerjakan 2026-11-16. Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4).
@@ -116,6 +117,58 @@ keputusan `has_fact` perlu ditinjau ulang.
 
 ---
 
+## Iterasi 05 — `feat/api-search` (PR #5)
+
+`app/routers/search.py`: `GET /api/v1/search/regions?q=<kata kunci>&limit=20` —
+satu query untuk empat tingkat sekaligus: provinsi (baris `level = 'national'`
+dikecualikan; 39 baris `provinces`), kabupaten/kota (514), kecamatan (7.357),
+desa/kelurahan (83.530). Router didaftarkan di `app/main.py`;
+`tests/test_search.py`: 7 uji.
+
+Bukti (`uv run pytest` → **18 passed**, 1 warning):
+
+| Permintaan | Kode | Waktu (3 kali) | Ukuran |
+|---|---|---|---|
+| `?q=bogor` | 200 | 0,416 · 0,420 · 0,431 dtk | 5.703 B (20 baris) |
+| `?q=sido` | 200 | 0,419 · 0,424 · 0,430 dtk | 5.754 B (20 baris = batas saran) |
+| `?q=merauke` | 200 | 0,408 · 0,423 · 0,426 dtk | 631 B |
+| `?q=9301` | 200 | 0,398 · 0,403 · 0,403 dtk | 355 B |
+| `?q=zzqqxx` | 200 | 0,399 · 0,410 · 0,439 dtk | 398 B (`results: []` + `notes`) |
+| `?q=b` | 422 | — | validasi panjang minimum 2 |
+
+Temuan:
+
+1. **Urutan peringkat menentukan, bukan sekadar kerapian.** Versi pertama
+   mengurutkan `match_rank` lalu tingkat wilayah; kata kunci `bogor` lalu
+   menghasilkan 15 desa berawalan "Bogor" + 6 kecamatan dan **menghabiskan 20
+   baris sebelum `Kota Bogor`** — uji pertama gagal. Urutan diganti: nama sama
+   persis lebih dulu (semua tingkat), lalu tingkat lebih tinggi. Sekarang
+   `?q=bogor` memuat `Bogor` (3201, REGENCY) dan `Kota Bogor` (3271, CITY).
+2. **Alias kolom tidak bisa dipakai di dalam ekspresi `order by`** di PostgreSQL
+   (`column "match_rank" does not exist`). Peringkat dihitung di CTE `ranked`,
+   lalu diurutkan di `select` terluar.
+3. **Kata kunci di-escape sebelum dicocokkan**: tanpa itu, `q=__` mencocokkan
+   hampir semua nama. Uji `test_kata_kunci_dengan_wildcard_diperlakukan_sebagai_teks`
+   menjaga perilaku itu.
+4. **Cacat data yang ikut terbaca dari `psql`** (bukan temuan aplikasi):
+   188 dari 7.357 kecamatan tidak punya `district_code`, 215 dari 83.530
+   desa/kelurahan tidak punya `village_code`, 110 desa tidak punya geometri, dan
+   **812 desa tidak punya `district_code` induk** sehingga provinsinya tidak bisa
+   ditentukan. Yang terakhir dulu akan hilang dari hasil pencarian karena join ke
+   kecamatan; sekarang memakai `LEFT JOIN` dan barisnya terkirim dengan
+   `province_code` kosong + catatan, supaya tidak ada wilayah yang menghilang
+   diam-diam.
+5. **Nol di sini berarti tidak ada baris, bukan angka nol**: balasan tanpa hasil
+   tetap `200` dengan medan `notes` yang menyebut sebabnya (kata kunci tidak
+   cocok, pencarian memakai nama resmi/kode BPS, minimum 2 huruf) — pola yang
+   sama dengan `notes` panel dan `has_fact` tile.
+6. Belum ada ambang latensi untuk pencarian di SRS. Terukur **0,40–0,43 dtk**,
+   hampir seluruhnya pemindaian penuh 83.530 desa untuk pola memuat
+   (`ILIKE '%kata%'`). Kalau ambang ditetapkan nanti, langkah pertama indeks
+   `pg_trgm` pada kolom nama.
+
+---
+
 ## Versi yang terkunci
 
 Dari `uv.lock` (2026-11-16): Python **3.13.14** (venv) · fastapi **0.163.1** ·
@@ -132,6 +185,7 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 | 2026-11-16 | `data/pembangun/LAPORAN-MUAT-POSTGRES.md` | bagian **6b**: koreksi angka 93 ms + pemisahan biaya SQL/HTTP |
 | 2026-11-16 | `docs/ARSITEKTUR.md` | bagian 6 tidak lagi menulis `NF-04`/`NF-05`/`NF-06`/`NF-08` "belum diukur" |
 | 2026-11-16 | `CATATAN-DISKUSI.md` | status proyek + entri sesi ke-19 |
+| 2026-11-16 | `CATATAN-DISKUSI.md` | bagian C (baris iterasi 05), bagian G (bukti + 812 desa tanpa kode kecamatan induk), bagian F (antrean menjadi iterasi 06) |
 
 ## Cara menambah entri
 

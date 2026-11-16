@@ -3,7 +3,7 @@
 *Minimum Viable Product.* Batasan **apa yang harus jalan lebih dulu** supaya
 GeoSafe bisa didemokan dan dinilai, dan apa yang sengaja ditunda.
 
-Status: 2026-11-16 · iterasi 01–02 selesai, MVP belum lengkap.
+Status: 2026-11-16 · iterasi 01–05 selesai, MVP belum lengkap.
 
 ---
 
@@ -24,7 +24,7 @@ Fitur lain memperkuat, tapi tidak menentukan.
 | Kode | Fitur | Kriteria selesai |
 |---|---|---|
 | **P1** | peta sebaran titik panas kabupaten/kota | choropleth dari MVT, filter tahun 2020–2026, legenda + skala warna, saklar tingkat provinsi |
-| **C1** | pencarian wilayah 3 tingkat | ketik nama/kode → daftar kecamatan + kabupaten/kota + provinsi → pilih → peta bergerak ke wilayah itu |
+| **C1** | pencarian wilayah 4 tingkat | ketik nama/kode → daftar provinsi + kabupaten/kota + kecamatan + desa/kelurahan (maks 20 baris) → pilih → peta bergerak ke wilayah itu |
 | **W2** | panel kabupaten/kota | satu panel memuat: jumlah titik panas per tahun, jumlah kejadian, status darurat 2025, IRBI 2025 |
 | **A1** | tren 2020–2026 dua seri | garis titik panas **dan** kejadian pada satu grafik, dua sumbu terpisah, keterangan bahwa dua seri itu alat ukur berbeda |
 | **T1** | sumber & batas data | daftar 7 dataset + URL + tanggal akses + jumlah baris, 7 celah data, unduh CSV, daftar istilah |
@@ -60,7 +60,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 02 | `feat/api-tiles` — tile MVT kabupaten/kota (dasar P1) | ✅ PR #2, tag `iter-02-api-tiles` |
 | 03 | `feat/api-panel` — panel kabupaten/kota (W2) | ✅ PR #3, tag `iter-03-api-panel` |
 | 04 | `fix/tile-missing-regions` — tile memuat wilayah yang belum punya baris fakta (39 wilayah pada 2020) | ✅ PR #4, tag `iter-04-tile-missing-regions` |
-| 05 | pencarian wilayah (C1) | |
+| 05 | `feat/api-search` — pencarian wilayah empat tingkat (C1) | ✅ PR #5, tag `iter-05-api-search` |
 | 06 | tren dua seri (A1) | |
 | 07 | frontend: halaman peta + panel + pencarian (Vite 7.3.8) | |
 | 08 | halaman Sumber & Batas Data (T1) + unduh CSV | |

@@ -23,10 +23,10 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 4 endpoint, `uv run pytest` 11 passed |
+| Backend (`backend/`) | berjalan — 5 endpoint, `uv run pytest` 18 passed |
 | Frontend (`frontend/`) | belum mulai |
 | Deploy (`deploy/`) | belum mulai (nginx + systemd menyusul) |
-| Iterasi selesai | 4 — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | 5 — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -90,10 +90,13 @@ dari kode, jadi tidak ada berkas daftar endpoint yang bisa tertinggal.
 | `GET /api/v1/sources` | T1 | daftar dataset sumber, institusi, tanggal akses, jumlah baris |
 | `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT kabupaten/kota + jumlah titik panas tahun itu |
 | `GET /api/v1/panel/kabupaten_kota/{kode}` | W2 | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI |
+| `GET /api/v1/search/regions?q=` | C1 | pencarian wilayah empat tingkat (provinsi, kabupaten/kota, kecamatan, desa/kelurahan), maksimal 20 baris + `bbox` untuk memperbesar peta |
 
 Catatan pemakaian: tile tanpa poligon dibalas `204`; wilayah yang belum punya
 baris fakta tetap terkirim dengan properti `has_fact = 0`; panel menyertakan
-medan `notes` berisi batasan data yang **wajib** ikut ditampilkan.
+medan `notes` berisi batasan data yang **wajib** ikut ditampilkan; pencarian
+membalas `200` dengan `results: []` + `notes` saat kata kuncinya tidak menemukan
+wilayah (bukan `404`).
 
 ## Aturan singkat
 
