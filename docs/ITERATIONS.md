@@ -25,7 +25,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 09a | `chore/deploy-api-service` | API berjalan sebagai unit systemd pengguna (`Restart=always`) | #10 | `iter-09a-api-service` |
 | 09b | `chore/deploy-nginx` | nginx menyajikan halaman hasil build + proxy API; berkas `deploy/` dikeluarkan dari git | #13 | `iter-09b-nginx` |
 | 09c | `feat/frontend-basemap` | basemap PMTiles z12 (216 MB) di luar repo, dilayani nginx `/pmtiles/`, gaya Protomaps di frontend | #14 | `iter-09c-basemap` |
-| 10a | `feat/api-latest-hotspots` | `P2`/`W1` di API: tarikan FIRMS, cache 15 menit, snapshot, join kabupaten/kota saat permintaan | — | — (diisi setelah digabung) |
+| 10a | `feat/api-latest-hotspots` | `P2`/`W1` di API: tarikan FIRMS, cache 15 menit, snapshot, join kabupaten/kota saat permintaan | #15 | `iter-10a-latest-api` |
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 
@@ -615,9 +615,9 @@ Temuan:
 
 ---
 
-## Iterasi 10a — `feat/api-latest-hotspots`
+## Iterasi 10a — `feat/api-latest-hotspots` (PR #15)
 
-Nomor PR dan tag diisi setelah digabung ke `main`.
+Tag `iter-10a-latest-api` menandai commit hasil *squash merge* di `main`.
 
 Bagian pertama iterasi 10: `P2` (titik panas terkini) dan `W1` (ringkasannya) di
 API, mengikuti kontrak yang sudah disetujui di
