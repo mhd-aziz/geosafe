@@ -53,3 +53,35 @@ export function parentPath(
   );
   return [...new Set(parts)].join(' · ');
 }
+
+const momentFormat = new Intl.DateTimeFormat('id-ID', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'Asia/Jakarta',
+});
+
+const percentFormat = new Intl.NumberFormat('id-ID', {
+  style: 'percent',
+  maximumFractionDigits: 1,
+});
+
+/** Waktu ISO-8601 UTC dari API → waktu WIB yang bisa dibaca pengguna.
+ *
+ * Waktu API selalu UTC bersufiks `Z`; menampilkannya apa adanya membuat pengguna
+ * membaca jam tarikan yang meleset tujuh jam (`SRS-F-23`).
+ */
+export function formatMoment(iso: string | null | undefined): string {
+  if (!iso) {
+    return '—';
+  }
+  const moment = new Date(iso);
+  return Number.isNaN(moment.getTime()) ? '—' : `${momentFormat.format(moment)} WIB`;
+}
+
+/** Bagian dari keseluruhan sebagai persen; pembagi nol berarti "—", bukan 0 %. */
+export function formatPercent(value: number | null | undefined, total: number | null | undefined): string {
+  if (value === null || value === undefined || !total) {
+    return '—';
+  }
+  return percentFormat.format(value / total);
+}

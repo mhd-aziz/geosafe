@@ -3,6 +3,9 @@
 import { API_BASE, fetchJson } from './client';
 import type {
   DownloadsResponse,
+  LatestResponse,
+  LatestSummary,
+  LatestWindow,
   MapLevel,
   PointCoverage,
   RegionPanelData,
@@ -52,4 +55,21 @@ export function downloadFileUrl(fileName: string): string {
 
 export function fetchNationalTrend(): Promise<TrendData> {
   return fetchJson<TrendData>('/api/v1/analysis/national_trend');
+}
+
+/** Titik panas terkini untuk lapisan peta (`P2`).
+ *
+ * `bbox` tidak dikirim: antarmuka selalu menyajikan seluruh Indonesia dan tidak
+ * punya kendali kotak wilayah. Bila balasan menyatakan `truncated` (`points`
+ * bernilai `null` karena muatan melewati 2 MB), lapisan tidak menggambar titik dan
+ * pengguna diberi tahu apa adanya — penyempitan `bbox` yang disebut kontrak
+ * `API-P2.md` bagian 1 belum dikerjakan di antarmuka.
+ */
+export function fetchLatest(windowHours: LatestWindow): Promise<LatestResponse> {
+  return fetchJson<LatestResponse>(`/api/v1/latest?window=${windowHours}`);
+}
+
+/** Ringkasan nasional terkini untuk panel `W1`. */
+export function fetchLatestSummary(windowHours: LatestWindow): Promise<LatestSummary> {
+  return fetchJson<LatestSummary>(`/api/v1/latest/summary?window=${windowHours}`);
 }

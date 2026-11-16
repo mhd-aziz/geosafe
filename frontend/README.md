@@ -57,20 +57,22 @@ frontend/
     ├── pages/                  MapPage · TrendPage · SourcesPage (satu berkas per halaman)
     ├── api/                    client.ts (pembungkus fetch) · geosafe.ts (per endpoint)
     ├── components/
-    │   ├── map/                MapView · MapToolbar · Legend
+    │   ├── map/                MapView · MapToolbar · LatestControl · Legend
     │   ├── search/             SearchBox
-    │   ├── panel/              RegionPanel
+    │   ├── panel/              RegionPanel · LatestPanel
     │   ├── analysis/           TrendChart · BurnedAreaChart (SVG, tanpa pustaka grafik)
     │   └── common/             DataNotes
     ├── hooks/                  useDebouncedValue · useRegionSearch · useRegionPanel ·
-    │                           useSourceSummary · useRemoteData (baca-saja halaman)
-    ├── lib/                    constants · format · choropleth · map-style · transparency-content
+    │                           useLatestHotspots (lapisan terkini) · useSourceSummary ·
+    │                           useRemoteData (baca-saja halaman)
+    ├── lib/                    constants · format · choropleth · latest-layer · map-style ·
+    │                           transparency-content
     ├── types/geosafe.ts        bentuk balasan API (nama medan = nama kolom DB)
     └── test/setup.ts           pembersihan DOM antar uji
 ```
 
-Halaman: `/` peta (P1 + C1 + W2) · `/tren` grafik nasional (A1) · `/sumber` Sumber &
-Batas Data (T1). Uji diletakkan bersebelahan dengan berkas yang diuji
+Halaman: `/` peta (P1 + C1 + W2 + P2/W1 lapisan terkini) · `/tren` grafik nasional (A1) ·
+`/sumber` Sumber & Batas Data (T1). Uji diletakkan bersebelahan dengan berkas yang diuji
 (`*.test.ts(x)`), supaya perubahan komponen dan ujinya terlihat dalam satu
 tampilan diff.
 
@@ -94,6 +96,20 @@ tampilan diff.
    tergambar tetapi semua nama tempat hilang). Periksa berkasnya per rentang byte:
    `curl -r 0-99 -D- http://127.0.0.1:8080/pmtiles/indonesia.pmtiles` harus menjawab
    `206` dengan `Content-Range`.
+5. **Salinan lama berkas worker di cache peramban tidak pernah kedaluwarsa.**
+   Berkas `maplibre-gl-worker-<hash>.mjs` diberi `Cache-Control: immutable`, dan
+   namanya diturunkan dari isi berkasnya — jadi peramban yang pernah membukanya
+   saat nginx **belum** memetakan `.mjs` masih memakai salinan
+   `application/octet-stream`, dan petanya kosong dengan pita "Worker failed to
+   load" walaupun `curl -sI` pada berkas itu sudah menjawab `text/javascript`.
+   Cara memastikan sebabnya (bukan menebak): jalankan di konsol halaman
+   `fetch('/assets/maplibre-gl-worker-<hash>.mjs', {cache:'reload'}).then(r => r.headers.get('content-type'))`
+   — kalau hasilnya `text/javascript`, yang salah adalah salinan di cache, bukan
+   server atau kode. Penawarnya: kunci cache baru lewat kueri pada `setWorkerUrl`
+   di `MapView.tsx` (`?v=mjs-mime`), atau sekali `Ctrl+Shift+R`; memuat ulang biasa
+   tidak cukup karena `immutable` melarang validasi ulang. Untuk memeriksa halaman
+   dari keadaan bersih tanpa mengutak-atik cache peramban milik pengguna, buka
+   halaman di konteks peramban incognito (`Target.createBrowserContext`).
 
 ## Yang sengaja belum ada
 
@@ -106,3 +122,22 @@ tampilan diff.
 | grafik A2 dan A3 | turunan dari A1, belum dikerjakan |
 | Apache ECharts | rencana awal memakai ECharts; grafik A1 cukup dua garis + tujuh titik, jadi digambar sebagai SVG tanpa pustaka tambahan. ECharts masuk saat A2/A3 butuh batang dan peringkat |
 | ESLint/Prettier | repo belum punya konfigurasi lint; `tsc --noEmit` + Vitest jadi penjaga mutu |
+
+## Lapisan titik panas terkini (`P2` + `W1`)
+
+Titik terkini digambar sebagai lapisan `circle` dari GeoJSON di atas choropleth,
+diperbarui setiap 15 menit tanpa memuat ulang halaman (`SRS-F-24`), dengan pemilih
+jendela 24/48/72 jam dan tombol segarkan manual. Titik dan ringkasan
+(`/latest/summary`) diambil bersama oleh `useLatestHotspots` supaya keduanya
+berasal dari generasi cache yang sama — invarian kontrak `API-P2.md` bagian 2
+menuntut `fetched_at` dan `point_count` identik antara titik di peta dan angka di
+panel.
+
+Empat hal yang disengaja:
+
+| Hal | Alasan |
+|---|---|
+| titik digambar tanpa penyaring kelas keyakinan | kelas dipakai untuk warna (`confidence_class`), bukan untuk menyembunyikan titik; penyaring kelas butuh keputusan penyaring mana yang dipakai pengguna |
+| penyempitan `bbox` otomatis saat `truncated` | API mengganti `points` dengan `null` bila muatan melewati 2 MB; antarmuka tidak punya kendali kotak wilayah, jadi ia menyatakan titiknya tidak digambar dan mengarahkan pembaca ke panel — bukan menebak kotak mana yang harus dipersempit |
+| batas laju 429 | API menahan 60 permintaan/menit per IP; satu peramban memakai 2 permintaan per penyegaran sehingga batas itu tidak pernah tersentuh dari antarmuka |
+| penyegaran memakai `setInterval` biasa | peramban menahan timer di tab latar, jadi jarak tarikan nyata bisa lebih dari 15 menit; `SRS-F-24` menyebut batas *paling sering* 15 menit, bukan jaminan tepat 15 menit |

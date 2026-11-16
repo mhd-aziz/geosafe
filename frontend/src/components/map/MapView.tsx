@@ -6,14 +6,22 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 // `import.meta.url`, dan di dev server berkas hasil `optimizeDeps` membuat URL
 // itu menunjuk ke `node_modules/.vite/deps/maplibre-gl-worker.mjs` yang tidak
 // ada — peta lalu kosong tanpa galat yang terlihat ("Worker failed to load").
+// Kueri `?v=mjs-mime` bukan hiasan: nama berkas worker diturunkan dari isi
+// berkasnya, jadi namanya tidak berubah antar build, sementara peramban yang
+// pernah membuka halaman **sebelum** nginx memetakan `.mjs` ke `text/javascript`
+// masih menyimpan salinan `application/octet-stream` untuk URL itu — dan header
+// `immutable` membuat salinan itu tidak pernah divalidasi ulang, sehingga peta
+// tetap kosong walau server sudah benar. Kueri membuat kunci cache baru; jangan
+// dihapus tanpa memeriksa `curl -sI` pada berkas `.mjs` hasil build.
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
 import { tileSourceLayer, tileUrlTemplate } from '../../api/geosafe';
 import { fillColorExpression } from '../../lib/choropleth';
+import { latestCircleColorExpression, pointsToGeoJson } from '../../lib/latest-layer';
 import { basemapStyle } from '../../lib/map-style';
-import type { MapLevel, SearchLevel } from '../../types/geosafe';
+import type { LatestPoint, MapLevel, SearchLevel } from '../../types/geosafe';
 
-setWorkerUrl(maplibreWorkerUrl);
+setWorkerUrl(`${maplibreWorkerUrl}?v=mjs-mime`);
 
 // Protokol `pmtiles://` harus terdaftar sebelum gaya dipasang; basemap dibaca per
 // rentang byte dari berkas yang dilayani nginx (`/pmtiles/`). Di maplibre-gl
@@ -25,6 +33,8 @@ addProtocol('pmtiles', new Protocol().tile);
 const SOURCE_ID = 'hotspot';
 const FILL_LAYER_ID = 'hotspot-fill';
 const LINE_LAYER_ID = 'hotspot-line';
+const LATEST_SOURCE_ID = 'latest-hotspot';
+const LATEST_LAYER_ID = 'latest-hotspot-points';
 
 const CODE_PROPERTY: Record<MapLevel, string> = {
   regency: 'region_code',
@@ -41,10 +51,12 @@ export interface MapViewProps {
   level: MapLevel;
   /** Kotak wilayah hasil pencarian: peta diperbesar ke wilayah itu (`SRS-F-70`). */
   focusBounds: [number, number, number, number] | null;
+  /** Titik panas terkini (`P2`); `null` = belum ada/`truncated`, tidak digambar. */
+  latestPoints: LatestPoint[] | null;
   onSelectRegion: (region: { code: string; name: string; level: SearchLevel }) => void;
 }
 
-export function MapView({ year, level, focusBounds, onSelectRegion }: MapViewProps) {
+export function MapView({ year, level, focusBounds, latestPoints, onSelectRegion }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -143,31 +155,78 @@ export function MapView({ year, level, focusBounds, onSelectRegion }: MapViewPro
       minzoom: 0,
       maxzoom: 14,
     });
+    // Choropleth dipasang **di bawah** lapisan terkini bila lapisan itu sudah ada,
+    // supaya titik terkini tidak pernah tertutup poligon setelah tahun/tingkat
+    // berganti — kalau tidak, urutannya bergantung efek mana yang selesai dulu.
+    const beforeId = map.getLayer(LATEST_LAYER_ID) ? LATEST_LAYER_ID : undefined;
+    map.addLayer(
+      {
+        id: FILL_LAYER_ID,
+        type: 'fill',
+        source: SOURCE_ID,
+        'source-layer': tileSourceLayer(level),
+        paint: {
+          // Nilai `fill-color` adalah ekspresi gaya; tipe resminya tidak diekspor
+          // oleh maplibre-gl v6, jadi nilainya di-cast di sini (bentuknya diuji di
+          // `src/lib/choropleth.test.ts`).
+          'fill-color': fillColorExpression() as never,
+          'fill-outline-color': '#ffffff',
+          // Tembus pandang 0,72: pada 0,82 jalan dan sungai dari basemap tak lagi
+          // terlihat di bawah kelas warna (diperiksa di peramban, tidak cukup dari
+          // kode), sementara kelas warnanya masih terpisah jelas.
+          'fill-opacity': 0.72,
+        },
+      },
+      beforeId,
+    );
+    map.addLayer(
+      {
+        id: LINE_LAYER_ID,
+        type: 'line',
+        source: SOURCE_ID,
+        'source-layer': tileSourceLayer(level),
+        paint: { 'line-color': '#94a3b8', 'line-width': 0.4 },
+      },
+      beforeId,
+    );
+  }, [ready, level, year]);
+
+  // Lapisan titik panas terkini (`P2`): titik, bukan poligon — wilayahnya dipakai
+  // panel, sedangkan peta menunjukkan sebaran deteksinya.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) {
+      return;
+    }
+
+    if (map.getLayer(LATEST_LAYER_ID)) {
+      map.removeLayer(LATEST_LAYER_ID);
+    }
+    if (map.getSource(LATEST_SOURCE_ID)) {
+      map.removeSource(LATEST_SOURCE_ID);
+    }
+    if (!latestPoints || latestPoints.length === 0) {
+      return;
+    }
+
+    map.addSource(LATEST_SOURCE_ID, {
+      type: 'geojson',
+      data: pointsToGeoJson(latestPoints),
+    });
     map.addLayer({
-      id: FILL_LAYER_ID,
-      type: 'fill',
-      source: SOURCE_ID,
-      'source-layer': tileSourceLayer(level),
+      id: LATEST_LAYER_ID,
+      type: 'circle',
+      source: LATEST_SOURCE_ID,
       paint: {
-        // Nilai `fill-color` adalah ekspresi gaya; tipe resminya tidak diekspor
-        // oleh maplibre-gl v6, jadi nilainya di-cast di sini (bentuknya diuji di
-        // `src/lib/choropleth.test.ts`).
-        'fill-color': fillColorExpression() as never,
-        'fill-outline-color': '#ffffff',
-        // Tembus pandang 0,72: pada 0,82 jalan dan sungai dari basemap tak lagi
-        // terlihat di bawah kelas warna (diperiksa di peramban, tidak cukup dari
-        // kode), sementara kelas warnanya masih terpisah jelas.
-        'fill-opacity': 0.72,
+        'circle-color': latestCircleColorExpression() as never,
+        // Jari-jari menyesuaikan zoom: pada tingkat nasional titik harus tetap
+        // terpisah, dan setelah diperbesar ke satu provinsi titiknya perlu terlihat.
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 1.6, 9, 4] as never,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 0.3,
       },
     });
-    map.addLayer({
-      id: LINE_LAYER_ID,
-      type: 'line',
-      source: SOURCE_ID,
-      'source-layer': tileSourceLayer(level),
-      paint: { 'line-color': '#94a3b8', 'line-width': 0.4 },
-    });
-  }, [ready, level, year]);
+  }, [ready, latestPoints]);
 
   useEffect(() => {
     const map = mapRef.current;
