@@ -53,12 +53,12 @@ select metric_code, metric_name, unit
 """
 
 
-def _tahun_hilang(tahun_ada: set[int]) -> list[int]:
+def _missing_years(years_present: set[int]) -> list[int]:
     """Tahun dalam rentang proyek yang tidak punya baris sama sekali."""
-    return [year for year in EXPECTED_YEARS if year not in tahun_ada]
+    return [year for year in EXPECTED_YEARS if year not in years_present]
 
 
-def _catatan(
+def _trend_notes(
     hotspot: list[dict[str, Any]],
     events: list[dict[str, Any]],
     burned: list[dict[str, Any]],
@@ -80,28 +80,28 @@ def _catatan(
             "seri arsip; angkanya dikirim terpisah dan tidak masuk archive_total"
         )
 
-    tahun_fill = sorted({row["year"] for row in hotspot if "fill" in row["series"]})
-    if tahun_fill:
+    fill_years = sorted({row["year"] for row in hotspot if "fill" in row["series"]})
+    if fill_years:
         notes.append(
             "archive_total = seri main + seri fill; seri fill hanya punya baris "
-            f"untuk tahun {', '.join(str(y) for y in tahun_fill)}"
+            f"untuk tahun {', '.join(str(y) for y in fill_years)}"
         )
 
     for label, rows in (
         ("titik panas", hotspot),
         ("kejadian", events),
     ):
-        hilang = _tahun_hilang({row["year"] for row in rows})
-        if hilang:
+        missing = _missing_years({row["year"] for row in rows})
+        if missing:
             notes.append(
                 f"seri {label} tidak memuat baris untuk tahun "
-                f"{', '.join(str(y) for y in hilang)} karena ETL tidak menulis "
+                f"{', '.join(str(y) for y in missing)} karena ETL tidak menulis "
                 "baris bernilai nol; tahun yang hilang berarti nol deteksi atau nol "
                 "kejadian tercatat"
             )
 
-    tahun_burned = {row["year"] for row in burned}
-    if 2026 not in tahun_burned:
+    burned_years = {row["year"] for row in burned}
+    if 2026 not in burned_years:
         notes.append(
             "luas terbakar 2026 tidak tersedia; seri GWIS berhenti di 2025 sehingga "
             "tahun itu dikosongkan, bukan diisi nol"
@@ -127,24 +127,24 @@ def national_trend(
 
     # Kumpulkan nilai titik panas per tahun supaya seri dan totalnya bisa disusun
     # dalam satu baris per tahun.
-    per_tahun: dict[int, dict[str, float]] = {}
+    by_year: dict[int, dict[str, float]] = {}
     for row in facts:
         if row["metric_code"] == "hotspot_count":
-            per_tahun.setdefault(row["year"], {})[row["series"]] = row["value"]
+            by_year.setdefault(row["year"], {})[row["series"]] = row["value"]
         elif row["metric_code"] == "event_count":
             events.append({"year": row["year"], "event_count": row["value"]})
         elif row["metric_code"] == "burned_area_ha":
             burned.append({"year": row["year"], "burned_area_ha": row["value"]})
 
-    for year in sorted(per_tahun):
-        series = per_tahun[year]
+    for year in sorted(by_year):
+        series = by_year[year]
         # main dan fill sama-sama seri arsip; nrt dipisah karena beda pemrosesan.
-        arsip = [series[nama] for nama in ("main", "fill") if nama in series]
+        archive_values = [series[name] for name in ("main", "fill") if name in series]
         hotspot.append(
             {
                 "year": year,
                 "series": series,
-                "archive_total": sum(arsip) if arsip else None,
+                "archive_total": sum(archive_values) if archive_values else None,
                 "nrt": series.get("nrt"),
             }
         )
@@ -160,5 +160,5 @@ def national_trend(
         "burned_area_by_year": burned,
         "units": {row["metric_code"]: row["unit"] for row in labels},
         "metric_names": {row["metric_code"]: row["metric_name"] for row in labels},
-        "notes": _catatan(hotspot, events, burned),
+        "notes": _trend_notes(hotspot, events, burned),
     }

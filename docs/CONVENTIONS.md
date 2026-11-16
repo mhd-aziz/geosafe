@@ -62,7 +62,8 @@ Indonesia seperti `tampilan/` + `layanan/` (seluruh perkakas berbahasa Inggris).
 | Hal | Aturan |
 |---|---|
 | Nama folder dan berkas | Bahasa Inggris. Python: huruf kecil, `snake_case` (`maps.py`, `hotspot_series.py`). Konfigurasi: `kebab-case` (`geosafe-api.service`, `geosafe.conf`) |
-| Nama fungsi, kelas, variabel | Bahasa Inggris. Python: `snake_case` untuk fungsi/variabel, `PascalCase` untuk kelas. TypeScript: `camelCase` untuk fungsi, `PascalCase` untuk komponen React |
+| Nama fungsi, kelas, variabel | Bahasa Inggris, **termasuk nama fungsi uji** (`test_empty_tile_answers_204`, bukan `test_tile_kosong_balas_204`) dan konstanta modul (`WORLD_TILE`). Python: `snake_case` untuk fungsi/variabel, `PascalCase` untuk kelas. TypeScript: `camelCase` untuk fungsi, `PascalCase` untuk komponen React |
+| Nama kolom basis data di SQL | Bahasa Inggris; alias hasil gabungan juga Bahasa Inggris (`fact_rows`, `region_count`), bukan Bahasa Indonesia |
 | Nama kolom JSON / API | Bahasa Inggris, sama persis dengan nama kolom basis data (`hotspot_count`, `region_code`, `event_count`) |
 | Komentar dan docstring | **Bahasa Indonesia**; nama fungsi, kelas, variabel, dan kolom tetap Inggris |
 | Pesan commit | Bahasa Inggris, Conventional Commits |

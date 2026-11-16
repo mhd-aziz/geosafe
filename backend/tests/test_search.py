@@ -15,18 +15,18 @@ client = TestClient(app)
 SEARCH = "/api/v1/search/regions"
 
 
-def _cari(q: str) -> dict:
+def _search(q: str) -> dict:
     response = client.get(SEARCH, params={"q": q})
     assert response.status_code == 200, response.text
     return response.json()
 
 
-def test_pencarian_nama_kembar_membedakan_jenis_dan_provinsi() -> None:
-    body = _cari("bogor")
+def test_search_distinguishes_twin_names_by_type_and_province() -> None:
+    body = _search("bogor")
 
-    bogor = {(row["code"], row["region_type"]) for row in body["results"] if row["level"] == "regency"}
-    assert ("3201", "REGENCY") in bogor
-    assert ("3271", "CITY") in bogor
+    twins = {(row["code"], row["region_type"]) for row in body["results"] if row["level"] == "regency"}
+    assert ("3201", "REGENCY") in twins
+    assert ("3271", "CITY") in twins
     assert all(
         row["province_name"] == "Jawa Barat"
         for row in body["results"]
@@ -34,52 +34,52 @@ def test_pencarian_nama_kembar_membedakan_jenis_dan_provinsi() -> None:
     )
 
 
-def test_pencarian_lewat_kode_mengembalikan_kabupaten_dan_provinsinya() -> None:
-    body = _cari("9301")
+def test_search_by_code_returns_regency_and_province() -> None:
+    body = _search("9301")
 
-    pertama = body["results"][0]
-    assert pertama["level"] == "regency"
-    assert pertama["name"] == "Merauke"
-    assert pertama["province_name"] == "Papua Selatan"
-    assert pertama["bbox"] is not None
+    first_row = body["results"][0]
+    assert first_row["level"] == "regency"
+    assert first_row["name"] == "Merauke"
+    assert first_row["province_name"] == "Papua Selatan"
+    assert first_row["bbox"] is not None
 
 
-def test_pencarian_mencakup_empat_tingkat_dan_dibatasi_dua_puluh_baris() -> None:
-    tingkat = set()
+def test_search_covers_four_levels_and_caps_at_twenty_rows() -> None:
+    levels = set()
     for q in ("jawa", "bandung", "bogor", "sido"):
-        body = _cari(q)
+        body = _search(q)
         assert len(body["results"]) <= 20
-        tingkat |= {row["level"] for row in body["results"]}
+        levels |= {row["level"] for row in body["results"]}
 
-    assert tingkat == {"province", "regency", "district", "village"}
+    assert levels == {"province", "regency", "district", "village"}
 
-    penuh = _cari("sido")
-    assert penuh["count"] == 20  # 509 desa bernama "sido…" dipotong di batas saran
-    assert any("batas maksimal" in note for note in penuh["notes"])
-
-
-def test_pencarian_nama_persis_didahulukan() -> None:
-    nama = [row["name"] for row in _cari("merauke")["results"]]
-
-    assert nama[0].lower() == "merauke"
+    capped = _search("sido")
+    assert capped["count"] == 20  # 509 desa bernama "sido..." dipotong di batas saran
+    assert any("batas maksimal" in note for note in capped["notes"])
 
 
-def test_kata_kunci_tanpa_hasil_menyatakan_sebabnya() -> None:
-    body = _cari("zzqqxx")
+def test_search_ranks_exact_name_first() -> None:
+    names = [row["name"] for row in _search("merauke")["results"]]
+
+    assert names[0].lower() == "merauke"
+
+
+def test_keyword_without_match_states_the_reason() -> None:
+    body = _search("zzqqxx")
 
     assert body["count"] == 0
     assert body["results"] == []
-    catatan = " ".join(body["notes"])
-    assert "zzqqxx" in catatan
-    assert "tidak menemukan wilayah" in catatan
-    assert "BPS" in catatan  # sebabnya disebut, bukan disembunyikan
+    notes = " ".join(body["notes"])
+    assert "zzqqxx" in notes
+    assert "tidak menemukan wilayah" in notes
+    assert "BPS" in notes  # sebabnya disebut, bukan disembunyikan
 
 
-def test_kata_kunci_dengan_wildcard_diperlakukan_sebagai_teks() -> None:
-    body = _cari("__")
+def test_wildcard_keyword_is_treated_as_text() -> None:
+    body = _search("__")
 
     assert body["count"] == 0  # tanpa escape, "_" mencocokkan hampir semua nama
 
 
-def test_kata_kunci_terlalu_pendek_ditolak_validasi() -> None:
+def test_too_short_keyword_fails_validation() -> None:
     assert client.get(SEARCH, params={"q": "b"}).status_code == 422

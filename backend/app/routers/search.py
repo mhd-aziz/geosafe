@@ -171,7 +171,7 @@ def _escape_like(keyword: str) -> str:
     return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _baris(row: dict[str, Any]) -> dict[str, Any]:
+def _result_row(row: dict[str, Any]) -> dict[str, Any]:
     """Susun satu baris hasil; `bbox` hanya diisi kalau geometrinya ada."""
     bbox = [row["min_x"], row["min_y"], row["max_x"], row["max_y"]]
     return {
@@ -186,11 +186,11 @@ def _baris(row: dict[str, Any]) -> dict[str, Any]:
         "latitude": row["latitude"],
         "longitude": row["longitude"],
         "has_geometry": row["has_geometry"],
-        "bbox": bbox if all(nilai is not None for nilai in bbox) else None,
+        "bbox": bbox if all(value is not None for value in bbox) else None,
     }
 
 
-def _catatan(keyword: str, results: list[dict[str, Any]]) -> list[str]:
+def _search_notes(keyword: str, results: list[dict[str, Any]]) -> list[str]:
     """Sebutkan batasan yang berlaku, terutama saat hasilnya kosong."""
     if not results:
         return [
@@ -244,7 +244,7 @@ def search_regions(
             "limit": limit,
             "count": 0,
             "results": [],
-            "notes": _catatan(keyword, []),
+            "notes": _search_notes(keyword, []),
         }
 
     with conn.cursor(row_factory=dict_row) as cur:
@@ -254,11 +254,11 @@ def search_regions(
         )
         rows = cur.fetchall()
 
-    results = [_baris(row) for row in rows]
+    results = [_result_row(row) for row in rows]
     return {
         "query": keyword,
         "limit": limit,
         "count": len(results),
         "results": results,
-        "notes": _catatan(keyword, results),
+        "notes": _search_notes(keyword, results),
     }

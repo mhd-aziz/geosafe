@@ -15,7 +15,7 @@ client = TestClient(app)
 MERAUKE = "/api/v1/panel/kabupaten_kota/9301"
 
 
-def test_panel_memuat_identitas_wilayah_dan_seri_titik_panas() -> None:
+def test_panel_carries_region_identity_and_hotspot_series() -> None:
     response = client.get(MERAUKE)
 
     assert response.status_code == 200
@@ -25,19 +25,19 @@ def test_panel_memuat_identitas_wilayah_dan_seri_titik_panas() -> None:
     assert body["region"]["province_name"] == "Papua Selatan"
     assert body["region"]["area_km2"] > 40_000
 
-    tahun = {row["year"] for row in body["hotspot_by_year"]}
-    assert tahun == {2020, 2021, 2022, 2023, 2024, 2025, 2026}
+    years = {row["year"] for row in body["hotspot_by_year"]}
+    assert years == {2020, 2021, 2022, 2023, 2024, 2025, 2026}
     # seri dikirim apa adanya: 2026 memuat seri arsip dan seri nrt
-    seri_2026 = {row["series"] for row in body["hotspot_by_year"] if row["year"] == 2026}
-    assert {"main", "nrt"} <= seri_2026
+    series_2026 = {row["series"] for row in body["hotspot_by_year"] if row["year"] == 2026}
+    assert {"main", "nrt"} <= series_2026
 
 
-def test_panel_memuat_kejadian_status_darurat_dan_irbi() -> None:
+def test_panel_carries_events_emergency_status_and_irbi() -> None:
     body = client.get(MERAUKE).json()
 
-    tahun_kejadian = {row["year"] for row in body["event_by_year"]}
-    assert tahun_kejadian <= set(range(2020, 2027))
-    assert 2026 in tahun_kejadian  # satu-satunya tahun yang tercatat untuk Merauke
+    event_years = {row["year"] for row in body["event_by_year"]}
+    assert event_years <= set(range(2020, 2027))
+    assert 2026 in event_years  # satu-satunya tahun yang tercatat untuk Merauke
 
     assert set(body["emergency_2025"]) == {
         "emergency_sk_karhutla_2025",
@@ -48,15 +48,15 @@ def test_panel_memuat_kejadian_status_darurat_dan_irbi() -> None:
     assert body["hotspot_per_1000_km2"] is not None
 
 
-def test_panel_menyebut_batasan_data() -> None:
-    catatan = " ".join(client.get(MERAUKE).json()["notes"])
+def test_panel_states_data_limits() -> None:
+    notes = " ".join(client.get(MERAUKE).json()["notes"])
 
-    assert "korban dan kerusakan" in catatan
-    assert "nrt" in catatan  # peringatan seri tidak sebanding ikut terkirim
-    assert "tidak menulis baris bernilai nol" in catatan  # tahun tanpa baris fakta dijelaskan
+    assert "korban dan kerusakan" in notes
+    assert "nrt" in notes  # peringatan seri tidak sebanding ikut terkirim
+    assert "tidak menulis baris bernilai nol" in notes  # tahun tanpa baris fakta dijelaskan
 
 
-def test_wilayah_tidak_dikenal_balas_404() -> None:
+def test_unknown_region_answers_404() -> None:
     response = client.get("/api/v1/panel/kabupaten_kota/9999")
 
     assert response.status_code == 404

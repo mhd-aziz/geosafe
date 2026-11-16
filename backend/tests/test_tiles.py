@@ -16,13 +16,13 @@ client = TestClient(app)
 
 # z=0, x=0, y=0 = satu tile yang menutupi seluruh dunia, jadi seluruh 514
 # poligon kabupaten/kota masuk.
-TILE_DUNIA = "/tiles/regions/0/0/0.mvt"
+WORLD_TILE = "/tiles/regions/0/0/0.mvt"
 # z=1, x=0, y=1 = separuh barat dan selatan bumi: tidak memuat Indonesia.
-TILE_LAUT = "/tiles/regions/1/0/1.mvt"
+OCEAN_TILE = "/tiles/regions/1/0/1.mvt"
 
 
-def test_tile_dunia_berisi_layer_regions() -> None:
-    response = client.get(TILE_DUNIA, params={"year": 2020})
+def test_world_tile_contains_regions_layer() -> None:
+    response = client.get(WORLD_TILE, params={"year": 2020})
 
     assert response.status_code == 200
     assert response.headers["content-type"] == MEDIA_TYPE_MVT
@@ -31,16 +31,16 @@ def test_tile_dunia_berisi_layer_regions() -> None:
     assert b"regions" in body  # nama layer ditulis di dalam MVT
 
 
-def test_tile_kosong_balas_204() -> None:
-    response = client.get(TILE_LAUT, params={"year": 2020})
+def test_empty_tile_answers_204() -> None:
+    response = client.get(OCEAN_TILE, params={"year": 2020})
 
     assert response.status_code == 204
     assert response.content == b""
 
 
-def test_tile_memuat_properti_penanda_baris_fakta() -> None:
+def test_tile_carries_has_fact_property() -> None:
     """Wilayah tanpa baris fakta harus tetap terkirim, ditandai `has_fact`."""
-    response = client.get(TILE_DUNIA, params={"year": 2020})
+    response = client.get(WORLD_TILE, params={"year": 2020})
 
     assert response.status_code == 200
     body = response.content
@@ -49,7 +49,7 @@ def test_tile_memuat_properti_penanda_baris_fakta() -> None:
     assert len(body) > 47_657
 
 
-def test_basis_data_memang_punya_wilayah_tanpa_baris_fakta() -> None:
+def test_database_holds_regions_without_fact_rows() -> None:
     """Menegaskan alasan LEFT JOIN: sebagian wilayah tidak punya baris tahun itu.
 
     Kalau suatu hari ETL menulis baris bernilai nol, uji ini akan gagal dan
@@ -57,23 +57,23 @@ def test_basis_data_memang_punya_wilayah_tanpa_baris_fakta() -> None:
     """
     with psycopg.connect(database_url(), row_factory=dict_row) as conn:
         with conn.cursor() as cur:
-            cur.execute("select count(*) as n from regions")
-            jumlah_wilayah = cur.fetchone()["n"]
+            cur.execute("select count(*) as region_count from regions")
+            region_count = cur.fetchone()["region_count"]
             cur.execute(
                 """
-                select count(*) as baris, count(distinct region_code) as wilayah
+                select count(*) as fact_rows, count(distinct region_code) as regions
                   from region_facts
                  where metric_code = 'hotspot_count' and year = 2020
                    and month is null and confidence is null
                 """
             )
-            baris = cur.fetchone()
+            fact_rows = cur.fetchone()
 
-    assert jumlah_wilayah == 514
-    assert baris["wilayah"] < jumlah_wilayah  # ada wilayah tanpa baris
-    assert baris["baris"] > baris["wilayah"]  # sebagian wilayah punya main + fill
+    assert region_count == 514
+    assert fact_rows["regions"] < region_count  # ada wilayah tanpa baris
+    assert fact_rows["fact_rows"] > fact_rows["regions"]  # sebagian wilayah punya main + fill
 
 
-def test_tahun_di_luar_rentang_ditolak() -> None:
-    assert client.get(TILE_DUNIA, params={"year": 2019}).status_code == 422
-    assert client.get(TILE_DUNIA, params={"year": 2027}).status_code == 422
+def test_year_outside_range_is_rejected() -> None:
+    assert client.get(WORLD_TILE, params={"year": 2019}).status_code == 422
+    assert client.get(WORLD_TILE, params={"year": 2027}).status_code == 422

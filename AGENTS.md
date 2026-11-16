@@ -50,7 +50,8 @@ dibuatkan berkas daftar endpoint.
   (fungsi & variabel), `PascalCase` (kelas), kolom JSON sama persis dengan kolom
   DB (`hotspot_count`, `region_code`). Komentar dan docstring: **Bahasa
   Indonesia**. README dan `docs/`: Bahasa Indonesia.
-- Nama fungsi uji Bahasa Indonesia, melekat ke perilaku (`test_tile_kosong_balas_204`).
+- Nama fungsi uji Bahasa Inggris, melekat ke perilaku (`test_empty_tile_answers_204`;
+  perhatikan: aturan ini berlaku untuk **seluruh** nama fungsi, uji termasuk).
   Uji memakai `TestClient` dan menembak basis data hidup, lalu memeriksa angka
   nyata (mis. `len(body) > 47_657`); tidak ada tiruan/mock. Kalau DB mati, uji
   memang harus gagal.
