@@ -94,12 +94,19 @@ penanda traceability**, bukan sebagai nama berkas. Nama berkas router:
 
 | Berkas | Fitur |
 |---|---|
-| `maps.py` | P1–P5 — peta sebaran, terkini, kejadian, kerawanan, titik kejadian, tile MVT |
+| `maps.py` | P1, P3, P5 — tile MVT jumlah titik panas (kabupaten/kota + provinsi) |
+| `risk.py` | P4 — skor kerawanan, kelas, dan uji sensitivitas skema bobot |
 | `panels.py` | W1–W4 — panel wilayah per tingkat |
 | `analysis.py` | A1–A3 — tren, komposisi wilayah, peringkat |
 | `search.py` | C1 — pencarian tiga tingkat wilayah |
 | `latest.py` | P2 — titik panas terkini 24/48/72 jam + cache 15 menit |
 | `transparency.py` | T1 — sumber & batas data, unduh CSV |
+
+Berkas dipisah **bukan** menurut nomor kelompok fiturnya, melainkan saat satu
+fitur membawa perilaku sendiri yang tidak dipakai tetangganya: `latest.py` punya
+cache, snapshot, dan tarikan pihak ketiga; `risk.py` punya skema bobot dan uji
+sensitivitas. Fitur yang sekadar menambah satu endpoint baca tetap masuk berkas
+kelompoknya.
 
 ### Format pesan commit (Conventional Commits)
 

@@ -44,8 +44,11 @@ sendiri di `/docs` dan `/openapi.json`, jangan dibuatkan berkas daftar endpoint.
 ## Konvensi yang berlaku di kode
 
 - Satu berkas router per kelompok fitur, namanya Inggris, dipetakan ke kode fitur dokumen perencanaan:
-  `maps.py` (P1–P5), `panels.py` (W1–W4), `analysis.py` (A1–A3), `search.py` (C1), `latest.py` (P2),
-  `transparency.py` (T1). Buat berkas **saat** fiturnya dikerjakan; berkas yang belum ada berarti belum
+  `maps.py` (P1, P3, P5 — tile MVT jumlah titik panas), `risk.py` (P4 — skor kerawanan +
+  uji sensitivitas), `panels.py` (W1–W4), `analysis.py` (A1–A3), `search.py` (C1), `latest.py`
+  (P2 — terkini, cache 15 menit), `transparency.py` (T1). Berkas dipisah saat fiturnya membawa
+  perilaku sendiri (cache/snapshot di `latest.py`, skema bobot di `risk.py`), bukan menurut nomor
+  kelompoknya. Buat berkas **saat** fiturnya dikerjakan; berkas yang belum ada berarti belum
   dikerjakan.
 - Router didaftarkan di `app/main.py`; tag memuat kode fitur (`tags=["P1 peta titik panas"]`).
 - Endpoint yang menyentuh basis data ditulis `def` biasa (psycopg sinkron, FastAPI menjalankannya di

@@ -10,7 +10,7 @@ from psycopg.rows import dict_row
 
 from app.config import database_url
 from app.main import app
-from app.routers.maps import MEDIA_TYPE_MVT
+from app.tiles import MEDIA_TYPE_MVT
 
 client = TestClient(app)
 
@@ -39,6 +39,19 @@ def test_empty_tile_answers_204() -> None:
 
     assert response.status_code == 204
     assert response.content == b""
+
+
+def test_tile_coordinates_outside_zoom_range_are_rejected() -> None:
+    """Koordinat salah dijawab 422 oleh penjaga bersama di `app/tiles.py`.
+
+    Sebelum penjaga itu ada, koordinat seperti ini menjalar ke `ST_TileEnvelope`
+    dan pengguna menerima `500` untuk permintaan yang sekadar salah alamat.
+    """
+    for path in ("/tiles/regions/0/5/5.mvt", "/tiles/provinces/0/5/5.mvt"):
+        response = client.get(path, params={"year": 2020})
+
+        assert response.status_code == 422, path
+        assert "di luar rentang" in response.json()["detail"]
 
 
 def test_tile_carries_has_fact_property() -> None:
