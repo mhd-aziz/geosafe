@@ -129,6 +129,15 @@ dokumen boleh langsung ke `main`.
     hidup. Kalau peta kosong: `curl -r 0-99 -D- http://127.0.0.1:8080/pmtiles/indonesia.pmtiles`
     harus menjawab `206` + `Content-Range`. Tanpa internet nama tempat hilang (font dan sprite
     diambil dari `protomaps.github.io/basemaps-assets`), geometri tetap tergambar.
+13. Koordinat tile yang sah hanya `0..2^z-1`; di luar itu `ST_TileEnvelope` melempar
+    `Invalid tile x value` dan permintaan salah alamat berakhir `500`. Setiap endpoint tile baru
+    wajib memanggil `check_tile_bounds(z, x, y)` dari `app/tiles.py` (membalas `422`). Aturan
+    "tile kosong → 204" juga tinggal di berkas itu (`render_tile`), jangan disalin.
+14. Properti `has_fact` (lapisan titik panas) dan `has_score` (lapisan kerawanan) **tidak sama
+    artinya**: `has_fact = 0` berarti nol deteksi yang terukur, `has_score = 0` berarti skor
+    kerawanan belum ada. Baris kerawanan di `region_facts` tidak bertahun/bulan/seri (periksa
+    dengan `select ... where metric_code like 'risk_%'`), jadi join-nya wajib mengunci syarat itu
+    atau poligon bisa tergandakan di dalam satu tile.
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.
