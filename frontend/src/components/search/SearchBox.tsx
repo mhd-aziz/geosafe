@@ -34,7 +34,7 @@ export function SearchBox({ onSelect, debounceMs }: SearchBoxProps) {
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="Nama atau kode: Bogor, 9301, Simeulue"
-        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400"
+        className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 transition-colors duration-200 placeholder:text-slate-400 focus-visible:border-teal-600 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-teal-600 sm:min-h-9"
       />
 
       {tooShort ? (

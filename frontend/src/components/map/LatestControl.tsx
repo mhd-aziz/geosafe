@@ -1,5 +1,6 @@
 import { formatCount, formatMoment } from '../../lib/format';
 import type { LatestSatellite, LatestWindow } from '../../types/geosafe';
+import { Segmented } from '../common/Segmented';
 
 const WINDOWS: LatestWindow[] = [24, 48, 72];
 
@@ -43,34 +44,19 @@ export function LatestControl({
   const available = satellites.filter((satellite) => satellite.available).map((s) => s.name);
 
   return (
-    <div className="rounded-md border border-slate-300 bg-white/95 px-3 py-2 text-xs shadow-sm">
+    <div className="w-full rounded-xl border border-slate-200 bg-white/95 p-2.5 text-xs shadow-lg backdrop-blur-sm sm:w-auto">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium text-slate-900">Titik panas terkini</span>
-        <div
-          role="group"
-          aria-label="Jendela jam terkini"
-          className="flex overflow-hidden rounded border border-slate-300"
-        >
-          {WINDOWS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={windowHours === option}
-              onClick={() => onWindowChange(option)}
-              className={`px-2 py-1 text-xs ${
-                windowHours === option
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              {option} jam
-            </button>
-          ))}
-        </div>
+        <span className="font-semibold text-slate-900">Titik panas terkini</span>
+        <Segmented
+          label="Jendela"
+          value={windowHours}
+          onChange={onWindowChange}
+          options={WINDOWS.map((option) => ({ value: option, label: `${option} jam` }))}
+        />
         <button
           type="button"
           onClick={onRefresh}
-          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+          className="min-h-9 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-700 sm:min-h-8"
         >
           Segarkan
         </button>

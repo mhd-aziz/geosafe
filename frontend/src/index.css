@@ -6,3 +6,20 @@ body,
 #root {
   height: 100%;
 }
+
+body {
+  /* Sentuhan di layar kecil tidak memunculkan kilatan biru di atas poligon peta. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hormati permintaan sistem: tanpa animasi/transisi bila pengguna memintanya.
+ * Gaya peta MapLibre juga menerima larangan ini saat memperbesar wilayah. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

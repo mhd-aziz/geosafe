@@ -30,7 +30,7 @@ export function TrendPage() {
     firms?.data_until && firms.data_until.startsWith(String(lastYear)) ? firms.data_until : null;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 overflow-y-auto p-4">
+    <div className="mx-auto h-full w-full max-w-5xl space-y-4 overflow-y-auto p-3 sm:p-5">
       <header className="space-y-1">
         <h2 className="text-lg font-semibold text-slate-900">
           Tren nasional {data.years[0]}–{data.years[data.years.length - 1]}

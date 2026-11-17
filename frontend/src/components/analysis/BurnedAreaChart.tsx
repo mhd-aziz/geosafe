@@ -15,7 +15,7 @@ export function BurnedAreaChart({ rows }: BurnedAreaChartProps) {
   const max = Math.max(...values, 1);
 
   return (
-    <figure className="rounded-md border border-slate-300 bg-white p-3">
+    <figure className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
       <h3 className="text-sm font-semibold text-slate-800">
         Luas terbakar nasional (GWIS) — konteks, bukan seri ketiga
       </h3>
