@@ -9,8 +9,8 @@ hasil build, meneruskan `/api` serta `/tiles` ke API, dan melayani basemap
 `/pmtiles/`). Iterasi 10 (P2 titik panas terkini + W1 panelnya) selesai di API
 (10a) dan di antarmuka (10b); iterasi 11 mengerjakan P4 kerawanan versi B — 11a
 memindahkan basis data pengembangan ke Aiven, 11b menyelesaikan sisinya di API,
-11c mengerjakannya di antarmuka. Sisa yang direncanakan: 11d lapisan kelas
-kerawanan desa.
+11c mengerjakannya di antarmuka sekaligus merapikan tampilan dan tata letak.
+Sisa yang direncanakan: 11d lapisan kelas kerawanan desa.
 
 ---
 
@@ -78,7 +78,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 10b | `feat/frontend-latest` — lapisan terkini di peta, pemilih 24/48/72 jam, panel `W1` | ✅ PR #16, tag `iter-10b-frontend-latest` |
 | 11a | basis data pengembangan pindah ke Aiven (PG 18.7 + PostGIS 3.6.4) + skrip sinkronisasi data | ✅ PR #17, tag `iter-11a-aiven-db` |
 | 11b | `feat/api-risk-map` — `P4` di API: tile kerawanan tiga skema bobot + endpoint uji sensitivitas | ✅ PR #19, tag `iter-11b-risk-api` |
-| 11c | `P4` di antarmuka: pemilih skema, legenda skor, IRBI sejajar, kalimat batasan | setelah 11b |
+| 11c | `feat/frontend-risk-ui` — `P4` di antarmuka: pemilih skema, legenda kelas, bacaan skor, perapian tampilan + responsif | ✅ PR #20, tag `iter-11c-risk-ui` |
 | 11d | lapisan kelas kerawanan desa/kelurahan (`SRS-F-38`/`39`) | setelah 11c |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti

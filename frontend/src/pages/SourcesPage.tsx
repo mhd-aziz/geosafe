@@ -20,7 +20,7 @@ export function SourcesPage() {
   const downloads = useRemoteData(fetchDownloads, []);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 overflow-y-auto p-4">
+    <div className="mx-auto h-full w-full max-w-5xl space-y-4 overflow-y-auto p-3 sm:p-5">
       <header className="space-y-1">
         <h2 className="text-lg font-semibold text-slate-900">Sumber &amp; Batas Data</h2>
         <p className="text-xs text-slate-600">
@@ -29,7 +29,7 @@ export function SourcesPage() {
         </p>
       </header>
 
-      <section className="rounded-md border border-slate-300 bg-white p-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800">Sumber data</h3>
         {sources.status === 'loading' ? <p className="mt-2 text-xs text-slate-600">memuat sumber…</p> : null}
         {sources.status === 'error' ? (
@@ -80,7 +80,7 @@ export function SourcesPage() {
         ) : null}
       </section>
 
-      <section className="rounded-md border border-slate-300 bg-white p-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800">
           Titik panas di luar poligon wilayah
         </h3>
@@ -135,7 +135,7 @@ export function SourcesPage() {
         ) : null}
       </section>
 
-      <section className="rounded-md border border-slate-300 bg-white p-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800">
           Tujuh celah data yang tetap ada
         </h3>
@@ -151,7 +151,7 @@ export function SourcesPage() {
         </ol>
       </section>
 
-      <section className="rounded-md border border-slate-300 bg-white p-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800">Unduh tabel siap pakai</h3>
         {downloads.status === 'loading' ? (
           <p className="mt-2 text-xs text-slate-600">memuat daftar unduhan…</p>
@@ -180,7 +180,7 @@ export function SourcesPage() {
         ) : null}
       </section>
 
-      <section className="rounded-md border border-slate-300 bg-white p-3">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800">Daftar istilah</h3>
         <dl className="mt-2 space-y-2 text-xs text-slate-700">
           {GLOSSARY.map((entry) => (

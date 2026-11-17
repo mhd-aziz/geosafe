@@ -6,6 +6,24 @@ const decimalFormat = new Intl.NumberFormat('id-ID', {
   maximumFractionDigits: 2,
 });
 
+// Pemformat per jumlah desimal diambil dari cache: membuat `Intl.NumberFormat`
+// baru setiap render mahal, sedangkan jumlah desimal yang dipakai cuma sedikit
+// (2 untuk skor, 1 untuk persen, 4 untuk korelasi peringkat).
+const decimalFormats = new Map<number, Intl.NumberFormat>();
+
+function decimalFormatFor(digits: number): Intl.NumberFormat {
+  const cached = decimalFormats.get(digits);
+  if (cached) {
+    return cached;
+  }
+  const created = new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  decimalFormats.set(digits, created);
+  return created;
+}
+
 /** Angka tanpa desimal; nilai kosong ditampilkan sebagai "—", bukan 0.
  *
  * ETL tidak menulis baris bernilai nol, jadi `null` berarti "tidak ada baris",
@@ -15,8 +33,8 @@ export function formatCount(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : countFormat.format(value);
 }
 
-export function formatDecimal(value: number | null | undefined): string {
-  return value === null || value === undefined ? '—' : decimalFormat.format(value);
+export function formatDecimal(value: number | null | undefined, digits = 2): string {
+  return value === null || value === undefined ? '—' : decimalFormatFor(digits).format(value);
 }
 
 export function formatAreaKm2(value: number | null | undefined): string {

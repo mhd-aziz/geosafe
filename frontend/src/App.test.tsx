@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +7,7 @@ import {
   fetchLatest,
   fetchLatestSummary,
   fetchPointCoverage,
+  fetchRiskSchemes,
   fetchSources,
 } from './api/geosafe';
 import { App } from './App';
@@ -26,6 +27,8 @@ vi.mock('./api/geosafe', () => ({
   fetchNationalTrend: vi.fn(),
   fetchLatest: vi.fn(),
   fetchLatestSummary: vi.fn(),
+  fetchRiskSchemes: vi.fn(),
+  riskTileUrlTemplate: (scheme: string) => `/tiles/risk/{z}/{x}/{y}.mvt?scheme=${scheme}`,
   downloadFileUrl: (name: string) => `/api/v1/downloads/${name}`,
 }));
 
@@ -34,6 +37,7 @@ const fetchPointCoverageMock = vi.mocked(fetchPointCoverage);
 const fetchDownloadsMock = vi.mocked(fetchDownloads);
 const fetchLatestMock = vi.mocked(fetchLatest);
 const fetchLatestSummaryMock = vi.mocked(fetchLatestSummary);
+const fetchRiskSchemesMock = vi.mocked(fetchRiskSchemes);
 
 /** Halaman peta menarik lapisan terkini saat dibuka; angkanya cukup satu titik. */
 function mockLatest() {
@@ -67,7 +71,72 @@ function mockLatest() {
   });
 }
 
-beforeEach(mockLatest);
+/** Skema kerawanan: halaman peta memintanya saat dibuka. */
+function mockRiskSchemes() {
+  fetchRiskSchemesMock.mockResolvedValue({
+    default_scheme: 'a',
+    schemes: [
+      {
+        scheme_code: 'a',
+        scheme_name: 'titik panas 50% + kejadian 50%',
+        weights: { hotspot: 0.5, event: 0.5, irbi: null },
+        includes_irbi: false,
+        is_default: true,
+      },
+      {
+        scheme_code: 'b',
+        scheme_name: 'titik panas 50% + kejadian 30% + IRBI 20%',
+        weights: { hotspot: 0.5, event: 0.3, irbi: 0.2 },
+        includes_irbi: true,
+        is_default: false,
+      },
+      {
+        scheme_code: 'c',
+        scheme_name: 'titik panas 40% + kejadian 40% + IRBI 20%',
+        weights: { hotspot: 0.4, event: 0.4, irbi: 0.2 },
+        includes_irbi: true,
+        is_default: false,
+      },
+    ],
+    sensitivity: [
+      {
+        scheme_a: 'a',
+        scheme_b: 'b',
+        spearman_rho: 0.9252,
+        regions_class_changed: 106,
+        pct_class_changed: 20.6,
+        region_total: 514,
+      },
+      {
+        scheme_a: 'a',
+        scheme_b: 'c',
+        spearman_rho: 0.959,
+        regions_class_changed: 75,
+        pct_class_changed: 14.6,
+        region_total: 514,
+      },
+      {
+        scheme_a: 'b',
+        scheme_b: 'c',
+        spearman_rho: 0.9823,
+        regions_class_changed: 53,
+        pct_class_changed: 10.3,
+        region_total: 514,
+      },
+    ],
+    region_total: 514,
+    regions_without_score: 0,
+    notes: [
+      'skor kerawanan adalah susunan penelitian ini, bukan angka resmi BNPB',
+      'skor kerawanan hanya dihitung untuk kabupaten/kota (514 wilayah)',
+    ],
+  });
+}
+
+beforeEach(() => {
+  mockLatest();
+  mockRiskSchemes();
+});
 
 function renderApp(path = '/') {
   render(
@@ -107,7 +176,7 @@ describe('App', () => {
     renderApp();
 
     expect(await screen.findByText(/Titik panas terkini/)).toBeTruthy();
-    expect(screen.getByRole('group', { name: 'Jendela jam terkini' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Jendela' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '72 jam' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('heading', { name: 'Ringkasan nasional titik panas' })).toBeTruthy();
     expect(screen.getByText('231')).toBeTruthy();
@@ -170,5 +239,45 @@ describe('App', () => {
 
     expect(await screen.findByText(/Keterangan sumber belum tersedia/)).toBeTruthy();
     expect(screen.getByTestId('map-stub')).toBeTruthy();
+  });
+
+  it('memuat lapisan kerawanan beserta skema dan uji sensitivitasnya', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan' }));
+
+    // `SRS-F-33`: skema A tampil sebagai pilihan awal.
+    expect(screen.getByRole('button', { name: 'A' }).getAttribute('aria-pressed')).toBe('true');
+    // `SRS-F-34`: hasil uji sensitivitas ikut tampil, bukan hanya pilihan skema.
+    expect(await screen.findByText(/Korelasi peringkat/)).toBeTruthy();
+    expect(screen.getByText('0,9252')).toBeTruthy();
+    // `SRS-F-37`: skor hanya ada di kabupaten/kota, jadi saklar provinsi dimatikan.
+    expect(screen.getByRole('button', { name: 'Provinsi' }).hasAttribute('disabled')).toBe(true);
+    // `SRS-F-35`/`SRS-F-36`: IRBI sejajar sebagai konteks, skor bukan angka resmi BNPB.
+    // Kalimat itu muncul di dua tempat yang keduanya wajib (legenda dan panel),
+    // jadi yang diperiksa jumlahnya, bukan satu simpul tertentu.
+    expect(screen.getAllByText(/bukan angka resmi BNPB/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/IRBI 2025 ditampilkan sejajar/).length).toBeGreaterThanOrEqual(1);
+    // Lapisan kerawanan tidak bertahun: penyaring tahun nonaktif, bukan dibiarkan berlaku.
+    expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(true);
+    // Alasan penonaktifan harus terbaca di teks layar, bukan hanya di `title`
+    // (elemen nonaktif tidak dapat difokus pengguna keyboard).
+    expect(screen.getByText(/ringkasan satu periode, jadi penyaring tahun tidak berlaku/)).toBeTruthy();
+  });
+
+  it('menyebut kegagalan keterangan skema alih-alih menulis "sedang dimuat"', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    fetchRiskSchemesMock.mockRejectedValue(new Error('Failed to fetch'));
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan' }));
+
+    // Satu layar tidak boleh memuat dua pesan yang saling bertentangan.
+    expect(screen.getByText(/keterangan skema gagal dimuat/)).toBeTruthy();
+    expect(screen.queryByText(/keterangan skema sedang dimuat/)).toBeNull();
+    // Peta dan kendali tetap bisa dipakai; skema default tetap ditawarkan.
+    expect(screen.getByRole('button', { name: 'A' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText(/Peta tetap memakai skema default/)).toBeTruthy();
   });
 });

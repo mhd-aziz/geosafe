@@ -63,32 +63,32 @@ export function RegionPanel({ regionCode, onClose }: RegionPanelProps) {
         <button
           type="button"
           onClick={onClose}
-          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+          className="min-h-9 cursor-pointer rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-700 sm:min-h-8"
         >
           Tutup
         </button>
       </header>
 
       <dl className="grid grid-cols-2 gap-3 text-xs">
-        <div className="rounded border border-slate-200 bg-slate-50 p-2">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
           <dt className="text-slate-600">Kepadatan titik panas (seluruh seri)</dt>
           <dd className="text-sm font-semibold text-slate-900">
             {formatDecimal(data.hotspot_per_1000_km2)} per 1.000 km²
           </dd>
         </div>
-        <div className="rounded border border-slate-200 bg-slate-50 p-2">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
           <dt className="text-slate-600">IRBI 2025</dt>
           <dd className="text-sm font-semibold text-slate-900">
             {formatDecimal(data.irbi_2025.irbi_score)} · {data.irbi_2025.irbi_class ?? '—'}
           </dd>
         </div>
-        <div className="rounded border border-slate-200 bg-slate-50 p-2">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
           <dt className="text-slate-600">SK darurat karhutla 2025</dt>
           <dd className="text-sm font-semibold text-slate-900">
             {formatCount(data.emergency_2025.emergency_sk_karhutla_2025)}
           </dd>
         </div>
-        <div className="rounded border border-slate-200 bg-slate-50 p-2">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
           <dt className="text-slate-600">SK darurat yang menyebut kebakaran 2025</dt>
           <dd className="text-sm font-semibold text-slate-900">
             {formatCount(data.emergency_2025.emergency_sk_mentions_2025)}

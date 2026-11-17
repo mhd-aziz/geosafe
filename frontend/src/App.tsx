@@ -12,42 +12,78 @@ const NAV = [
   { to: '/sumber', label: 'Sumber & Batas Data' },
 ];
 
-/** Kerangka halaman: judul, navigasi, isi halaman, dan keterangan sumber.
+/** Kerangka halaman: merek, navigasi, isi halaman, dan keterangan sumber.
  *
- * Router memisahkan halaman peta (`P1`/`C1`/`W2`), tren (`A1`), dan sumber data
- * (`T1`) supaya tiap halaman bisa tumbuh tanpa membuat satu komponen raksasa.
- * `BrowserRouter` dipasang di `main.tsx`, sehingga halaman bisa diuji dengan
- * `MemoryRouter` tanpa menyentuh riwayat peramban.
+ * Router memisahkan halaman peta (`P1`/`C1`/`W2`/`P4`), tren (`A1`), dan sumber
+ * data (`T1`) supaya tiap halaman bisa tumbuh tanpa membuat satu komponen
+ * raksasa. `BrowserRouter` dipasang di `main.tsx`, sehingga halaman bisa diuji
+ * dengan `MemoryRouter` tanpa menyentuh riwayat peramban.
  */
 export function App() {
   const { firms, error: sourceError } = useSourceSummary();
 
   return (
-    <div className="flex h-full flex-col bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white px-4 py-3">
-        <h1 className="text-lg font-semibold">GeoSafe — Peta Titik Panas Karhutla</h1>
-        <p className="mt-1 text-xs text-slate-600">
-          Sebaran titik panas sebagai indikator kerawanan kebakaran hutan dan lahan, 514
-          kabupaten/kota, 2020–2026. <strong>Titik panas bukan kebakaran:</strong> titik panas adalah
-          anomali termal yang terdeteksi satelit, bukan kejadian terkonfirmasi.
-        </p>
-        <nav aria-label="Navigasi halaman" className="mt-2 flex flex-wrap gap-3 text-sm">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                isActive
-                  ? 'border-b-2 border-slate-900 pb-0.5 font-semibold text-slate-900'
-                  : 'border-b-2 border-transparent pb-0.5 text-slate-600 hover:text-slate-900'
-              }
+    <div className="flex h-full min-h-0 flex-col bg-slate-50 text-slate-900">
+      <header className="z-20 border-b border-slate-200 bg-white/95 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-2 px-3 py-2.5 sm:px-5">
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-700 text-white shadow-sm"
             >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 3 3 5.5v15L9 18l6 3 6-2.5v-15L15 6Z" />
+                <path d="M9 3v15M15 6v15" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">
+                GeoSafe — Peta Titik Panas Karhutla
+              </h1>
+              <p className="text-[11px] text-slate-600 sm:text-xs">
+                Sebaran titik panas sebagai indikator kerawanan kebakaran hutan dan lahan · 514
+                kabupaten/kota · 2020–2026
+              </p>
+            </div>
+          </div>
+
+          <nav
+            aria-label="Navigasi halaman"
+            className="-mx-1 flex gap-1 overflow-x-auto pb-0.5 text-sm"
+          >
+            {NAV.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  `min-h-9 shrink-0 cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:min-h-8 sm:text-sm ${
+                    isActive
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
       </header>
+
+      <p className="border-b border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-900 sm:px-5">
+        <strong>Titik panas bukan kebakaran.</strong> Titik panas adalah anomali termal yang
+        terdeteksi satelit — indikasi awal, bukan kejadian terkonfirmasi. Angka kejadian karhutla
+        adalah seri terpisah dan tidak pernah dijumlahkan dengan titik panas.
+      </p>
 
       <main className="flex min-h-0 flex-1 flex-col">
         <Routes>
@@ -59,7 +95,7 @@ export function App() {
             element={
               <p className="p-4 text-sm text-slate-700">
                 Halaman tidak ditemukan. Kembali ke{' '}
-                <NavLink to="/" className="text-blue-700 underline">
+                <NavLink to="/" className="text-teal-700 underline">
                   peta
                 </NavLink>
                 .
@@ -69,17 +105,19 @@ export function App() {
         </Routes>
       </main>
 
-      <footer className="border-t border-slate-200 bg-white px-4 py-2 text-[11px] text-slate-600">
-        {firms ? (
-          <p>
-            Sumber titik panas: NASA FIRMS — {firms.source_name}. Data sampai{' '}
-            {firms.data_until ?? 'tidak disebutkan'}, diakses {firms.accessed_on}. Peta memakai seri{' '}
-            <code>{MAP_SERIES}</code> (arsip); seri <code>nrt</code> 2026 tidak sebanding dan tidak
-            digambar, angkanya ada di panel wilayah dan halaman tren.
-          </p>
-        ) : (
-          <p>Keterangan sumber belum tersedia{sourceError ? `: ${sourceError}` : ''}.</p>
-        )}
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto w-full max-w-[1800px] px-3 py-2 text-[11px] leading-relaxed text-slate-600 sm:px-5">
+          {firms ? (
+            <p>
+              Sumber titik panas: NASA FIRMS — {firms.source_name}. Data sampai{' '}
+              {firms.data_until ?? 'tidak disebutkan'}, diakses {firms.accessed_on}. Peta memakai
+              seri <code>{MAP_SERIES}</code> (arsip); seri <code>nrt</code> 2026 tidak sebanding dan
+              tidak digambar, angkanya ada di panel wilayah dan halaman tren.
+            </p>
+          ) : (
+            <p>Keterangan sumber belum tersedia{sourceError ? `: ${sourceError}` : ''}.</p>
+          )}
+        </div>
       </footer>
     </div>
   );

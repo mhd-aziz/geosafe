@@ -45,7 +45,7 @@ export function TrendChart({ hotspot, events }: TrendChartProps) {
   const gridValues = [0, 0.25, 0.5, 0.75, 1];
 
   return (
-    <figure className="rounded-md border border-slate-300 bg-white p-3">
+    <figure className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         role="img"

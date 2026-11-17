@@ -6,6 +6,12 @@
 
 export type MapLevel = 'regency' | 'province';
 
+/** Lapisan tematik yang bisa digambar di peta: jumlah titik panas atau kerawanan. */
+export type MapLayer = 'hotspot' | 'risk';
+
+/** Skema bobot skor kerawanan (`P4`); nilainya ditentukan API. */
+export type RiskSchemeCode = 'a' | 'b' | 'c';
+
 export type SearchLevel = 'province' | 'regency' | 'district' | 'village';
 
 export type RegionType = 'REGENCY' | 'CITY';
@@ -211,4 +217,33 @@ export interface LatestSummary extends LatestBase {
     province_name: string;
     point_count: number;
   }[];
+}
+
+/** `GET /api/v1/risk/schemes` — skema bobot + uji sensitivitas (`P4`). */
+export interface RiskScheme {
+  scheme_code: RiskSchemeCode;
+  scheme_name: string;
+  /** Bobot 0–1 per indikator; `null` = indikator tidak ikut skema ini. */
+  weights: { hotspot: number | null; event: number | null; irbi: number | null };
+  includes_irbi: boolean;
+  is_default: boolean;
+}
+
+export interface RiskSensitivityRow {
+  scheme_a: RiskSchemeCode;
+  scheme_b: RiskSchemeCode;
+  /** Korelasi peringkat Spearman yang dihitung API dari baris skor. */
+  spearman_rho: number | null;
+  regions_class_changed: number;
+  pct_class_changed: number | null;
+  region_total: number;
+}
+
+export interface RiskSchemesResponse {
+  default_scheme: RiskSchemeCode;
+  schemes: RiskScheme[];
+  sensitivity: RiskSensitivityRow[];
+  region_total: number;
+  regions_without_score: number;
+  notes: string[];
 }

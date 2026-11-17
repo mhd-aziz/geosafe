@@ -1,57 +1,149 @@
+import type { RemoteState } from '../../hooks/useRemoteData';
 import { YEARS } from '../../lib/constants';
-import type { MapLevel } from '../../types/geosafe';
+import { DEFAULT_RISK_SCHEME } from '../../lib/risk';
+import type {
+  MapLayer,
+  MapLevel,
+  RiskScheme,
+  RiskSchemeCode,
+  RiskSchemesResponse,
+} from '../../types/geosafe';
+import { Segmented } from '../common/Segmented';
 
 export interface MapToolbarProps {
+  layer: MapLayer;
+  onLayerChange: (layer: MapLayer) => void;
+  riskScheme: RiskSchemeCode;
+  onRiskSchemeChange: (scheme: RiskSchemeCode) => void;
+  /** Status permintaan `/risk/schemes`; ikut menentukan pesan yang tampil. */
+  riskSchemes: RemoteState<RiskSchemesResponse>;
   year: number;
   level: MapLevel;
   onYearChange: (year: number) => void;
   onLevelChange: (level: MapLevel) => void;
 }
 
-const LEVELS: { value: MapLevel; label: string }[] = [
-  { value: 'regency', label: 'Kabupaten/Kota' },
-  { value: 'province', label: 'Provinsi' },
-];
+/** Kendali peta: lapisan, tahun, tingkat wilayah, dan skema bobot kerawanan.
+ *
+ * Dua lapisan tematik tidak pernah bersamaan (`P1` dan `P4`): lapisan titik panas
+ * memakai filter tahun dan saklar tingkat (`SRS-F-12`, `SRS-F-13`), sedangkan
+ * lapisan kerawanan tidak bertahun dan hanya ada di tingkat kabupaten/kota
+ * (`SRS-F-37`). Karena itu kendali yang tidak berlaku dinonaktifkan dengan
+ * sebabnya, bukan disembunyikan diam-diam.
+ */
+export function MapToolbar({
+  layer,
+  onLayerChange,
+  riskScheme,
+  onRiskSchemeChange,
+  riskSchemes,
+  year,
+  level,
+  onYearChange,
+  onLevelChange,
+}: MapToolbarProps) {
+  const riskActive = layer === 'risk';
+  const schemeOptions = riskSchemes.data?.schemes ?? FALLBACK_SCHEMES;
+  const activeScheme = schemeOptions.find((scheme) => scheme.scheme_code === riskScheme);
 
-/** Filter tahun (`SRS-F-12`) dan saklar tingkat tampilan (`SRS-F-13`). */
-export function MapToolbar({ year, level, onYearChange, onLevelChange }: MapToolbarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-300 bg-white/95 px-3 py-2 shadow-sm">
-      <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
-        Tahun
-        <select
-          value={year}
-          onChange={(event) => onYearChange(Number(event.target.value))}
-          className="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900"
-        >
-          {YEARS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </label>
+    <div className="w-full space-y-2 rounded-xl border border-slate-200 bg-white/95 p-2.5 shadow-lg backdrop-blur-sm sm:w-auto">
+      <Segmented
+        label="Lapisan"
+        value={layer}
+        onChange={onLayerChange}
+        options={[
+          { value: 'hotspot', label: 'Titik panas', title: 'Jumlah titik panas per tahun (P1)' },
+          {
+            value: 'risk',
+            label: 'Kerawanan',
+            title: 'Skor kerawanan susunan penelitian, tingkat kabupaten/kota (P4)',
+          },
+        ]}
+      />
 
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-slate-700">Tingkat</span>
-        <div role="group" aria-label="Tingkat wilayah" className="flex overflow-hidden rounded border border-slate-300">
-          {LEVELS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              aria-pressed={level === option.value}
-              onClick={() => onLevelChange(option.value)}
-              className={`px-2 py-1 text-xs ${
-                level === option.value
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <label className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+          Tahun
+          <select
+            value={year}
+            disabled={riskActive}
+            title={
+              riskActive
+                ? 'Lapisan kerawanan adalah ringkasan satu periode, bukan seri tahunan'
+                : undefined
+            }
+            onChange={(event) => onYearChange(Number(event.target.value))}
+            className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-900 transition-colors duration-200 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 sm:min-h-8"
+          >
+            {YEARS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <Segmented
+          label="Tingkat"
+          value={level}
+          onChange={onLevelChange}
+          options={[
+            { value: 'regency', label: 'Kabupaten/Kota' },
+            {
+              value: 'province',
+              label: 'Provinsi',
+              disabled: riskActive,
+              title: riskActive
+                ? 'Skor kerawanan hanya dihitung untuk kabupaten/kota (SRS-F-37)'
+                : undefined,
+            },
+          ]}
+        />
       </div>
+
+      {riskActive ? (
+        <div className="space-y-1.5 border-t border-slate-100 pt-2">
+          <Segmented
+            label="Skema"
+            value={riskScheme}
+            onChange={onRiskSchemeChange}
+            options={schemeOptions.map((scheme) => ({
+              value: scheme.scheme_code,
+              label: scheme.scheme_code.toUpperCase(),
+              title: scheme.scheme_name,
+            }))}
+          />
+          <p className="text-[11px] leading-snug text-slate-600">
+            {riskSchemes.status === 'error'
+              ? `keterangan skema gagal dimuat (${riskSchemes.error ?? 'sebab tidak diketahui'}); peta tetap memakai skema ${riskScheme.toUpperCase()} tanpa hasil uji sensitivitasnya`
+              : riskSchemes.data === null
+                ? 'keterangan skema sedang dimuat...'
+                : `${activeScheme?.scheme_name ?? 'skema tidak dikenal'}${
+                    riskScheme === DEFAULT_RISK_SCHEME
+                      ? ' — tampilan awal; IRBI 2025 ditampilkan sejajar, bukan bagian skor'
+                      : ' — skema uji; IRBI 2025 ikut masuk 20%'
+                  }`}
+          </p>
+          {/* Alasan penonaktifan ini harus terbaca di teks layar, bukan hanya di
+           * atribut `title`: elemen nonaktif tidak dapat difokus, jadi pengguna
+           * keyboard tidak akan pernah melihat keterangan itu. */}
+          <p className="text-[11px] leading-snug text-slate-600">
+            Lapisan kerawanan adalah ringkasan satu periode, jadi penyaring tahun tidak berlaku; dan
+            skornya hanya dihitung untuk kabupaten/kota (`SRS-F-37`), jadi tingkat provinsi
+            dinonaktifkan.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
+
+/** Tombol skema saat `/risk/schemes` belum termuat: kode saja, tanpa label bobot. */
+const FALLBACK_SCHEMES: RiskScheme[] = (['a', 'b', 'c'] as RiskSchemeCode[]).map((code) => ({
+  scheme_code: code,
+  scheme_name: code === DEFAULT_RISK_SCHEME ? 'skema tampilan awal' : 'skema uji',
+  weights: { hotspot: null, event: null, irbi: null },
+  includes_irbi: code !== DEFAULT_RISK_SCHEME,
+  is_default: code === DEFAULT_RISK_SCHEME,
+}));

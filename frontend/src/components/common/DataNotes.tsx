@@ -9,7 +9,7 @@ export function DataNotes({ title = 'Catatan data', notes }: { title?: string; n
   }
 
   return (
-    <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
+    <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
       <h3 className="text-xs font-semibold tracking-wide text-amber-900 uppercase">{title}</h3>
       <ul className="mt-2 space-y-1 text-xs text-amber-900">
         {notes.map((note) => (

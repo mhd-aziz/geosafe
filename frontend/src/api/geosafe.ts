@@ -9,6 +9,8 @@ import type {
   MapLevel,
   PointCoverage,
   RegionPanelData,
+  RiskSchemeCode,
+  RiskSchemesResponse,
   SearchResponse,
   SourcesResponse,
   TrendData,
@@ -23,6 +25,15 @@ export function tileUrlTemplate(level: MapLevel, year: number): string {
 /** Nama layer di dalam MVT; berbeda per tingkat wilayah. */
 export function tileSourceLayer(level: MapLevel): string {
   return level === 'province' ? 'provinces' : 'regions';
+}
+
+/** Templat URL tile kerawanan (`P4`). Skema bobot ikut di URL, bukan di klien. */
+export function riskTileUrlTemplate(scheme: RiskSchemeCode): string {
+  return `${API_BASE}/tiles/risk/{z}/{x}/{y}.mvt?scheme=${scheme}`;
+}
+
+export function fetchRiskSchemes(): Promise<RiskSchemesResponse> {
+  return fetchJson<RiskSchemesResponse>('/api/v1/risk/schemes');
 }
 
 export function fetchRegionPanel(regionCode: string): Promise<RegionPanelData> {
