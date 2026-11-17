@@ -29,6 +29,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 10b | `feat/frontend-latest` | `P2`/`W1` di antarmuka: lapisan titik terkini, pemilih 24/48/72 jam, panel ringkasan nasional | #16 | `iter-10b-frontend-latest` |
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
+| 11a | *(tanpa cabang — hanya env)* | basis data **pengembangan pindah ke Aiven** (`geosafe`), `pg_dump -Fc` + `pg_restore`, DSN dari `~/.config/geosafe/geosafe.env` | — | belum |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -36,6 +37,71 @@ Semua dikerjakan 2026-11-16, kecuali penyisipan 09b (2026-11-17). Cabang **tidak
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 11a — basis data pengembangan di Aiven (tanpa cabang, hanya env)
+
+Tidak ada perubahan kode: `app/config.py` sudah membaca `GEOSAFE_DATABASE_URL`, jadi
+pindah basis data cukup mengganti nilai di `~/.config/geosafe/geosafe.env` (dibaca unit
+systemd lewat `EnvironmentFile`) dan me-restart `geosafe-api`.
+
+Yang dikerjakan:
+
+1. `CREATE DATABASE geosafe` + `CREATE EXTENSION postgis` di service Aiven (project
+   `aziz`, service `pg`, PostgreSQL 18.7, PostGIS **3.6.4**, 8 GB storage, TLS wajib).
+2. `pg_dump -Fc --no-owner --no-privileges` dari kontainer lokal (PostGIS 3.7.0) →
+   `~/geosafe-migrasi/geosafe.dump`, **88.169.569 B, 27,951 dtk**.
+3. `pg_restore --no-owner --no-privileges --no-acl` → Aiven, **4 mnt 04,581 dtk, 0 baris
+   galat** (`restore.err` kosong). Serial, tanpa `-j`: service hanya 1 CPU / 1 GB RAM.
+4. DSN lokal disimpan di baris komentar `# GEOSAFE_DATABASE_URL_LOKAL`, lalu
+   `systemctl --user restart geosafe-api`.
+
+Bukti (dua jalur independen):
+
+| Pemeriksaan | Hasil |
+|---|---|
+| 16 tabel, jumlah baris | identik dengan lokal: `point_observations` 1.452.263 · `village_facts` 538.713 · `district_facts` 155.320 · `region_facts` 58.665 · `disaster_events` 6.383 · `villages` 83.530 · `districts` 7.357 · `regions`/`risk_index` 514 · `provinces` 39 · `metrics` 18 · `data_sources` 7 · `emergency_status` 495 |
+| `sum(value)` per tabel fakta | identik (`region_facts` 8.991.817,94 · `district_facts` 7.322.733,34 · `village_facts` 48.361.519,78) |
+| Indeks GiST + geometri | `ix_region_geom`, `ix_district_geom`, `ix_village_geom`, `ix_point_geom` ada; SRID 4326; 0 poligon kabupaten tidak valid |
+| MCP Aiven (`aiven_pg_read`) | `point_observations` 1.452.263 · `village_facts` 538.713 · `region_facts` 58.665 · PostGIS 3.6.4 · 16 tabel publik → sama |
+| API menulis ke Aiven? | `xact_commit` Aiven **512 → 534** untuk 10 permintaan panel; lokal 11.392 → 11.394 (hanya perintah ukur sendiri) |
+
+Kinerja lewat nginx → API → Aiven (latensi WAN ±0,05–0,1 dtk):
+
+| Permintaan | Waktu | Ukuran | Ambang |
+|---|---|---|---|
+| `panel/kabupaten_kota/9301?year=2026` | 0,233 dtk | 2.095 B | `NF-10` ≤300 ms — lolos |
+| `analysis/national_trend` | 0,262 dtk | 2.200 B | lolos |
+| `sources` | 0,332 dtk | 1.842 B | lolos |
+| `tiles/regions/0/0/0.mvt?year=2026` | 0,569 dtk | 49.589 B | `NF-04` ≤500 ms — **meleset** |
+| `tiles/regions/6/50/32.mvt?year=2026` | 0,705 dtk | 21.681 B | meleset |
+| `search/regions?q=bogor` | 0,637 dtk | 1.455 B | di bawah 1 dtk |
+| `point_coverage` | 4,146 dtk | 1.242 B | query menyapu 1,45 jt titik; kandidat cache |
+| `latest/summary` | 6,940 dtk lalu 0,899 dtk | 1.328 B | biaya tarikan FIRMS, bukan basis data |
+
+Temuan yang harus diingat:
+
+1. **`pg_stat_user_tables.n_live_tup` bukan jumlah baris.** Angka 1.448.358 untuk
+   `point_observations` adalah perkiraan statistik; hitungan tepat 1.452.263. Jangan
+   memakai `n_live_tup` untuk memverifikasi migrasi.
+2. **PostGIS turun versi minor** (3.7.0 → 3.6.4) aman karena dump mengirim EWKB, tetapi
+   `spatial_ref_sys` **tidak** ikut dump (anggota ekstensi) dan dibuat oleh PostGIS Aiven.
+3. **`avnadmin` bukan superuser** → `--no-owner --no-privileges --no-acl` wajib; ETL
+   `muat_postgres.py` (tahap `buat-db`/`skema`) tidak bisa dijalankan langsung ke Aiven.
+4. **Angka kinerja SRS (`NF-04`..`NF-08`) diukur pada basis data lokal** dan tidak
+   berlaku untuk Aiven. Bila demo memakai Aiven, ukur ulang atau kembalikan DB ke lokal.
+5. `psql` 18.6 kini ada di host — perintah `podman exec -i pg psql` tidak lagi wajib
+   (dokumen lama yang masih menuliskannya perlu dikoreksi saat disentuh).
+6. **Sinkronisasi ulang setelah data berubah** punya skrip sendiri di repo perencanaan:
+   `data/pembangun/sinkron_aiven.py` (dump `--data-only` → lepas kunci asing → kosongkan
+   tabel → restore → pasang kunci → verifikasi jumlah baris). Uji 2026-11-17: 16 tabel
+   diperiksa, **0 berbeda**, 27/27 kunci asing tervalidasi. Alasan melepas kunci: FK tidak
+   `DEFERRABLE`, sedangkan `pg_restore` tidak menjamin urutan tabel yang aman dan
+   `avnadmin` bukan superuser (tidak boleh `session_replication_role`).
+7. `muat_postgres.py` menerima `GEOSAFE_DSN=<dsn>` untuk menembak basis data terkelola
+   langsung; tahap `buat-db` dilewati otomatis (Aiven menolak `CREATE DATABASE`).
+8. **Jangan menjalankan sinkronisasi dari `execute_code`**: batas sel 300 detik memotong
+   proses di tengah jalan (pernah terjadi — kunci asing sempat terlepas). Pakai
+   `terminal(background=true)`.
 
 ## Iterasi 01 — `feat/api-database` (PR #1)
 
@@ -1027,6 +1093,10 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 
 | Tanggal | Dokumen | Perubahan |
 |---|---|---|
+| 2026-11-17 | `docs/SRS-GeoSafe.md` → **v1.8** | bagian 3.7.1: basis data pengembangan = **Aiven** (PostgreSQL 18.7 + PostGIS 3.6.4, TLS wajib), basis data lokal untuk ETL; baris riwayat menegaskan angka `NF-04`/`NF-05`/`NF-06`/`NF-08` **diukur di lokal** dan tidak boleh diklaim berlaku untuk Aiven. Jumlah kebutuhan tetap 126 |
+| 2026-11-17 | `docs/ARSITEKTUR.md` | tabel komponen "Basis data", bagian versi yang dikunci (`psql` 18.6 kini ada di host), dan keputusan 5 baru: Aiven untuk pengembangan, lokal untuk ETL |
+| 2026-11-17 | `PETA-DIREKTORI.md` · `AGENTS.md` | perintah periksa basis data langsung dari host + DSN Aiven dari `~/.config/geosafe/geosafe.env`; butir basis data (nomor 8) memuat keadaan baru |
+| 2026-11-17 | `CATATAN-DISKUSI.md` | status proyek + entri **sesi ke-20** (migrasi ke Aiven: keputusan, bukti, konsekuensi kinerja) |
 | 2026-11-17 | `docs/SRS-GeoSafe.md` → **v1.7** | baris `SRS-NF-09` dikoreksi: bukan lagi "≤ 4 permintaan ke API FIRMS per jam", melainkan **4 penyegaran per jam (cache 15 menit) = 12 permintaan satelit per jam** beserta biaya kuota terukur; `docx`/`pdf` dibangun ulang (33 halaman, daftar isi 47/47 judul). Jumlah kebutuhan tetap 126 |
 | 2026-11-17 | `CATATAN-DISKUSI.md` | bagian F: keputusan join `STRtree` di Python ditandai **DIBATALKAN** dan diganti join SQL — kontrak `API-P2.md` bagian 6 dan aturan repo nomor 4 menuntut satu implementasi join di SQL |
 | 2026-11-17 | `PETA-DIREKTORI.md` · `data/README.md` | baris `data/basemap/` (basemap PMTiles 216 MB: latar peta aplikasi, dilayani nginx, tidak masuk repo kode) ditambahkan ke tabel pencarian, pohon struktur, dan tabel isi folder — sebelumnya folder itu tidak terdaftar di penunjuk mana pun |

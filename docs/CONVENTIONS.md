@@ -16,8 +16,10 @@ di sini — beberapa keputusan tampak sepele tapi menutup jebakan nyata.
 3. **`.env` hanya di `backend/`.** Kunci NASA FIRMS tidak pernah sampai ke
    `frontend/` dan tidak memakai awalan `VITE_` (variabel `VITE_*` ikut terkirim
    ke peramban).
-4. **Angka dan geometri hanya dari PostgreSQL** (`geosafe`, kontainer podman `pg`,
-   port 5433). Aplikasi tidak membaca CSV `siap-pakai/` langsung, dan tidak
+4. **Angka dan geometri hanya dari PostgreSQL** (basis data `geosafe`; **pengembangan
+   sejak 2026-11-17 di Aiven**, PostgreSQL 18.7 + PostGIS 3.6.4, TLS wajib; lokal
+   kontainer podman `pg` port 5433 untuk ETL). Aplikasi tidak membaca CSV
+   `siap-pakai/` langsung, dan tidak
    mengulang join titik ke wilayah di JavaScript — satu implementasi join, di SQL.
 5. **Tidak ada berkas atau folder cadangan.** Hanya berkas yang benar-benar
    dipakai yang dibuat: tidak ada placeholder, fungsi kosong ber-`TODO`,

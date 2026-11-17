@@ -11,7 +11,8 @@ tinggal di repo perencanaan `../planning-GeoSafe/` — jangan disalin ke sini.
 ```bash
 cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
-export GEOSAFE_DATABASE_URL="host=127.0.0.1 port=5433 dbname=geosafe user=homelab password=***"
+set -a; . ~/.config/geosafe/geosafe.env; set +a
+export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
 uv run pytest -q                         # 38 passed, ~11 dtk; butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
@@ -29,9 +30,14 @@ Kedua layanan sudah jalan: `systemctl --user restart geosafe-api` (kode baru),
 `sudo systemctl reload nginx` (setelah build), `systemctl restart nginx`. Situsnya
 `/etc/nginx/sites-enabled/geosafe` → `deploy/nginx/geosafe.conf`.
 
-Basis data harus hidup: kontainer podman `pg`, port 5433, DB `geosafe` (kredensial dev di
-`~/pg/KREDENSIAL.md`). Tidak ada klien `psql` di host — periksa isi basis data lewat kontainernya
-(`podman exec pg psql -U homelab -d geosafe -c "..."`). Tidak ada `Makefile`, tidak ada CI, tidak ada
+Basis data harus hidup: **Aiven PostgreSQL 18.7 + PostGIS 3.6.4** (basis data `geosafe`, TLS wajib)
+sejak 2026-11-17, DSN di `~/.config/geosafe/geosafe.env` (jangan pernah ditulis di repo). Kontainer
+podman `pg` (port 5433, PostGIS 3.7.0) tetap hidup untuk ETL; `psql` 18.6 ada di host, jadi periksa
+isi langsung (`PGPASSWORD=... psql -h 127.0.0.1 -p 5433 -U homelab -d geosafe`) atau lewat Aiven MCP
+(`aiven_pg_read`, service `pg`, project `aziz`, database `geosafe` — hanya SELECT). Data dipindahkan
+`pg_dump -Fc` + `pg_restore`; setiap perubahan `data/siap-pakai/` wajib dipulangkan ke Aiven dengan
+`python3 ../planning-GeoSafe/data/pembangun/sinkron_aiven.py` (data saja, ±6 menit, verifikasi otomatis;
+jalankan di latar, bukan di sel kode — batas 300 dtk memotongnya). Tidak ada `Makefile`, tidak ada CI, tidak ada
 ESLint/Prettier — penjaga mutunya hanya `pytest`, `npm test`, dan `tsc --noEmit`. Dokumentasi API hidup
 sendiri di `/docs` dan `/openapi.json`, jangan dibuatkan berkas daftar endpoint.
 

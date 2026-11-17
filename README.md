@@ -81,16 +81,19 @@ supaya bisa ditelusuri: `maps.py` (P1–P5) · `panels.py` (W1–W4) ·
 
 ## Menjalankan backend
 
-Prasyarat: `uv` terpasang, dan basis data `geosafe` hidup (PostgreSQL 18.7 +
-PostGIS 3.7 pada kontainer `pg`, port 5433). Isinya dimuat dari repo perencanaan
-lewat `data/pembangun/muat_postgres.py`.
+Prasyarat: `uv` terpasang, dan basis data `geosafe` hidup. **Sejak 2026-11-17 basis
+data pengembangan ada di Aiven** (PostgreSQL 18.7 + PostGIS 3.6.4, TLS wajib); isi
+kedua basis data identik, dipindahkan `pg_dump -Fc` + `pg_restore`. Kontainer lokal
+`pg` (port 5433, PostGIS 3.7.0) tetap dipakai untuk ETL lewat
+`../planning-GeoSafe/data/pembangun/muat_postgres.py`.
 
 ```bash
 cd backend
 uv sync                                 # sekali; membuat .venv + uv.lock
 
-# DSN basis data — di server nanti lewat EnvironmentFile pada unit systemd
-export GEOSAFE_DATABASE_URL="host=127.0.0.1 port=5433 dbname=geosafe user=... password=..."
+# DSN basis data — di server lewat EnvironmentFile pada unit systemd
+set -a; . ~/.config/geosafe/geosafe.env; set +a
+export GEOSAFE_DATABASE_URL              # sudah menunjuk Aiven; lokal: GEOSAFE_DATABASE_URL_LOKAL
 
 uv run pytest -q                        # uji endpoint (butuh basis data hidup)
 uv run uvicorn app.main:app --reload    # http://127.0.0.1:8000
