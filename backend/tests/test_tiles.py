@@ -10,7 +10,7 @@ from psycopg.rows import dict_row
 
 from app.config import database_url
 from app.main import app
-from app.routers.maps import MEDIA_TYPE_MVT
+from app.tiles import MEDIA_TYPE_MVT
 
 client = TestClient(app)
 

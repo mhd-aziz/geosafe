@@ -20,10 +20,9 @@ from psycopg.rows import dict_row
 from typing import Literal
 
 from app.db import get_connection
+from app.tiles import render_tile
 
 router = APIRouter(prefix="/tiles", tags=["P1 peta titik panas"])
-
-MEDIA_TYPE_MVT = "application/vnd.mapbox-vector-tile"
 
 # Geometri disimpan pada SRID 4326; tile dihitung pada 3857. Amplop tile
 # diproyeksikan ke 4326 untuk WHERE (agar indeks GiST `ix_region_geom` tetap
@@ -100,18 +99,6 @@ select st_asmvt(mvt_rows.*, 'provinces', 4096, 'geom') as tile
 """
 
 
-def _render_tile(tile: bytes | None) -> Response:
-    """Bungkus muatan MVT; tile kosong dibalas 204 tanpa isi."""
-    if not tile:
-        return Response(status_code=204)
-
-    return Response(
-        content=bytes(tile),
-        media_type=MEDIA_TYPE_MVT,
-        headers={"Cache-Control": "public, max-age=3600"},
-    )
-
-
 @router.get("/regions/{z}/{x}/{y:int}.mvt")
 def region_tile(
     year: int = Query(ge=2020, le=2026, description="Tahun seri titik panas"),
@@ -141,7 +128,7 @@ def region_tile(
         )
         row = cur.fetchone()
 
-    return _render_tile(row["tile"] if row else None)
+    return render_tile(row["tile"] if row else None)
 
 
 @router.get("/provinces/{z}/{x}/{y:int}.mvt")
@@ -177,4 +164,4 @@ def province_tile(
         cur.execute(QUERY_PROVINCE_TILE, {"z": z, "x": x, "y": y, "year": year})
         row = cur.fetchone()
 
-    return _render_tile(row["tile"] if row else None)
+    return render_tile(row["tile"] if row else None)
