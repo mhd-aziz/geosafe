@@ -1,8 +1,8 @@
 # GeoSafe — frontend
 
 Antarmuka web GeoSafe: peta choropleth sebaran titik panas kabupaten/kota dan
-provinsi, pencarian wilayah empat tingkat, dan panel wilayah. React 19 +
-TypeScript + Vite 7.3.8 + Tailwind CSS 4 + MapLibre GL JS.
+provinsi, lapisan kerawanan (`P4`), pencarian wilayah empat tingkat, dan panel
+wilayah. React 19 + TypeScript + Vite 7.3.8 + Tailwind CSS 4 + MapLibre GL JS.
 
 ## Menjalankan
 
@@ -111,12 +111,46 @@ tampilan diff.
    dari keadaan bersih tanpa mengutak-atik cache peramban milik pengguna, buka
    halaman di konteks peramban incognito (`Target.createBrowserContext`).
 
+## Lapisan kerawanan (`P4`)
+
+Saklar lapisan di kendali peta mengganti choropleth: **Titik panas** (jumlah
+deteksi per tahun, seri `main`) atau **Kerawanan** (kelas kerawanan `rendah` /
+`sedang` / `tinggi` per kabupaten/kota). Lapisan kerawanan membaca
+`/tiles/risk/{z}/{x}/{y}.mvt?scheme=a|b|c`; definisi bobot, uji sensitivitas, dan
+catatan wajibnya datang dari `/api/v1/risk/schemes` (`src/lib/risk.ts` untuk
+warna dan legenda).
+
+Empat hal yang disengaja:
+
+| Hal | Alasan |
+|---|---|
+| tahun dan saklar provinsi **dinonaktifkan** saat lapisan kerawanan aktif | skornya ringkasan satu periode dan hanya dihitung untuk kabupaten/kota (`SRS-F-37`); kendali yang tampak berlaku padahal tidak adalah bacaan yang menyesatkan |
+| abu-abu bernama **"skor belum ada"** | berbeda dari `has_fact = 0` di lapisan titik panas (di sana artinya nol deteksi); kalau disamakan, wilayah tanpa skor akan terbaca sebagai kerawanan rendah |
+| bobot tiap skema ditampilkan apa adanya dari API, bukan ditulis ulang di antarmuka | skema A (50/50 tanpa IRBI) adalah tampilan awal, B dan C adalah skema uji; IRBI 2025 tetap sejajar sebagai konteks (`SRS-F-35`) |
+| panel kerawanan memuat uji sensitivitas (korelasi peringkat + jumlah wilayah berpindah kelas) | `SRS-F-34` menuntut hasil ujinya ikut terbaca, bukan hanya pilihan skema |
+
+## Responsif
+
+Tata letak diuji di 375 px, 768 px, dan 1440 px: tidak ada gulir horizontal di
+ketiganya (`document.documentElement.scrollWidth <= innerWidth`).
+
+| Lebar | Tata letak |
+|---|---|
+| < 640 px | peta di atas (58vh), kendali dan legenda mengapung dengan tinggi dibatasi 45% dan bisa digulir supaya peta tetap kelihatan; panel pencarian, ringkasan/kerawanan, dan panel wilayah tersusun di bawahnya |
+| 640–1024 px | kendali sejajar mendatar di atas peta, panel di bawah peta selebar layar |
+| ≥ 1024 px | peta di kiri, panel 26rem di kanan; legenda dan kendali mengapung di atas peta |
+
+Sasaran sentuh minimal 36 px, cincin fokus terlihat (`focus-visible`), dan
+`prefers-reduced-motion` dihormati — baik di CSS (`src/index.css`) maupun saat
+peta memperbesar ke wilayah hasil pencarian (`MapView.tsx`).
+
 ## Yang sengaja belum ada
 
 | Hal | Alasan |
 |---|---|
 | basemap PMTiles | **sudah ada** sejak penyisipan 09c: berkas 216 MB di `../planning-GeoSafe/data/basemap/`, dilayani nginx `/pmtiles/`, gaya dari `@protomaps/basemaps` |
 | heatmap titik panas (`SRS-F-14`) | endpoint tile titik belum ada (titik berkoordinat, bukan agregat wilayah) |
+| lapisan kelas kerawanan desa (`SRS-F-38`, `SRS-F-39`) | datanya sudah ada di basis data (`village_facts` metrik `risk_class_desa`), lapisan petanya belum dikerjakan (iterasi `11d`) |
 | kendali penyaring `confidence` di toolbar (`SRS-F-15`) | API sudah menerima `?confidence=h\|n\|l` untuk tile kabupaten/kota; kendalinya menyusul |
 | panel kecamatan dan desa (`W3`, `W4`) | angka pendukung, bukan unit analisis; panelnya belum dikerjakan |
 | grafik A2 dan A3 | turunan dari A1, belum dikerjakan |
