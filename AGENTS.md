@@ -13,13 +13,13 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 38 passed, ~11 dtk; butuh basis data hidup
+uv run pytest -q                         # 69 passed, 45-85 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
 cd frontend
 npm ci                                   # sekali, dari package-lock.json
-npm test                                 # 44 passed (Vitest + jsdom), tanpa DB
+npm test                                 # 78 passed (13 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
                                          #   nginx menyajikan dist/ di 127.0.0.1:8080
@@ -94,7 +94,7 @@ dokumen boleh langsung ke `main`.
 4. Tidak ada `.env` di repo (di-`.gitignore`). DSN **wajib** di-`export` dulu, kalau tidak
    `app/config.py` melempar `RuntimeError`.
 5. `StarletteDeprecationWarning` soal `httpx`/`httpx2` adalah peringatan lama, bukan kegagalan
-   (38 passed, 1 warning).
+   (69 passed, 1 warning).
 6. Nama folder `project-GeoSafe` dan `planning-GeoSafe` sengaja tidak diubah — jangan "dirapikan" tanpa
    persetujuan.
 7. Merauke (`9301`) kini provinsi Papua Selatan, bukan Papua. Jangan mengandalkan pengetahuan lama soal
@@ -102,8 +102,16 @@ dokumen boleh langsung ke `main`.
 8. `.env` di luar repo sudah mengutip DSN (2026-11-17), jadi `source` di bash **dan** `EnvironmentFile`
    systemd sama-sama membacanya utuh. Kalau suatu saat berkas sejenis ditulis tanpa kutip, `source`
    hanya menangkap kata pertama (`host=127.0.0.1`), uji gagal di port 5432, sementara systemd tetap
-   sehat — ambil nilainya dengan
-   `export GEOSAFE_DATABASE_URL="$(sed -n 's/^GEOSAFE_DATABASE_URL=//p' ~/.config/geosafe/geosafe.env)"`.
+   sehat. Ambil nilainya dengan `sed`, tetapi **buang tanda kutipnya**:
+
+   ```bash
+   export GEOSAFE_DATABASE_URL="$(sed -n 's/^GEOSAFE_DATABASE_URL=//p' ~/.config/geosafe/geosafe.env | tr -d '"')"
+   ```
+
+   `tr -d '"'` bukan hiasan: berkas yang mengutip DSN membuat `sed` ikut membawa tanda kutip, dan
+   psycopg menolak DSN berawalan kutip — 2026-11-17 perintah tanpa `tr` menghasilkan **52 gagal,
+   17 lulus** alih-alih 69 lulus. Setelah dijalankan, periksa dua hal: panjang nilainya (berkutip
+   = 2 karakter lebih panjang) dan `pytest` hijau.
 9. nginx harus memetakan `.mjs` ke `text/javascript`; tanpa itu worker MapLibre ditolak Chrome dan
    **peta kosong tanpa galat di antarmuka** (`curl` tetap 200). `reload nginx` tidak seketika, dan
    halaman yang dimuat ulang bisa memakai salinan lama karena `immutable` — uji lewat origin lain
