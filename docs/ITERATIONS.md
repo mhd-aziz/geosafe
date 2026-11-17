@@ -30,8 +30,9 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 | 11a | `docs/aiven-database` | basis data **pengembangan pindah ke Aiven** (`geosafe`), `pg_dump -Fc` + `pg_restore`, DSN dari `~/.config/geosafe/geosafe.env` | #17 | `iter-11a-aiven-db` |
+| 11b | `feat/api-risk-map` | `P4` di API: tile kerawanan tiga skema bobot + uji sensitivitas dari data, penjaga koordinat tile bersama | #19 | `iter-11b-risk-api` |
 
-Semua dikerjakan 2026-11-16, kecuali penyisipan 09b (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
+Semua dikerjakan 2026-11-16, kecuali penyisipan 09b, iterasi 11a, dan iterasi 11b (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
@@ -103,6 +104,96 @@ Temuan yang harus diingat:
 8. **Jangan menjalankan sinkronisasi dari `execute_code`**: batas sel 300 detik memotong
    proses di tengah jalan (pernah terjadi — kunci asing sempat terlepas). Pakai
    `terminal(background=true)`.
+
+## Iterasi 11b — `feat/api-risk-map` (PR #19)
+
+Tag `iter-11b-risk-api` menandai commit hasil *squash merge* di `main` (`5032c18`).
+
+`P4` kerawanan versi B sampai ke API. Tidak ada perubahan ETL maupun basis data:
+skor dan kelas kerawanan **sudah** dimuat ke `region_facts` sebagai metrik
+`risk_score_a/b/c` (kolom `value`) dan `risk_class_a/b/c` (kolom `value_text`),
+514 baris masing-masing, seluruhnya tanpa tahun, bulan, seri, dan kelas
+kepercayaan. Yang dikerjakan adalah jalur bacanya.
+
+Berkas: `backend/app/routers/risk.py` (baru) · `backend/app/tiles.py` (baru) ·
+`backend/app/routers/maps.py` · `backend/app/main.py` ·
+`backend/tests/test_risk.py` (baru) · `backend/tests/test_tiles.py` ·
+`docs/CONVENTIONS.md` · `AGENTS.md`.
+
+Bentuknya:
+
+- `GET /tiles/risk/{z}/{x}/{y}.mvt?scheme=a|b|c` — 514 poligon kabupaten/kota
+  dengan properti `risk_score`, `risk_class`, `scheme_code`, dan `has_score`.
+  Hanya tingkat kabupaten/kota (`SRS-F-37`), jadi tidak ada varian provinsi.
+- `GET /api/v1/risk/schemes` — tiga definisi skema bobot (A tampilan awal, B dan C
+  sebagai uji), uji sensitivitas, dan `notes` yang menyatakan bahwa skor ini
+  susunan penelitian (bukan angka BNPB), hanya berlaku di kabupaten/kota, dan
+  IRBI 2025 tampil sejajar sebagai konteks (`SRS-F-33`..`F-37`).
+- Bobot skema tinggal di kode sebagai definisi metode; **angka yang diukur**
+  (skor, kelas, korelasi, jumlah berpindah kelas) dibaca dari PostgreSQL.
+  Uji sensitivitas dihitung ulang setiap permintaan dari baris yang sama dengan
+  yang digambar peta, jadi tidak ada salinan angka yang bisa menyimpang.
+
+Bukti (`pytest`, DSN Aiven; HTTP lewat `http://127.0.0.1:8080` setelah
+`systemctl --user restart geosafe-api`):
+
+| Uji | Hasil |
+|---|---|
+| `pytest -q` | **80 passed**, 1 warning, 70,11 dtk (69 sebelum cabang) |
+| `/tiles/risk/0/0/0.mvt` | 200 · **54.298 B** · 1,27 dtk (514 poligon) |
+| `/tiles/risk/0/0/0.mvt?scheme=c` | 200 · 54.358 B · 0,75 dtk |
+| `/tiles/risk/6/51/33.mvt` (Jawa) | 200 · 17.233 B · 0,39 dtk |
+| `/tiles/risk/1/0/1.mvt` (laut) | **204** · 0 B |
+| `/tiles/risk/0/5/5.mvt` (koordinat salah) | **422** · 77 B |
+| `/api/v1/risk/schemes` | 200 · 1.545 B · 0,29 dtk |
+| uji sensitivitas dari layanan | rho A–B **0,9252** · A–C **0,959** · B–C **0,9823**; berpindah kelas **106 / 75 / 53** |
+| regresi jalur lama | `regions` 2020 → 200 · 49.965 B · `provinces` 2020 → 200 · 12.857 B · `/health` → 200 |
+
+Temuan:
+
+1. **Skor kerawanan sudah ada di basis data, jadi tidak perlu ETL baru.** Yang
+   diperiksa lebih dulu: 6 metrik `risk_*` × 514 wilayah, `year`/`month`/`series`/
+   `confidence` kosong seluruhnya (3.084 baris), sebaran kelas skema A = 138 tinggi ·
+   239 sedang · 137 rendah, dan nilai `risk_score_a`/`risk_class_a` identik dengan
+   `data/siap-pakai/tabel/risk_kabupaten_kota.csv`. Karena itu tidak ada
+   `sinkron_aiven.py` di iterasi ini.
+2. **Uji sensitivitas tidak disimpan sebagai tabel.** `risk_sensitivity.csv` hanya
+   berisi tiga pasangan skema; menambah tabel baru berarti mengubah ERD (15 tabel),
+   dokumentasi data, dan ETL. Sebagai gantinya korelasi peringkat Spearman dihitung
+   dengan `corr()` atas `rank()` dan jumlah wilayah berpindah kelas dengan
+   membandingkan `value_text`. Hasilnya sama dengan CSV kecuali digit keempat pada
+   A–B: **0,9252 lawan 0,9251**, karena `rank()` memberi peringkat terendah untuk
+   nilai kembar sedangkan `bangun_kerawanan.py` memakai peringkat rata-rata
+   (dihitung ulang: 0,925172 lawan 0,925120; `regions_class_changed` tidak
+   terpengaruh). Perbedaan itu ditulis di `notes` supaya tidak dikira salah hitung.
+3. **`has_fact` tidak boleh dipinjam apa adanya.** Di lapisan titik panas `0`
+   berarti *nol deteksi yang terukur* (ETL tidak menulis baris nol); di lapisan
+   kerawanan `0` berarti *skor tidak diketahui*. Properti lapisan ini bernama
+   `has_score` dan artinya ditulis di komentar, supaya antarmuka tidak
+   memperlakukannya sebagai kelas terendah.
+4. **Kinerja: tile kerawanan lebih mahal daripada tile titik panas.** `EXPLAIN
+   (ANALYZE)` pada z0/0/0: 286,8 ms eksekusi + 118,7 ms perencanaan (pembanding
+   tile titik panas 204,1 ms + 1,0 ms) karena dua join ke `region_facts`. Lewat
+   HTTP di Aiven hasilnya 1,27 dtk — di atas ambang `NF-04` 500 ms, seperti tile
+   titik panas di Aiven (0,57–0,67 dtk). Belum dioptimalkan; kandidatnya satu
+   agregat pengganti dua join atau indeks parsial pada `metric_code`.
+5. **Putaran perbaikan setelah tinjauan** (versi pertama ditolak `passed: false`):
+   koordinat tile di luar rentang `0..2^z-1` menjalar ke `ST_TileEnvelope` dan
+   membalas **500** — kini ada `check_tile_bounds()` bersama di `app/tiles.py`,
+   dipakai ketiga endpoint (cacat yang sama ada di tile kabupaten/kota dan
+   provinsi, jadi diperbaiki di akarnya); join kerawanan tidak mengunci syarat
+   `year/month/series/confidence` sehingga baris bertahun di masa depan akan
+   menggandakan poligon di dalam satu tile; properti `has_fact` bermakna lain
+   (diganti `has_score`); muatan tile tidak bisa dilacak ke skemanya (ditambah
+   `scheme_code`); toleransi uji rho 0,001 meloloskan dua cara hitung sekaligus
+   (kini nilainya ditulis utuh); dan `risk.py` bertabrakan dengan peta
+   berkas-router di `CONVENTIONS.md` yang menaruh P4 di `maps.py` — padahal P2
+   sudah lebih dulu punya `latest.py`. Peta berkas kini memuat isi pohon yang
+   sebenarnya beserta aturannya: berkas dipisah saat fiturnya membawa perilaku
+   sendiri, bukan menurut nomor kelompok fitur.
+6. **Nomor iterasi:** `11a` sudah dipakai untuk pemindahan basis data ke Aiven
+   (PR #17), jadi pekerjaan P4 memakai `11b` (API), `11c` (antarmuka), dan `11d`
+   (lapisan desa) — bukan `11`.
 
 ## Iterasi 01 — `feat/api-database` (PR #1)
 
