@@ -1,6 +1,16 @@
-import { riskTileUrlTemplate, tileSourceLayer, tileUrlTemplate } from '../../api/geosafe';
+import {
+  riskTileUrlTemplate,
+  tileSourceLayer,
+  tileUrlTemplate,
+  villageRiskTileUrlTemplate,
+} from '../../api/geosafe';
 import { formatCount, formatDecimal } from '../../lib/format';
-import { RISK_SOURCE_LAYER, riskClassLabel } from '../../lib/risk';
+import {
+  RISK_SOURCE_LAYER,
+  VILLAGE_SOURCE_LAYER,
+  riskClassLabel,
+  villageRiskClassLabel,
+} from '../../lib/risk';
 import type { MapLayer, MapLevel, RiskSchemeCode } from '../../types/geosafe';
 
 /** Sumber dan layer tematik yang dipasang untuk satu keadaan peta.
@@ -15,6 +25,8 @@ export interface ThematicSpec {
   sourceLayer: string;
   fillLayerId: string;
   lineLayerId: string;
+  /** Zoom terkecil yang dilayani sumbernya; lapisan desa mulai dari z=8. */
+  minzoom: number;
 }
 
 const HOTSPOT_IDS = {
@@ -29,17 +41,46 @@ const RISK_IDS = {
   lineLayerId: 'risk-line',
 } as const;
 
+const VILLAGE_IDS = {
+  sourceId: 'village-risk',
+  fillLayerId: 'village-risk-fill',
+  lineLayerId: 'village-risk-line',
+} as const;
+
+/** Zoom terkecil lapisan desa; di bawah ini API menjawab `422`, jadi sumbernya
+ *  tidak boleh meminta tile yang lebih rendah (`SRS-F-38`). */
+export const VILLAGE_MIN_ZOOM = 8;
+
+/** Spesifikasi lapisan aktif, atau `null` bila belum bisa dipasang.
+ *
+ * Lapisan desa wajib punya provinsi terpilih: ia dimuat per provinsi, dan tanpa
+ * kode provinsi tidak ada tile yang sah untuk diminta.
+ */
 export function thematicSpec(
   layer: MapLayer,
   level: MapLevel,
   year: number,
   scheme: RiskSchemeCode,
-): ThematicSpec {
+  provinceCode: string | null = null,
+): ThematicSpec | null {
+  if (layer === 'risk_village') {
+    if (!provinceCode) {
+      return null;
+    }
+    return {
+      ...VILLAGE_IDS,
+      url: villageRiskTileUrlTemplate(provinceCode),
+      sourceLayer: VILLAGE_SOURCE_LAYER,
+      minzoom: VILLAGE_MIN_ZOOM,
+    };
+  }
+
   if (layer === 'risk') {
     return {
       ...RISK_IDS,
       url: riskTileUrlTemplate(scheme),
       sourceLayer: RISK_SOURCE_LAYER,
+      minzoom: 0,
     };
   }
 
@@ -47,11 +88,12 @@ export function thematicSpec(
     ...HOTSPOT_IDS,
     url: tileUrlTemplate(level, year),
     sourceLayer: tileSourceLayer(level),
+    minzoom: 0,
   };
 }
 
 /** Semua layer/sumber tematik yang mungkin terpasang; dipakai untuk membersihkan. */
-export const THEMATIC_IDS = [HOTSPOT_IDS, RISK_IDS];
+export const THEMATIC_IDS = [HOTSPOT_IDS, RISK_IDS, VILLAGE_IDS];
 
 /** Teks bacaan saat kursor berhenti di atas satu wilayah.
  *
@@ -64,6 +106,19 @@ export function readoutText(
   year: number,
   properties: Record<string, unknown>,
 ): string {
+  if (layer === 'risk_village') {
+    const villageName = String(properties.village_name ?? 'desa');
+    const district = properties.district_name ? ` (${String(properties.district_name)})` : '';
+    if (Number(properties.has_score ?? 0) === 0) {
+      return `${villageName}${district} · kelas kerawanan belum ada`;
+    }
+    return `${villageName}${district} · ${villageRiskClassLabel(
+      properties.risk_class === null || properties.risk_class === undefined
+        ? null
+        : String(properties.risk_class),
+    )}`;
+  }
+
   const nameProperty = layer === 'risk' || level === 'regency' ? 'region_name' : 'province_name';
   const name = String(properties[nameProperty] ?? 'wilayah');
 

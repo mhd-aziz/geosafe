@@ -6,8 +6,9 @@
 
 export type MapLevel = 'regency' | 'province';
 
-/** Lapisan tematik yang bisa digambar di peta: jumlah titik panas atau kerawanan. */
-export type MapLayer = 'hotspot' | 'risk';
+/** Lapisan tematik yang bisa digambar di peta: jumlah titik panas, kerawanan
+ *  kabupaten/kota, atau kelas kerawanan desa/kelurahan. */
+export type MapLayer = 'hotspot' | 'risk' | 'risk_village';
 
 /** Skema bobot skor kerawanan (`P4`); nilainya ditentukan API. */
 export type RiskSchemeCode = 'a' | 'b' | 'c';
@@ -245,5 +246,30 @@ export interface RiskSchemesResponse {
   sensitivity: RiskSensitivityRow[];
   region_total: number;
   regions_without_score: number;
+  notes: string[];
+}
+
+/** `GET /api/v1/provinces` — bahan pemilih lapisan desa (`SRS-F-38`).
+ *
+ * `bbox` dipakai antarmuka untuk memperbesar peta ke seluruh provinsi sebelum
+ * tile diminta, karena lapisan desa menolak zoom di bawah `min_zoom`.
+ */
+export interface VillageProvinceEntry {
+  province_code: string;
+  province_name: string;
+  bbox: [number, number, number, number];
+}
+
+export interface VillageProvincesResponse {
+  count: number;
+  min_zoom: number;
+  provinces: VillageProvinceEntry[];
+  /** Jumlah desa per kelas apa adanya dari basis data (`rendah`, `sedang`, ...). */
+  class_counts: Record<string, number>;
+  village_total: number;
+  /** Desa tanpa baris kelas: digambar abu-abu `has_score = 0`, bukan nol deteksi. */
+  villages_without_class: number;
+  /** Desa tanpa kode kecamatan induk: tidak masuk lapisan per provinsi. */
+  villages_without_province: number;
   notes: string[];
 }

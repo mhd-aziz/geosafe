@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { fetchRiskSchemes } from '../api/geosafe';
+import { fetchRiskSchemes, fetchVillageProvinces } from '../api/geosafe';
 import { Legend } from '../components/map/Legend';
 import { LatestControl } from '../components/map/LatestControl';
 import { MapToolbar } from '../components/map/MapToolbar';
@@ -8,6 +8,7 @@ import { MapView } from '../components/map/MapView';
 import { LatestPanel } from '../components/panel/LatestPanel';
 import { RegionPanel } from '../components/panel/RegionPanel';
 import { RiskPanel } from '../components/panel/RiskPanel';
+import { VillagePanel } from '../components/panel/VillagePanel';
 import { SearchBox } from '../components/search/SearchBox';
 import { useLatestHotspots } from '../hooks/useLatestHotspots';
 import { useRemoteData } from '../hooks/useRemoteData';
@@ -28,16 +29,18 @@ type Bounds = [number, number, number, number];
 /** Kartu sidebar: satu lapisan visual untuk setiap bagian panel. */
 const CARD = 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm';
 
-/** Halaman peta: pilih lapisan → pilih tahun/skema → choropleth → klik wilayah → panel.
+/** Halaman peta: pilih lapisan → pilih tahun/skema/provinsi → choropleth → klik wilayah → panel.
  *
- * Alur MVP (`P1` → `C1` → `W2`) ditambah lapisan kerawanan (`P4`) dan titik terkini
- * (`P2`). Lapisan kerawanan hanya ada di tingkat kabupaten/kota (`SRS-F-37`) dan
- * tidak bertahun, jadi saat lapisan itu aktif pilihan tingkat provinsi dan tahun
- * dinonaktifkan beserta sebabnya — bukan dibiarkan tampak berlaku.
+ * Alur MVP (`P1` → `C1` → `W2`) ditambah lapisan kerawanan kabupaten/kota (`P4`),
+ * lapisan kelas kerawanan desa (`P4`, `SRS-F-38`), dan titik terkini (`P2`).
+ * Lapisan kerawanan kabupaten/kota hanya ada di tingkat itu (`SRS-F-37`) dan
+ * lapisan desa dimuat per provinsi pada zoom 8 ke atas (`SRS-F-38`), jadi saat
+ * keduanya aktif pilihan tingkat provinsi dan tahun dinonaktifkan beserta
+ * sebabnya — bukan dibiarkan tampak berlaku.
  *
  * Lapisan titik terkini hidup berdampingan dengan choropleth arsip: dua seri itu
  * tidak pernah dijumlahkan (`SRS-F-26`) — titik terkini digambar sebagai titik,
- * choropleth memakai seri `main` per tahun atau skor kerawanan.
+ * choropleth memakai seri `main` per tahun atau kelas kerawanan.
  */
 export function MapPage() {
   const [layer, setLayer] = useState<MapLayer>('hotspot');
@@ -47,6 +50,9 @@ export function MapPage() {
   const [schemeChoice, setSchemeChoice] = useState<RiskSchemeCode | null>(null);
   const [year, setYear] = useState<number>(DEFAULT_YEAR);
   const [level, setLevel] = useState<MapLevel>('regency');
+  // Lapisan desa dimuat per provinsi (`SRS-F-38`): tanpa provinsi terpilih tidak
+  // ada tile yang sah untuk diminta.
+  const [provinceCode, setProvinceCode] = useState<string | null>(null);
   const [selected, setSelected] = useState<SelectedRegion | null>(null);
   const [focusBounds, setFocusBounds] = useState<Bounds | null>(null);
   const [latestWindow, setLatestWindow] = useState<LatestWindow>(72);
@@ -54,6 +60,8 @@ export function MapPage() {
   // Skema bobot diambil sekali di sini dan dibagikan ke kendali peta maupun panel,
   // supaya bobot dan uji sensitivitas yang tampil berasal dari satu balasan API.
   const riskSchemes = useRemoteData(fetchRiskSchemes, []);
+  // Daftar provinsi + sebaran kelas desa: dipakai kendali lapisan desa dan panelnya.
+  const villageProvinces = useRemoteData(fetchVillageProvinces, []);
   // Data hanya dipakai bila berasal dari jendela yang sedang dipilih: saat pengguna
   // berganti jendela, angka jendela lama tidak boleh tetap tampil di sebelah tombol
   // jendela baru, dan bila tarikan jendela baru gagal hal itu disebut apa adanya.
@@ -64,12 +72,27 @@ export function MapPage() {
 
   const handleLayerChange = useCallback((next: MapLayer) => {
     setLayer(next);
-    // Kerawanan tidak punya tingkat provinsi, jadi pilihannya ikut dikembalikan ke
-    // kabupaten/kota supaya tidak ada keadaan "lapisan kerawanan + tingkat provinsi".
-    if (next === 'risk') {
+    // Kerawanan kabupaten/kota tidak punya tingkat provinsi, jadi pilihannya ikut
+    // dikembalikan ke kabupaten/kota supaya tidak ada keadaan "lapisan kerawanan +
+    // tingkat provinsi".
+    if (next !== 'hotspot') {
       setLevel('regency');
     }
   }, []);
+
+  const handleProvinceChange = useCallback(
+    (code: string) => {
+      setProvinceCode(code === '' ? null : code);
+      // Peta diperbesar ke provinsi itu sebelum tile diminta: lapisan desa baru
+      // dilayani API pada zoom 8 ke atas, dan pada zoom nasional tidak ada yang
+      // bisa digambar.
+      const bounds =
+        villageProvinces.data?.provinces.find((province) => province.province_code === code)?.bbox ??
+        null;
+      setFocusBounds(bounds);
+    },
+    [villageProvinces.data],
+  );
 
   const handleSelectFromMap = useCallback(
     (region: { code: string; name: string; level: SearchLevel }) => {
@@ -100,9 +123,11 @@ export function MapPage() {
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <section
         aria-label={
-          layer === 'risk'
-            ? 'Peta kelas kerawanan kabupaten/kota'
-            : 'Peta sebaran titik panas'
+          layer === 'risk_village'
+            ? 'Peta kelas kerawanan desa/kelurahan'
+            : layer === 'risk'
+              ? 'Peta kelas kerawanan kabupaten/kota'
+              : 'Peta sebaran titik panas'
         }
         className="relative h-[58vh] min-h-[340px] shrink-0 sm:h-[56vh] sm:min-h-[380px] lg:h-auto lg:min-h-0 lg:flex-1"
       >
@@ -111,6 +136,7 @@ export function MapPage() {
           riskScheme={riskScheme}
           year={year}
           level={level}
+          provinceCode={provinceCode}
           focusBounds={focusBounds}
           latestPoints={latest.data?.points ?? null}
           onSelectRegion={handleSelectFromMap}
@@ -126,6 +152,9 @@ export function MapPage() {
               riskScheme={riskScheme}
               onRiskSchemeChange={setSchemeChoice}
               riskSchemes={riskSchemes}
+              provinceCode={provinceCode}
+              onProvinceChange={handleProvinceChange}
+              provinces={villageProvinces}
               year={year}
               level={level}
               onYearChange={setYear}
@@ -133,7 +162,13 @@ export function MapPage() {
             />
           </div>
           <div className="pointer-events-auto">
-            <Legend layer={layer} riskSchemeName={activeSchemeName} latestShown={latestShown} />
+            <Legend
+              layer={layer}
+              riskSchemeName={activeSchemeName}
+              villageClassCounts={villageProvinces.data?.class_counts ?? {}}
+              villageWithoutProvince={villageProvinces.data?.villages_without_province ?? null}
+              latestShown={latestShown}
+            />
           </div>
           <div className="pointer-events-auto order-last sm:order-none">
             <LatestControl
@@ -160,6 +195,10 @@ export function MapPage() {
         {layer === 'risk' ? (
           <div className={CARD}>
             <RiskPanel state={riskSchemes} scheme={riskScheme} />
+          </div>
+        ) : layer === 'risk_village' ? (
+          <div className={CARD}>
+            <VillagePanel state={villageProvinces} provinceCode={provinceCode} />
           </div>
         ) : (
           <div className={CARD}>

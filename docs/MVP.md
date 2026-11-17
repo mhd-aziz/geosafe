@@ -9,10 +9,15 @@ hasil build, meneruskan `/api` serta `/tiles` ke API, dan melayani basemap
 `/pmtiles/`). Iterasi 10 (P2 titik panas terkini + W1 panelnya) selesai di API
 (10a) dan di antarmuka (10b); iterasi 11 mengerjakan P4 kerawanan versi B — 11a
 memindahkan basis data pengembangan ke Aiven, 11b menyelesaikan sisinya di API,
-11c mengerjakannya di antarmuka sekaligus merapikan tampilan dan tata letak, dan
-11d menambahkan lapisan **kelas kerawanan desa** di API (per provinsi, zoom 8 ke
-atas) beserta daftar provinsi untuk pemilihnya.
-Sisa yang direncanakan: 11e lapisan desa itu di antarmuka.
+11c mengerjakannya di antarmuka sekaligus merapikan tampilan dan tata letak, 11d
+menambahkan lapisan **kelas kerawanan desa** di API (per provinsi, zoom 8 ke
+atas) beserta daftar provinsi untuk pemilihnya, dan 11e membawanya ke antarmuka
+sakaligus mengganti koneksi basis data menjadi kolam (`psycopg_pool`, maksimal 3)
+karena satu koneksi per permintaan tidak lagi cukup saat satu lapisan meminta
+belasan tile sekaligus.
+Sisa yang direncanakan: skor kerawanan di panel kabupaten/kota (`W2`), panel
+desa/kelurahan (`W4`), kendali kotak wilayah untuk kasus `truncated` pada lapisan
+terkini, lalu `P3`/`P5` dan `A2`/`A3`.
 
 ---
 
@@ -82,7 +87,8 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 11b | `feat/api-risk-map` — `P4` di API: tile kerawanan tiga skema bobot + endpoint uji sensitivitas | ✅ PR #19, tag `iter-11b-risk-api` |
 | 11c | `feat/frontend-risk-ui` — `P4` di antarmuka: pemilih skema, legenda kelas, bacaan skor, perapian tampilan + responsif | ✅ PR #20, tag `iter-11c-risk-ui` |
 | 11d | `feat/api-village-risk-tiles` — `P4` di API: tile kelas kerawanan desa per provinsi (`SRS-F-38`) + daftar provinsi untuk pemilihnya, pagar zoom di `app/tiles.py` | ✅ PR #21, tag `iter-11d-village-risk-api` |
-| 11e | lapisan kelas kerawanan desa di antarmuka (`P4`, lanjutan 11d) | setelah 11d |
+| 11e | `feat/frontend-village-risk` — `P4` di antarmuka: lapisan kerawanan desa + pemilih provinsi, zoom peta dijaga 8 ke atas; sekaligus `fix(api)` kolam koneksi | ✅ PR #22, tag `iter-11e-village-risk-ui` |
+| — | skor kerawanan di panel `W2`, panel desa `W4`, kendali kotak wilayah (`bbox`), lalu `P3`/`P5` dan `A2`/`A3` | belum dijadwalkan |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar

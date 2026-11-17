@@ -114,8 +114,10 @@ tampilan diff.
 ## Lapisan kerawanan (`P4`)
 
 Saklar lapisan di kendali peta mengganti choropleth: **Titik panas** (jumlah
-deteksi per tahun, seri `main`) atau **Kerawanan** (kelas kerawanan `rendah` /
-`sedang` / `tinggi` per kabupaten/kota). Lapisan kerawanan membaca
+deteksi per tahun, seri `main`), **Kerawanan** (kelas kerawanan `rendah` /
+`sedang` / `tinggi` per kabupaten/kota), atau **Kerawanan desa** (kelas kerawanan
+`rendah` / `sedang` / `tinggi` / `tidak_ada_deteksi` per desa/kelurahan, satu
+provinsi). Lapisan kerawanan membaca
 `/tiles/risk/{z}/{x}/{y}.mvt?scheme=a|b|c`; definisi bobot, uji sensitivitas, dan
 catatan wajibnya datang dari `/api/v1/risk/schemes` (`src/lib/risk.ts` untuk
 warna dan legenda).
@@ -128,6 +130,25 @@ Empat hal yang disengaja:
 | abu-abu bernama **"skor belum ada"** | berbeda dari `has_fact = 0` di lapisan titik panas (di sana artinya nol deteksi); kalau disamakan, wilayah tanpa skor akan terbaca sebagai kerawanan rendah |
 | bobot tiap skema ditampilkan apa adanya dari API, bukan ditulis ulang di antarmuka | skema A (50/50 tanpa IRBI) adalah tampilan awal, B dan C adalah skema uji; IRBI 2025 tetap sejajar sebagai konteks (`SRS-F-35`) |
 | panel kerawanan memuat uji sensitivitas (korelasi peringkat + jumlah wilayah berpindah kelas) | `SRS-F-34` menuntut hasil ujinya ikut terbaca, bukan hanya pilihan skema |
+
+## Lapisan kerawanan desa (`P4`, `SRS-F-38`/`F-39`)
+
+Lapisan ketiga ini bukan lapisan kabupaten/kota yang diperkecil: kelasnya datang
+dari `village_facts` metrik `risk_class_desa` dan **hanya ada per desa**, jadi
+lapisannya dimuat **satu provinsi pada satu waktu** melalui
+`/tiles/risk/villages/{z}/{x}/{y}.mvt?province=NN` (pemilih provinsi diisi
+`/api/v1/provinces`). Beberapa hal yang ditentukan oleh sifat data itu:
+
+| Hal | Alasan |
+|---|---|
+| kelas `tidak_ada_deteksi` diberi warna biru muda dan label **"bukan rendah"** | nol deteksi bisa berarti tidak terdeteksi satelit (`SRS-F-39`); mewarnainya seperti kelas rendah akan menyatakan sesuatu yang datanya tidak katakan |
+| legenda dan panel memuat jumlah desa tiap kelas dan dua celah datanya (215 desa tanpa kelas, 812 desa tanpa kode kecamatan induk) | angkanya datang dari `/api/v1/provinces`, bukan ditulis di kode; celah yang tidak disebut akan terbaca sebagai nol |
+| **zoom peta dipaksa 8 ke atas** selama lapisan ini aktif (`map.setMinZoom`, `fitBounds` dengan `minZoom`) | API menolak tile di bawah z=8 (`422`), dan MapLibre tidak meminta satu tile pun bila `minzoom` sumbernya di atas zoom peta (jebakan 15 di `AGENTS.md`) |
+| klik pada desa tidak membuka panel apa pun | panel desa (`W4`) belum dikerjakan; membaca nama desa, kecamatan, dan kelasnya dilakukan lewat bacaan kursor, bukan panel kabupaten/kota yang salah wilayah |
+| memilih provinsi langsung memperbesar peta ke kotak wilayahnya | pada zoom nasional lapisan ini tidak bisa digambar sama sekali, jadi memperbesar bukan pilihan pengguna melainkan syarat lapisannya |
+
+Ringkasan nasionalnya: 83.530 desa/kelurahan — `tidak_ada_deteksi` 43.753 ·
+`sedang` 24.293 · `rendah` 8.881 · `tinggi` 6.388 (angka 2026-11-17).
 
 ## Responsif
 
@@ -150,7 +171,8 @@ peta memperbesar ke wilayah hasil pencarian (`MapView.tsx`).
 |---|---|
 | basemap PMTiles | **sudah ada** sejak penyisipan 09c: berkas 216 MB di `../planning-GeoSafe/data/basemap/`, dilayani nginx `/pmtiles/`, gaya dari `@protomaps/basemaps` |
 | heatmap titik panas (`SRS-F-14`) | endpoint tile titik belum ada (titik berkoordinat, bukan agregat wilayah) |
-| lapisan kelas kerawanan desa (`SRS-F-38`, `SRS-F-39`) | datanya sudah ada di basis data (`village_facts` metrik `risk_class_desa`), lapisan petanya belum dikerjakan (iterasi `11d`) |
+| lapisan kelas kerawanan desa (`SRS-F-38`, `SRS-F-39`) | **sudah ada** sejak iterasi 11e: lapisan ketiga di saklar peta, dimuat per provinsi pada zoom 8 ke atas |
+| panel desa/kelurahan saat desa diklik (`W4`) | lapisan desanya sudah ada, panelnya belum: kelas dan kecamatan dibaca lewat bacaan kursor |
 | kendali penyaring `confidence` di toolbar (`SRS-F-15`) | API sudah menerima `?confidence=h\|n\|l` untuk tile kabupaten/kota; kendalinya menyusul |
 | panel kecamatan dan desa (`W3`, `W4`) | angka pendukung, bukan unit analisis; panelnya belum dikerjakan |
 | grafik A2 dan A3 | turunan dari A1, belum dikerjakan |

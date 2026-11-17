@@ -9,6 +9,7 @@ import {
   fetchPointCoverage,
   fetchRiskSchemes,
   fetchSources,
+  fetchVillageProvinces,
 } from './api/geosafe';
 import { App } from './App';
 
@@ -28,7 +29,10 @@ vi.mock('./api/geosafe', () => ({
   fetchLatest: vi.fn(),
   fetchLatestSummary: vi.fn(),
   fetchRiskSchemes: vi.fn(),
+  fetchVillageProvinces: vi.fn(),
   riskTileUrlTemplate: (scheme: string) => `/tiles/risk/{z}/{x}/{y}.mvt?scheme=${scheme}`,
+  villageRiskTileUrlTemplate: (province: string) =>
+    `/tiles/risk/villages/{z}/{x}/{y}.mvt?province=${province}`,
   downloadFileUrl: (name: string) => `/api/v1/downloads/${name}`,
 }));
 
@@ -38,6 +42,7 @@ const fetchDownloadsMock = vi.mocked(fetchDownloads);
 const fetchLatestMock = vi.mocked(fetchLatest);
 const fetchLatestSummaryMock = vi.mocked(fetchLatestSummary);
 const fetchRiskSchemesMock = vi.mocked(fetchRiskSchemes);
+const fetchVillageProvincesMock = vi.mocked(fetchVillageProvinces);
 
 /** Halaman peta menarik lapisan terkini saat dibuka; angkanya cukup satu titik. */
 function mockLatest() {
@@ -133,9 +138,43 @@ function mockRiskSchemes() {
   });
 }
 
+/** Daftar provinsi + sebaran kelas desa: halaman peta memintanya saat dibuka. */
+function mockVillageProvinces() {
+  fetchVillageProvincesMock.mockResolvedValue({
+    count: 2,
+    min_zoom: 8,
+    provinces: [
+      {
+        province_code: '33',
+        province_name: 'Jawa Tengah',
+        bbox: [108.56, -8.21, 111.69, -5.73],
+      },
+      {
+        province_code: '35',
+        province_name: 'Jawa Timur',
+        bbox: [110.9, -8.78, 116.27, -5.04],
+      },
+    ],
+    class_counts: {
+      rendah: 8_881,
+      sedang: 24_293,
+      tinggi: 6_388,
+      tidak_ada_deteksi: 43_753,
+    },
+    village_total: 83_530,
+    villages_without_class: 215,
+    villages_without_province: 812,
+    notes: [
+      'kelas kerawanan desa adalah susunan penelitian ini, bukan kelas resmi BNPB',
+      'kelas tidak_ada_deteksi berarti tidak ada satu pun deteksi titik panas',
+    ],
+  });
+}
+
 beforeEach(() => {
   mockLatest();
   mockRiskSchemes();
+  mockVillageProvinces();
 });
 
 function renderApp(path = '/') {
@@ -279,5 +318,58 @@ describe('App', () => {
     // Peta dan kendali tetap bisa dipakai; skema default tetap ditawarkan.
     expect(screen.getByRole('button', { name: 'A' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByText(/Peta tetap memakai skema default/)).toBeTruthy();
+  });
+
+  it('memuat lapisan kerawanan desa beserta pemilih provinsi dan angka kelasnya', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan desa' }));
+
+    // `SRS-F-38`: lapisan ini dimuat per provinsi, jadi provinsinya harus dipilih.
+    const select = await screen.findByLabelText('Provinsi');
+    expect(select).toBeTruthy();
+    expect(select.textContent).toContain('Jawa Tengah');
+    expect(select.textContent).toContain('Jawa Timur');
+    // Sebelum dipilih, panelnya menyatakan lapisan belum digambar.
+    expect(screen.getByText(/Belum ada provinsi terpilih, jadi lapisan belum digambar/)).toBeTruthy();
+
+    // `SRS-F-39`: kelas tanpa deteksi tidak boleh dibaca sebagai kerawanan rendah.
+    expect(screen.getAllByText(/Tidak ada deteksi \(bukan rendah\)/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/bukan kerawanan rendah: nol titik panas bisa berarti/)).toBeTruthy();
+    // Angka dari API ikut tampil sebagai kelas, bukan hanya nama kelas.
+    expect(screen.getByText('43.753')).toBeTruthy();
+    expect(screen.getByText('812 desa')).toBeTruthy();
+    // Kendali yang tidak berlaku dinonaktifkan, dan sebabnya terbaca di teks layar.
+    expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Provinsi' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText(/dimuat satu provinsi pada satu waktu/)).toBeTruthy();
+    expect(screen.getByText(/susunan penelitian ini, bukan angka resmi BNPB · satu provinsi/)).toBeTruthy();
+  });
+
+  it('memperbesar peta ke provinsi yang dipilih pada lapisan desa', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan desa' }));
+    fireEvent.change(await screen.findByLabelText('Provinsi'), { target: { value: '33' } });
+
+    // Peta diperbesar ke kotak wilayah provinsi itu sebelum tile diminta, karena
+    // API hanya melayani lapisan desa pada zoom 8 ke atas.
+    expect(screen.getByText(/Sedang ditampilkan:/)).toBeTruthy();
+    expect(screen.getByText(/peta sudah diperbesar ke provinsi terpilih/)).toBeTruthy();
+  });
+
+  it('menyatakan kegagalan daftar provinsi, bukan menulis "sedang dimuat"', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    fetchVillageProvincesMock.mockRejectedValue(new Error('Failed to fetch'));
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan desa' }));
+
+    expect(screen.getByText(/daftar provinsi gagal dimuat/)).toBeTruthy();
+    expect(screen.queryByText(/daftar provinsi sedang dimuat/)).toBeNull();
+    expect(screen.getByLabelText('Provinsi').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText(/Keterangan kerawanan desa gagal dimuat/)).toBeTruthy();
   });
 });

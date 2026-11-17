@@ -1,35 +1,58 @@
 import { legendEntries } from '../../lib/choropleth';
 import { MAP_SERIES } from '../../lib/constants';
-import { riskLegendEntries } from '../../lib/risk';
+import { riskLegendEntries, villageLegendEntries } from '../../lib/risk';
 import type { MapLayer } from '../../types/geosafe';
 
 export interface LegendProps {
   layer: MapLayer;
   /** Keterangan skema aktif pada lapisan kerawanan (dari API). */
   riskSchemeName?: string | null;
+  /** Jumlah desa per kelas dari `/api/v1/provinces` (lapisan desa). */
+  villageClassCounts?: Record<string, number>;
+  /** Desa tanpa kode kecamatan induk: tidak bisa muncul di lapisan per provinsi. */
+  villageWithoutProvince?: number | null;
   /** Titik panas terkini (`P2`) sedang digambar di atas lapisan tematik. */
   latestShown?: boolean;
 }
 
 /** Legenda lapisan aktif, dengan angka setiap kelas (`SRS-F-18`).
  *
- * Dua lapisan memakai legenda berbeda karena maknanya berbeda: jumlah titik panas
- * (deteksi satelit per tahun) dan kelas kerawanan (skor susunan penelitian).
- * Wilayah abu-abu juga berbeda artinya — pada lapisan titik panas berarti
- * "belum ada baris fakta tahun itu", pada lapisan kerawanan berarti "skor belum
- * dihitung" — dan itu disebutkan, bukan disamakan.
+ * Tiga lapisan memakai legenda berbeda karena maknanya berbeda: jumlah titik
+ * panas (deteksi satelit per tahun), kelas kerawanan kabupaten/kota (skor susunan
+ * penelitian), dan kelas kerawanan desa/kelurahan. Wilayah abu-abu juga berbeda
+ * artinya — pada lapisan titik panas berarti "belum ada baris fakta tahun itu",
+ * pada lapisan kerawanan berarti "skor/kelas belum dihitung", dan pada lapisan
+ * desa berarti "kelas desa belum ada" — dan itu disebutkan, bukan disamakan.
+ * Kelas `tidak_ada_deteksi` di lapisan desa bukan kerawanan rendah (`SRS-F-39`).
  */
-export function Legend({ layer, riskSchemeName, latestShown = false }: LegendProps) {
+export function Legend({
+  layer,
+  riskSchemeName,
+  villageClassCounts = {},
+  villageWithoutProvince = null,
+  latestShown = false,
+}: LegendProps) {
   const riskActive = layer === 'risk';
-  const entries = riskActive ? riskLegendEntries() : legendEntries();
+  const villageActive = layer === 'risk_village';
+  const entries = villageActive
+    ? villageLegendEntries(villageClassCounts)
+    : riskActive
+      ? riskLegendEntries()
+      : legendEntries();
 
   return (
     <div className="w-full rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur-sm sm:max-w-xs">
       <h2 className="text-xs font-semibold text-slate-900">
-        {riskActive ? 'Kelas kerawanan kabupaten/kota' : 'Jumlah titik panas per wilayah'}
+        {villageActive
+          ? 'Kelas kerawanan desa/kelurahan'
+          : riskActive
+            ? 'Kelas kerawanan kabupaten/kota'
+            : 'Jumlah titik panas per wilayah'}
       </h2>
       <p className="mt-0.5 text-[11px] text-slate-600">
-        {riskActive ? (
+        {villageActive ? (
+          <>susunan penelitian ini, bukan angka resmi BNPB · satu provinsi, zoom 8 ke atas</>
+        ) : riskActive ? (
           <>
             {riskSchemeName ? `skema ${riskSchemeName} · ` : ''}susunan penelitian ini, bukan angka
             resmi BNPB
@@ -55,10 +78,25 @@ export function Legend({ layer, riskSchemeName, latestShown = false }: LegendPro
       </ul>
 
       <p className="mt-2 text-[11px] text-slate-600">
-        {riskActive
-          ? 'Abu-abu berarti skor wilayah itu belum ada, bukan kerawanan rendah. Skor hanya dihitung untuk kabupaten/kota karena hanya tingkat itu yang punya seluruh indikator.'
-          : 'Abu-abu berarti wilayah itu belum punya baris fakta pada tahun terpilih, jadi angkanya tidak boleh dibaca sebagai nol tanpa membaca catatan panel.'}
+        {villageActive ? (
+          <>
+            Biru berarti tidak ada satu pun deteksi titik panas di desa itu — bukan kerawanan
+            rendah. Abu-abu berarti kelas desanya belum ada.
+          </>
+        ) : riskActive ? (
+          'Abu-abu berarti skor wilayah itu belum ada, bukan kerawanan rendah. Skor hanya dihitung untuk kabupaten/kota karena hanya tingkat itu yang punya seluruh indikator.'
+        ) : (
+          'Abu-abu berarti wilayah itu belum punya baris fakta pada tahun terpilih, jadi angkanya tidak boleh dibaca sebagai nol tanpa membaca catatan panel.'
+        )}
       </p>
+
+      {villageActive && villageWithoutProvince !== null ? (
+        <p className="mt-2 text-[11px] text-slate-600">
+          {villageWithoutProvince.toLocaleString('id-ID')} desa belum punya kode kecamatan induk di
+          sumbernya, sehingga tidak bisa dimuat lewat lapisan per provinsi — pencarian wilayah tetap
+          menemukannya.
+        </p>
+      ) : null}
 
       {latestShown ? (
         // Titik terkini tetap digambar di atas lapisan tematik apa pun; tanpa

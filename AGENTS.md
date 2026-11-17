@@ -13,13 +13,13 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 80 passed, 45-85 dtk (Aiven); butuh basis data hidup
+uv run pytest -q                         # 91 passed, 45-115 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
 cd frontend
 npm ci                                   # sekali, dari package-lock.json
-npm test                                 # 93 passed (15 berkas, Vitest + jsdom), tanpa DB
+npm test                                 # 112 passed (16 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
                                          #   nginx menyajikan dist/ di 127.0.0.1:8080
@@ -31,7 +31,9 @@ Kedua layanan sudah jalan: `systemctl --user restart geosafe-api` (kode baru),
 `/etc/nginx/sites-enabled/geosafe` → `deploy/nginx/geosafe.conf`.
 
 Basis data harus hidup: **Aiven PostgreSQL 18.7 + PostGIS 3.6.4** (basis data `geosafe`, TLS wajib)
-sejak 2026-11-17, DSN di `~/.config/geosafe/geosafe.env` (jangan pernah ditulis di repo). Kontainer
+sejak 2026-11-17, DSN di `~/.config/geosafe/geosafe.env` (jangan pernah ditulis di repo). Koneksi
+lewat kolam kecil (`psycopg_pool`, maksimal 3) karena `max_connections` server hanya 15 — lihat
+jebakan 16. Kontainer
 podman `pg` (port 5433, PostGIS 3.7.0) tetap hidup untuk ETL; `psql` 18.6 ada di host, jadi periksa
 isi langsung (`PGPASSWORD=... psql -h 127.0.0.1 -p 5433 -U homelab -d geosafe`) atau lewat Aiven MCP
 (`aiven_pg_read`, service `pg`, project `aziz`, database `geosafe` — hanya SELECT). Data dipindahkan
@@ -141,7 +143,21 @@ dokumen boleh langsung ke `main`.
     artinya**: `has_fact = 0` berarti nol deteksi yang terukur, `has_score = 0` berarti skor
     kerawanan belum ada. Baris kerawanan di `region_facts` tidak bertahun/bulan/seri (periksa
     dengan `select ... where metric_code like 'risk_%'`), jadi join-nya wajib mengunci syarat itu
-    atau poligon bisa tergandakan di dalam satu tile.
+    atau poligon bisa tergandakan di dalam satu tile. Aturan yang sama berlaku untuk
+    `village_facts` metrik `risk_class_desa` (83.315 baris, semuanya tanpa tahun).
+15. **`minzoom` pada sumber MapLibre mematikan seluruh tile-nya saat peta belum cukup besar.**
+    `transform.coveringTiles` berhenti lebih dulu (`z < minzoom` → daftar kosong), jadi sumber
+    ber-`minzoom: 8` **tidak meminta satu tile pun** selama zoom peta membulat ke 7 ke bawah —
+    gejalanya peta kosong tanpa galat, tanpa permintaan di log nginx, dan tanpa pesan di antarmuka
+    (2026-11-17: lapisan desa diam total karena peta duduk di zoom 6,94). Karena itu zoom peta
+    ikut dijaga (`map.setMinZoom(8)` selama lapisan desa aktif, `fitBounds` diberi `minZoom`),
+    bukan hanya sumbernya.
+16. **Koneksi basis data lewat kolam (`app/db.py`, `psycopg_pool`, maksimal 3), bukan satu koneksi
+    per permintaan.** `max_connections` Aiven hanya **15** dan 11 di antaranya dipakai proses
+    internalnya, sehingga satu lapisan peta yang meminta belasan tile MVT sekaligus membuat server
+    menolak koneksi (`FATAL: remaining connection slots are reserved for roles with the SUPERUSER
+    attribute`) dan sebagian tile dijawab `500`. Jangan menaikkan `max_size` tanpa memeriksa
+    `select count(*) from pg_stat_activity` lebih dulu.
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.

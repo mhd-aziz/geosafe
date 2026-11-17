@@ -18,9 +18,9 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { fillColorExpression } from '../../lib/choropleth';
 import { latestCircleColorExpression, pointsToGeoJson } from '../../lib/latest-layer';
 import { basemapStyle } from '../../lib/map-style';
-import { riskFillColorExpression } from '../../lib/risk';
+import { riskFillColorExpression, villageRiskFillColorExpression } from '../../lib/risk';
 import type { LatestPoint, MapLayer, MapLevel, RiskSchemeCode, SearchLevel } from '../../types/geosafe';
-import { THEMATIC_IDS, readoutText, thematicSpec } from './thematic-layer';
+import { THEMATIC_IDS, VILLAGE_MIN_ZOOM, readoutText, thematicSpec } from './thematic-layer';
 
 setWorkerUrl(`${maplibreWorkerUrl}?v=mjs-mime`);
 
@@ -38,6 +38,14 @@ const LATEST_LAYER_ID = 'latest-hotspot-points';
 const ACTIVE_FILL_LAYER: Record<MapLayer, string> = {
   hotspot: 'hotspot-fill',
   risk: 'risk-fill',
+  risk_village: 'village-risk-fill',
+};
+
+/** Warna kelas per lapisan; peta hanya mewarnai, angkanya dibaca di bacaan kursor. */
+const FILL_COLOR_EXPRESSION: Record<MapLayer, () => readonly unknown[]> = {
+  hotspot: fillColorExpression,
+  risk: riskFillColorExpression,
+  risk_village: villageRiskFillColorExpression,
 };
 
 const CODE_PROPERTY: Record<MapLevel, string> = {
@@ -55,6 +63,8 @@ export interface MapViewProps {
   riskScheme: RiskSchemeCode;
   year: number;
   level: MapLevel;
+  /** Provinsi terpilih untuk lapisan desa (`P4`); `null` = lapisan belum bisa dipasang. */
+  provinceCode: string | null;
   /** Kotak wilayah hasil pencarian: peta diperbesar ke wilayah itu (`SRS-F-70`). */
   focusBounds: [number, number, number, number] | null;
   /** Titik panas terkini (`P2`); `null` = belum ada/`truncated`, tidak digambar. */
@@ -64,17 +74,19 @@ export interface MapViewProps {
 
 /** Peta MapLibre dengan satu lapisan tematik aktif.
  *
- * Dua lapisan tematik datang dari endpoint berbeda dan tidak pernah tampil
- * bersamaan: jumlah titik panas (`/tiles/regions`, `/tiles/provinces`) dan kelas
- * kerawanan (`/tiles/risk`, hanya kabupaten/kota). Saat berpindah lapisan, layer
- * lama dibuang lebih dulu supaya tidak ada dua poligon bertumpuk dengan arti
- * warna berbeda di satu kanvas.
+ * Tiga lapisan tematik datang dari endpoint berbeda dan tidak pernah tampil
+ * bersamaan: jumlah titik panas (`/tiles/regions`, `/tiles/provinces`), kelas
+ * kerawanan kabupaten/kota (`/tiles/risk`), dan kelas kerawanan desa
+ * (`/tiles/risk/villages`, satu provinsi). Saat berpindah lapisan, layer lama
+ * dibuang lebih dulu supaya tidak ada dua poligon bertumpuk dengan arti warna
+ * berbeda di satu kanvas.
  */
 export function MapView({
   layer,
   riskScheme,
   year,
   level,
+  provinceCode,
   focusBounds,
   latestPoints,
   onSelectRegion,
@@ -123,6 +135,12 @@ export function MapView({
 
     map.on('click', (event) => {
       const currentLayer = latest.current.layer;
+      // Lapisan desa belum punya panel (W4 belum dikerjakan): klik di sana tidak
+      // membuka apa pun. Nama desa dan kelasnya sudah terbaca di bacaan kursor,
+      // jadi menampilkan panel kabupaten/kota untuk desa justru salah wilayah.
+      if (currentLayer === 'risk_village') {
+        return;
+      }
       const fillLayer = ACTIVE_FILL_LAYER[currentLayer];
       if (!map.getLayer(fillLayer)) {
         return;
@@ -172,16 +190,16 @@ export function MapView({
     };
   }, []);
 
-  // Lapisan tematik dipasang ulang setiap lapisan, tingkat, tahun, atau skema
-  // bobot berganti: nama layer di dalam tile berbeda (dan skema kerawanan punya
-  // URL sendiri), jadi `setTiles` saja tidak cukup.
+  // Lapisan tematik dipasang ulang setiap lapisan, tingkat, tahun, skema bobot,
+  // atau provinsi (lapisan desa) berganti: nama layer di dalam tile berbeda dan
+  // URL-nya punya parameter sendiri, jadi `setTiles` saja tidak cukup.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) {
       return;
     }
 
-    const spec = thematicSpec(layer, level, year, riskScheme);
+    const spec = thematicSpec(layer, level, year, riskScheme, provinceCode);
     for (const ids of THEMATIC_IDS) {
       if (map.getLayer(ids.fillLayerId)) {
         map.removeLayer(ids.fillLayerId);
@@ -194,6 +212,12 @@ export function MapView({
       }
     }
 
+    // Lapisan desa tanpa provinsi terpilih: tidak ada tile yang sah untuk
+    // diminta, jadi pembersihan di atas sudah cukup.
+    if (!spec) {
+      return;
+    }
+
     // Choropleth dipasang **di bawah** lapisan terkini bila lapisan itu sudah ada,
     // supaya titik terkini tidak pernah tertutup poligon setelah lapisan/tingkat
     // berganti — kalau tidak, urutannya bergantung efek mana yang selesai dulu.
@@ -202,7 +226,7 @@ export function MapView({
     map.addSource(spec.sourceId, {
       type: 'vector',
       tiles: [spec.url],
-      minzoom: 0,
+      minzoom: spec.minzoom,
       maxzoom: 14,
     });
     map.addLayer(
@@ -215,15 +239,13 @@ export function MapView({
           // Nilai `fill-color` adalah ekspresi gaya; tipe resminya tidak diekspor
           // oleh maplibre-gl v6, jadi nilainya di-cast di sini (bentuknya diuji di
           // `src/lib/choropleth.test.ts` dan `src/lib/risk.test.ts`).
-          'fill-color': (layer === 'risk'
-            ? riskFillColorExpression()
-            : fillColorExpression()) as never,
+          'fill-color': FILL_COLOR_EXPRESSION[layer]() as never,
           'fill-outline-color': '#ffffff',
           // Tembus pandang 0,72 pada lapisan titik panas: pada 0,82 jalan dan
           // sungai dari basemap tak lagi terlihat di bawah kelas warna (diperiksa
-          // di peramban, tidak cukup dari kode). Kelas kerawanan hanya tiga, jadi
-          // opasitasnya boleh lebih tinggi.
-          'fill-opacity': layer === 'risk' ? 0.78 : 0.72,
+          // di peramban, tidak cukup dari kode). Kelas kerawanan hanya tiga sampai
+          // empat, jadi opasitasnya boleh lebih tinggi.
+          'fill-opacity': layer === 'hotspot' ? 0.72 : 0.78,
         },
       },
       beforeId,
@@ -238,7 +260,7 @@ export function MapView({
       },
       beforeId,
     );
-  }, [ready, layer, level, year, riskScheme]);
+  }, [ready, layer, level, year, riskScheme, provinceCode]);
 
   // Lapisan titik panas terkini (`P2`): titik, bukan poligon — wilayahnya dipakai
   // panel, sedangkan peta menunjukkan sebaran deteksinya.
@@ -277,6 +299,22 @@ export function MapView({
     });
   }, [ready, latestPoints]);
 
+  // Zoom minimum peta harus ikut lapisan aktif. MapLibre mengembalikan **nol
+  // tile** untuk sumber yang `minzoom`-nya lebih besar daripada zoom peta yang
+  // dibulatkan ke bawah (`coveringTiles` berhenti sebelum meminta apa pun), jadi
+  // sumber lapisan desa (minzoom 8) tidak akan pernah terisi selama pengguna
+  // berada di zoom nasional — ditemukan 2026-11-17 lewat jalur peramban, bukan
+  // dari uji: tile desa sama sekali tidak pernah diminta. Karena itu zoom peta
+  // dijadikan 8 ke atas selama lapisan desa aktif; sekaligus menutup kemungkinan
+  // permintaan di bawah batas API (422).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) {
+      return;
+    }
+    map.setMinZoom(layer === 'risk_village' ? VILLAGE_MIN_ZOOM : 0);
+  }, [ready, layer]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !focusBounds) {
@@ -292,9 +330,14 @@ export function MapView({
         [minX, minY],
         [maxX, maxY],
       ],
-      { padding: 48, maxZoom: 11, duration: reduceMotion ? 0 : 800 },
+      {
+        padding: 48,
+        maxZoom: 11,
+        minZoom: layer === 'risk_village' ? VILLAGE_MIN_ZOOM : undefined,
+        duration: reduceMotion ? 0 : 800,
+      },
     );
-  }, [focusBounds]);
+  }, [focusBounds, layer]);
 
   return (
     <div className="relative h-full w-full">

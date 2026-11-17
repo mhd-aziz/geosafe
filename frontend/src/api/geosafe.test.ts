@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchRegionPanel, searchRegions, tileSourceLayer, tileUrlTemplate } from './geosafe';
+import {
+  fetchRegionPanel,
+  fetchVillageProvinces,
+  searchRegions,
+  tileSourceLayer,
+  tileUrlTemplate,
+  villageRiskTileUrlTemplate,
+  villageTileSourceLayer,
+} from './geosafe';
 
 /** Balasan palsu tanpa kelas `Response`, supaya uji tidak bergantung lingkungan. */
 function jsonResponse(body: unknown, status = 200): Response {
@@ -55,5 +63,36 @@ describe('fetchRegionPanel', () => {
     );
 
     await expect(fetchRegionPanel('9999')).rejects.toThrow('wilayah 9999 tidak ada');
+  });
+});
+
+describe('villageRiskTileUrlTemplate', () => {
+  it('membawa kode provinsi dan nama layer desa', () => {
+    // `SRS-F-38`: lapisan ini dimuat per provinsi, jadi kodenya bagian dari URL —
+    // bukan disaring di klien.
+    expect(villageRiskTileUrlTemplate('33')).toBe(
+      '/tiles/risk/villages/{z}/{x}/{y}.mvt?province=33',
+    );
+    expect(villageTileSourceLayer()).toBe('risk_villages');
+  });
+});
+
+describe('fetchVillageProvinces', () => {
+  it('memanggil endpoint daftar provinsi sekali tanpa parameter', async () => {
+    const body = {
+      count: 1,
+      min_zoom: 8,
+      provinces: [{ province_code: '33', province_name: 'Jawa Tengah', bbox: [108.5, -8.2, 111.7, -5.7] }],
+      class_counts: { rendah: 8_881 },
+      village_total: 83_530,
+      villages_without_class: 215,
+      villages_without_province: 812,
+      notes: [],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchVillageProvinces()).resolves.toEqual(body);
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/provinces', undefined);
   });
 });

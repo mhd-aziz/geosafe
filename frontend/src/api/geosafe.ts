@@ -14,6 +14,7 @@ import type {
   SearchResponse,
   SourcesResponse,
   TrendData,
+  VillageProvincesResponse,
 } from '../types/geosafe';
 
 /** Templat URL tile MVT untuk MapLibre (placeholder `{z}`, `{x}`, `{y}`). */
@@ -34,6 +35,24 @@ export function riskTileUrlTemplate(scheme: RiskSchemeCode): string {
 
 export function fetchRiskSchemes(): Promise<RiskSchemesResponse> {
   return fetchJson<RiskSchemesResponse>('/api/v1/risk/schemes');
+}
+
+/** Templat URL tile kelas kerawanan desa (`P4`, `SRS-F-38`).
+ *
+ * Kode provinsi wajib: lapisan ini dimuat per provinsi, dan API menolak
+ * permintaan tanpa `province` maupun pada zoom di bawah `min_zoom` (8).
+ */
+export function villageRiskTileUrlTemplate(provinceCode: string): string {
+  return `${API_BASE}/tiles/risk/villages/{z}/{x}/{y}.mvt?province=${encodeURIComponent(provinceCode)}`;
+}
+
+/** Nama layer desa di dalam tile MVT (dibuat endpoint `P4`). */
+export function villageTileSourceLayer(): string {
+  return 'risk_villages';
+}
+
+export function fetchVillageProvinces(): Promise<VillageProvincesResponse> {
+  return fetchJson<VillageProvincesResponse>('/api/v1/provinces');
 }
 
 export function fetchRegionPanel(regionCode: string): Promise<RegionPanelData> {

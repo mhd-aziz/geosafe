@@ -4,9 +4,26 @@ Hanya berisi pembuatan aplikasi dan endpoint dasar. Router per kelompok fitur
 (P1-P5, W1-W4, A1-A3, C1, T1) ditambahkan menyusul, satu berkas per kelompok.
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
+from app.db import get_pool
 from app.routers import analysis, latest, maps, panels, risk, search, transparency
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Tutup kolam koneksi saat proses berhenti (`systemctl restart geosafe-api`).
+
+    Tanpa ini koneksi ke Aiven menunggu batas waktu server sampai dilepas, dan
+    jumlah koneksi yang diizinkan server itu kecil (15).
+    """
+    yield
+    pool = get_pool()
+    get_pool.cache_clear()
+    pool.close()
+
 
 app = FastAPI(
     title="GeoSafe API",
@@ -15,6 +32,7 @@ app = FastAPI(
         "API purwarupa GeoSafe: sebaran titik panas (hotspot) sebagai indikator "
         "kerawanan kebakaran hutan dan lahan."
     ),
+    lifespan=lifespan,
 )
 
 # Satu router per kelompok fitur; ditambah seiring fiturnya dikerjakan.
