@@ -1,24 +1,46 @@
 import { legendEntries } from '../../lib/choropleth';
 import { MAP_SERIES } from '../../lib/constants';
+import { riskLegendEntries } from '../../lib/risk';
+import type { MapLayer } from '../../types/geosafe';
 
-/** Legenda choropleth dengan angka setiap kelas (`SRS-F-18`).
+export interface LegendProps {
+  layer: MapLayer;
+  /** Keterangan skema aktif pada lapisan kerawanan (dari API). */
+  riskSchemeName?: string | null;
+}
+
+/** Legenda lapisan aktif, dengan angka setiap kelas (`SRS-F-18`).
  *
- * Dua hal yang harus terbaca dari legenda ini: skala warna memakai seri `main`
- * saja (`SRS-F-17`), dan wilayah abu-abu bukan kelas rendah melainkan wilayah
- * yang belum punya baris fakta pada tahun terpilih.
+ * Dua lapisan memakai legenda berbeda karena maknanya berbeda: jumlah titik panas
+ * (deteksi satelit per tahun) dan kelas kerawanan (skor susunan penelitian).
+ * Wilayah abu-abu juga berbeda artinya — pada lapisan titik panas berarti
+ * "belum ada baris fakta tahun itu", pada lapisan kerawanan berarti "skor belum
+ * dihitung" — dan itu disebutkan, bukan disamakan.
  */
-export function Legend() {
+export function Legend({ layer, riskSchemeName }: LegendProps) {
+  const riskActive = layer === 'risk';
+  const entries = riskActive ? riskLegendEntries() : legendEntries();
+
   return (
-    <div className="max-w-xs rounded-md border border-slate-300 bg-white/95 p-3 text-xs shadow-sm">
+    <div className="w-full rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur-sm sm:max-w-xs">
       <h2 className="text-xs font-semibold text-slate-900">
-        Jumlah titik panas per wilayah
+        {riskActive ? 'Kelas kerawanan kabupaten/kota' : 'Jumlah titik panas per wilayah'}
       </h2>
-      <p className="mt-1 text-[11px] text-slate-600">
-        seri <code>{MAP_SERIES}</code> (arsip), tahun terpilih
+      <p className="mt-0.5 text-[11px] text-slate-600">
+        {riskActive ? (
+          <>
+            {riskSchemeName ? `skema ${riskSchemeName} · ` : ''}susunan penelitian ini, bukan angka
+            resmi BNPB
+          </>
+        ) : (
+          <>
+            seri <code>{MAP_SERIES}</code> (arsip), tahun terpilih
+          </>
+        )}
       </p>
 
       <ul className="mt-2 space-y-1">
-        {legendEntries().map((entry) => (
+        {entries.map((entry) => (
           <li key={entry.label} className="flex items-center gap-2">
             <span
               aria-hidden="true"
@@ -31,8 +53,9 @@ export function Legend() {
       </ul>
 
       <p className="mt-2 text-[11px] text-slate-600">
-        Abu-abu berarti wilayah itu belum punya baris fakta pada tahun terpilih, jadi angkanya tidak
-        boleh dibaca sebagai nol tanpa membaca catatan panel.
+        {riskActive
+          ? 'Abu-abu berarti skor wilayah itu belum ada, bukan kerawanan rendah. Skor hanya dihitung untuk kabupaten/kota karena hanya tingkat itu yang punya seluruh indikator.'
+          : 'Abu-abu berarti wilayah itu belum punya baris fakta pada tahun terpilih, jadi angkanya tidak boleh dibaca sebagai nol tanpa membaca catatan panel.'}
       </p>
     </div>
   );

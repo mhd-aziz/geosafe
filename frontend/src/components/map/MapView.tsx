@@ -15,11 +15,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 // dihapus tanpa memeriksa `curl -sI` pada berkas `.mjs` hasil build.
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
-import { tileSourceLayer, tileUrlTemplate } from '../../api/geosafe';
+import { riskTileUrlTemplate, tileSourceLayer, tileUrlTemplate } from '../../api/geosafe';
 import { fillColorExpression } from '../../lib/choropleth';
 import { latestCircleColorExpression, pointsToGeoJson } from '../../lib/latest-layer';
 import { basemapStyle } from '../../lib/map-style';
-import type { LatestPoint, MapLevel, SearchLevel } from '../../types/geosafe';
+import { RISK_SOURCE_LAYER, riskFillColorExpression } from '../../lib/risk';
+import type { LatestPoint, MapLayer, MapLevel, RiskSchemeCode, SearchLevel } from '../../types/geosafe';
 
 setWorkerUrl(`${maplibreWorkerUrl}?v=mjs-mime`);
 
@@ -30,11 +31,20 @@ setWorkerUrl(`${maplibreWorkerUrl}?v=mjs-mime`);
 // perlu ditangkap dan pemanggilan ulang tidak berbahaya.
 addProtocol('pmtiles', new Protocol().tile);
 
-const SOURCE_ID = 'hotspot';
-const FILL_LAYER_ID = 'hotspot-fill';
-const LINE_LAYER_ID = 'hotspot-line';
+const HOTSPOT_SOURCE_ID = 'hotspot';
+const HOTSPOT_FILL_LAYER_ID = 'hotspot-fill';
+const HOTSPOT_LINE_LAYER_ID = 'hotspot-line';
+const RISK_SOURCE_ID = 'risk';
+const RISK_FILL_LAYER_ID = 'risk-fill';
+const RISK_LINE_LAYER_ID = 'risk-line';
 const LATEST_SOURCE_ID = 'latest-hotspot';
 const LATEST_LAYER_ID = 'latest-hotspot-points';
+
+/** Layer poligon yang sedang aktif; dipakai klik dan kursor. */
+const ACTIVE_FILL_LAYER: Record<MapLayer, string> = {
+  hotspot: HOTSPOT_FILL_LAYER_ID,
+  risk: RISK_FILL_LAYER_ID,
+};
 
 const CODE_PROPERTY: Record<MapLevel, string> = {
   regency: 'region_code',
@@ -47,6 +57,8 @@ const NAME_PROPERTY: Record<MapLevel, string> = {
 };
 
 export interface MapViewProps {
+  layer: MapLayer;
+  riskScheme: RiskSchemeCode;
   year: number;
   level: MapLevel;
   /** Kotak wilayah hasil pencarian: peta diperbesar ke wilayah itu (`SRS-F-70`). */
@@ -56,7 +68,23 @@ export interface MapViewProps {
   onSelectRegion: (region: { code: string; name: string; level: SearchLevel }) => void;
 }
 
-export function MapView({ year, level, focusBounds, latestPoints, onSelectRegion }: MapViewProps) {
+/** Peta MapLibre dengan satu lapisan tematik aktif.
+ *
+ * Dua lapisan tematik datang dari endpoint berbeda dan tidak pernah tampil
+ * bersamaan: jumlah titik panas (`/tiles/regions`, `/tiles/provinces`) dan kelas
+ * kerawanan (`/tiles/risk`, hanya kabupaten/kota). Saat berpindah lapisan, layer
+ * lama dibuang lebih dulu supaya tidak ada dua poligon bertumpuk dengan arti
+ * warna berbeda di satu kanvas.
+ */
+export function MapView({
+  layer,
+  riskScheme,
+  year,
+  level,
+  focusBounds,
+  latestPoints,
+  onSelectRegion,
+}: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const [ready, setReady] = useState(false);
@@ -66,9 +94,9 @@ export function MapView({ year, level, focusBounds, latestPoints, onSelectRegion
   // jadi pesannya ditangkap dan ditampilkan.
   const [loadError, setLoadError] = useState<string | null>(null);
   // Handler peta tidak dibuat ulang setiap render, jadi nilai terbaru dibaca
-  // lewat ref: kalau tidak, klik selalu memakai tingkat wilayah yang lama.
-  const latest = useRef({ level, onSelectRegion });
-  latest.current = { level, onSelectRegion };
+  // lewat ref: kalau tidak, klik selalu memakai tingkat wilayah/lapisan yang lama.
+  const latest = useRef({ layer, level, onSelectRegion });
+  latest.current = { layer, level, onSelectRegion };
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -98,16 +126,20 @@ export function MapView({ year, level, focusBounds, latestPoints, onSelectRegion
     });
 
     map.on('click', (event) => {
-      if (!map.getLayer(FILL_LAYER_ID)) {
+      const currentLayer = latest.current.layer;
+      const fillLayer = ACTIVE_FILL_LAYER[currentLayer];
+      if (!map.getLayer(fillLayer)) {
         return;
       }
-      const [feature] = map.queryRenderedFeatures(event.point, { layers: [FILL_LAYER_ID] });
+      const [feature] = map.queryRenderedFeatures(event.point, { layers: [fillLayer] });
       const properties = feature?.properties;
       if (!properties) {
         return;
       }
 
-      const currentLevel = latest.current.level;
+      // Lapisan kerawanan hanya ada di tingkat kabupaten/kota (`SRS-F-37`), jadi
+      // klik di sana selalu membuka panel kabupaten/kota.
+      const currentLevel: MapLevel = currentLayer === 'risk' ? 'regency' : latest.current.level;
       latest.current.onSelectRegion({
         code: String(properties[CODE_PROPERTY[currentLevel]]),
         name: String(properties[NAME_PROPERTY[currentLevel]]),
@@ -116,9 +148,10 @@ export function MapView({ year, level, focusBounds, latestPoints, onSelectRegion
     });
 
     map.on('mousemove', (event) => {
+      const fillLayer = ACTIVE_FILL_LAYER[latest.current.layer];
       const cursor =
-        map.getLayer(FILL_LAYER_ID) &&
-        map.queryRenderedFeatures(event.point, { layers: [FILL_LAYER_ID] }).length > 0
+        map.getLayer(fillLayer) &&
+        map.queryRenderedFeatures(event.point, { layers: [fillLayer] }).length > 0
           ? 'pointer'
           : '';
       map.getCanvas().style.cursor = cursor;
@@ -131,39 +164,83 @@ export function MapView({ year, level, focusBounds, latestPoints, onSelectRegion
     };
   }, []);
 
-  // Tingkat wilayah mengubah nama layer di dalam tile, jadi sumber dan layer
-  // dipasang ulang setiap tingkat atau tahun berganti (bukan hanya `setTiles`).
+  // Lapisan tematik dipasang ulang setiap lapisan, tingkat, tahun, atau skema
+  // bobot berganti: nama layer di dalam tile berbeda (dan skema kerawanan punya
+  // URL sendiri), jadi `setTiles` saja tidak cukup.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) {
       return;
     }
 
-    if (map.getLayer(FILL_LAYER_ID)) {
-      map.removeLayer(FILL_LAYER_ID);
+    for (const layerId of [
+      HOTSPOT_FILL_LAYER_ID,
+      HOTSPOT_LINE_LAYER_ID,
+      RISK_FILL_LAYER_ID,
+      RISK_LINE_LAYER_ID,
+    ]) {
+      if (map.getLayer(layerId)) {
+        map.removeLayer(layerId);
+      }
     }
-    if (map.getLayer(LINE_LAYER_ID)) {
-      map.removeLayer(LINE_LAYER_ID);
-    }
-    if (map.getSource(SOURCE_ID)) {
-      map.removeSource(SOURCE_ID);
+    for (const sourceId of [HOTSPOT_SOURCE_ID, RISK_SOURCE_ID]) {
+      if (map.getSource(sourceId)) {
+        map.removeSource(sourceId);
+      }
     }
 
-    map.addSource(SOURCE_ID, {
+    // Choropleth dipasang **di bawah** lapisan terkini bila lapisan itu sudah ada,
+    // supaya titik terkini tidak pernah tertutup poligon setelah lapisan/tingkat
+    // berganti — kalau tidak, urutannya bergantung efek mana yang selesai dulu.
+    const beforeId = map.getLayer(LATEST_LAYER_ID) ? LATEST_LAYER_ID : undefined;
+
+    if (layer === 'risk') {
+      map.addSource(RISK_SOURCE_ID, {
+        type: 'vector',
+        tiles: [riskTileUrlTemplate(riskScheme)],
+        minzoom: 0,
+        maxzoom: 14,
+      });
+      map.addLayer(
+        {
+          id: RISK_FILL_LAYER_ID,
+          type: 'fill',
+          source: RISK_SOURCE_ID,
+          'source-layer': RISK_SOURCE_LAYER,
+          paint: {
+            'fill-color': riskFillColorExpression() as never,
+            'fill-outline-color': '#ffffff',
+            // Kelas kerawanan hanya tiga, jadi opasitas bisa lebih tinggi daripada
+            // choropleth titik panas dan jalan basemap masih terbaca.
+            'fill-opacity': 0.78,
+          },
+        },
+        beforeId,
+      );
+      map.addLayer(
+        {
+          id: RISK_LINE_LAYER_ID,
+          type: 'line',
+          source: RISK_SOURCE_ID,
+          'source-layer': RISK_SOURCE_LAYER,
+          paint: { 'line-color': '#94a3b8', 'line-width': 0.4 },
+        },
+        beforeId,
+      );
+      return;
+    }
+
+    map.addSource(HOTSPOT_SOURCE_ID, {
       type: 'vector',
       tiles: [tileUrlTemplate(level, year)],
       minzoom: 0,
       maxzoom: 14,
     });
-    // Choropleth dipasang **di bawah** lapisan terkini bila lapisan itu sudah ada,
-    // supaya titik terkini tidak pernah tertutup poligon setelah tahun/tingkat
-    // berganti — kalau tidak, urutannya bergantung efek mana yang selesai dulu.
-    const beforeId = map.getLayer(LATEST_LAYER_ID) ? LATEST_LAYER_ID : undefined;
     map.addLayer(
       {
-        id: FILL_LAYER_ID,
+        id: HOTSPOT_FILL_LAYER_ID,
         type: 'fill',
-        source: SOURCE_ID,
+        source: HOTSPOT_SOURCE_ID,
         'source-layer': tileSourceLayer(level),
         paint: {
           // Nilai `fill-color` adalah ekspresi gaya; tipe resminya tidak diekspor
@@ -181,15 +258,15 @@ export function MapView({ year, level, focusBounds, latestPoints, onSelectRegion
     );
     map.addLayer(
       {
-        id: LINE_LAYER_ID,
+        id: HOTSPOT_LINE_LAYER_ID,
         type: 'line',
-        source: SOURCE_ID,
+        source: HOTSPOT_SOURCE_ID,
         'source-layer': tileSourceLayer(level),
         paint: { 'line-color': '#94a3b8', 'line-width': 0.4 },
       },
       beforeId,
     );
-  }, [ready, level, year]);
+  }, [ready, layer, level, year, riskScheme]);
 
   // Lapisan titik panas terkini (`P2`): titik, bukan poligon — wilayahnya dipakai
   // panel, sedangkan peta menunjukkan sebaran deteksinya.
@@ -234,12 +311,16 @@ export function MapView({ year, level, focusBounds, latestPoints, onSelectRegion
       return;
     }
     const [minX, minY, maxX, maxY] = focusBounds;
+    // Hormati permintaan sistem pengguna: tanpa animasi kalau gerak dikurangi.
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     map.fitBounds(
       [
         [minX, minY],
         [maxX, maxY],
       ],
-      { padding: 48, maxZoom: 11, duration: 800 },
+      { padding: 48, maxZoom: 11, duration: reduceMotion ? 0 : 800 },
     );
   }, [focusBounds]);
 
@@ -254,7 +335,7 @@ export function MapView({ year, level, focusBounds, latestPoints, onSelectRegion
       ) : null}
       {loadError ? (
         <p
-          className="absolute inset-x-2 bottom-2 rounded border border-amber-300 bg-amber-50/95 px-3 py-2 text-xs text-amber-900"
+          className="absolute inset-x-2 bottom-2 rounded-lg border border-amber-300 bg-amber-50/95 px-3 py-2 text-xs text-amber-900"
           data-testid="map-load-error"
         >
           Sebagian latar peta gagal dimuat ({loadError}). Geometri wilayah tetap tergambar dan panel
