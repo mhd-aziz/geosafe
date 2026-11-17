@@ -36,7 +36,7 @@ podman `pg` (port 5433, PostGIS 3.7.0) tetap hidup untuk ETL; `psql` 18.6 ada di
 isi langsung (`PGPASSWORD=... psql -h 127.0.0.1 -p 5433 -U homelab -d geosafe`) atau lewat Aiven MCP
 (`aiven_pg_read`, service `pg`, project `aziz`, database `geosafe` — hanya SELECT). Data dipindahkan
 `pg_dump -Fc` + `pg_restore`; setiap perubahan `data/siap-pakai/` wajib dipulangkan ke Aiven dengan
-`python3 ../planning-GeoSafe/data/pembangun/sinkron_aiven.py` (data saja, ±6 menit, verifikasi otomatis;
+`python3 ../planning-GeoSafe/data/pembangun/sinkron_aiven.py` (data saja, ±10 menit, verifikasi otomatis;
 jalankan di latar, bukan di sel kode — batas 300 dtk memotongnya). Tidak ada `Makefile`, tidak ada CI, tidak ada
 ESLint/Prettier — penjaga mutunya hanya `pytest`, `npm test`, dan `tsc --noEmit`. Dokumentasi API hidup
 sendiri di `/docs` dan `/openapi.json`, jangan dibuatkan berkas daftar endpoint.
