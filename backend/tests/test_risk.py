@@ -31,7 +31,20 @@ def test_world_risk_tile_contains_risk_layer() -> None:
     assert b"risk" in body  # nama layer ditulis di dalam MVT
     assert b"risk_score" in body
     assert b"risk_class" in body
-    assert b"has_fact" in body
+    # `scheme_code` membuat muatan tile bisa dilacak balik ke skemanya, karena
+    # isi tile yang sama disimpan peramban sebagai satu kunci cache.
+    assert b"scheme_code" in body
+    # Namanya `has_score`, bukan `has_fact`: di lapisan titik panas `0` berarti
+    # nol deteksi, di sini `0` berarti skor tidak diketahui.
+    assert b"has_score" in body
+
+
+def test_tile_coordinates_outside_zoom_range_are_rejected() -> None:
+    """Koordinat salah harus 422, bukan 500 dari `ST_TileEnvelope`."""
+    response = client.get("/tiles/risk/0/5/5.mvt")
+
+    assert response.status_code == 422
+    assert "di luar rentang" in response.json()["detail"]
 
 
 def test_empty_risk_tile_answers_204() -> None:
@@ -76,6 +89,13 @@ def test_schemes_state_the_data_limits() -> None:
     assert "IRBI" in notes
 
 
+def test_scheme_weights_sum_to_one() -> None:
+    """Bobot tiap skema harus menutup 100%; salah tulis satu angka langsung ketahuan."""
+    for scheme in client.get("/api/v1/risk/schemes").json()["schemes"]:
+        weights = [value for value in scheme["weights"].values() if value is not None]
+        assert abs(sum(weights) - 1.0) < 1e-9, scheme["scheme_code"]
+
+
 def test_sensitivity_is_computed_from_live_rows() -> None:
     body = client.get("/api/v1/risk/schemes").json()
 
@@ -83,16 +103,21 @@ def test_sensitivity_is_computed_from_live_rows() -> None:
     assert body["regions_without_score"] == 0
     rows = {f"{row['scheme_a']}{row['scheme_b']}": row for row in body["sensitivity"]}
     assert set(rows) == {"ab", "ac", "bc"}
-    # Angka uji sensitivitas dari `risk_sensitivity.csv`: 106 / 75 / 53 wilayah
-    # berpindah kelas. Kalau bobot atau kelas di basis data berubah, uji ini gagal
+    # Jumlah wilayah berpindah kelas sama dengan `risk_sensitivity.csv`
+    # (106 / 75 / 53). Kalau bobot atau kelas di basis data berubah, uji ini gagal
     # dan dokumen keputusan perlu ditinjau ulang — itu memang tujuannya.
     assert rows["ab"]["regions_class_changed"] == 106
     assert rows["ac"]["regions_class_changed"] == 75
     assert rows["bc"]["regions_class_changed"] == 53
-    assert abs(rows["ab"]["spearman_rho"] - 0.9252) < 0.001
-    assert abs(rows["ac"]["spearman_rho"] - 0.9590) < 0.001
-    assert abs(rows["bc"]["spearman_rho"] - 0.9823) < 0.001
     assert rows["ab"]["pct_class_changed"] == 20.6
+    # Angka rho ditulis utuh, bukan dengan toleransi lebar: SQL memakai `rank()`
+    # (peringkat terendah untuk nilai kembar) sehingga A–B = 0,9252, sementara
+    # `risk_sensitivity.csv` menulis 0,9251 karena `bangun_kerawanan.py` memakai
+    # peringkat rata-rata. Toleransi lebih lebar dari 0,0001 akan meloloskan
+    # kedua cara itu sekaligus, dan uji ini kehilangan gunanya.
+    assert rows["ab"]["spearman_rho"] == 0.9252
+    assert rows["ac"]["spearman_rho"] == 0.959
+    assert rows["bc"]["spearman_rho"] == 0.9823
 
 
 def test_database_holds_risk_rows_for_every_region() -> None:

@@ -20,13 +20,16 @@ nasional tidak punya seluruh indikator, jadi tidak ada tile provinsi di sini.
 from typing import Any, Literal
 
 import psycopg
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Response
 from psycopg.rows import dict_row
 
 from app.db import get_connection
-from app.tiles import render_tile
+from app.tiles import check_tile_bounds, render_tile
 
 router = APIRouter(tags=["P4 peta kerawanan"])
+
+# Skema yang dipakai sebagai tampilan awal (`SRS-F-33`).
+DEFAULT_SCHEME = "a"
 
 # Bobot skema = definisi metode (`SRS-F-33`/`SRS-F-34`), bukan angka hasil ukur,
 # jadi tinggal di kode. Angka yang **diukur** (skor, kelas, korelasi, jumlah
@@ -59,9 +62,15 @@ SCORE_METRIC = {"a": "risk_score_a", "b": "risk_score_b", "c": "risk_score_c"}
 CLASS_METRIC = {"a": "risk_class_a", "b": "risk_class_b", "c": "risk_class_c"}
 RISK_METRICS = tuple(SCORE_METRIC.values()) + tuple(CLASS_METRIC.values())
 
-# Baris skor/kelas kerawanan tidak bertahun (`year` kosong): keduanya ringkasan
-# satu periode, bukan seri tahunan. Wilayah tanpa baris tetap dikirim dengan
-# `has_fact = 0`, aturan yang sama dengan tile jumlah titik panas.
+# Baris skor/kelas kerawanan tidak bertahun dan tidak berseri: pada pemeriksaan
+# 2026-11-17 seluruh 3.084 baris metrik `risk_*` punya `year`, `month`, `series`,
+# dan `confidence` kosong. Syarat itu diulang di kedua join supaya baris
+# bertahun — kalau suatu saat ETL menambahkannya — tidak menggandakan poligon
+# di dalam satu tile.
+#
+# Properti `has_score` sengaja tidak bernama `has_fact` seperti di lapisan titik
+# panas: di sana `0` berarti **nol deteksi yang terukur**, di sini `0` berarti
+# **skor tidak diketahui**. Dua arti itu tidak boleh tertukar di antarmuka.
 QUERY_RISK_TILE = """
 with tile as (
     select st_tileenvelope(%(z)s, %(x)s, %(y)s) as env_3857
@@ -79,14 +88,23 @@ mvt_rows as (
            r.province_code,
            s.value as risk_score,
            c.value_text as risk_class,
-           case when s.metric_code is null then 0 else 1 end as has_fact
+           %(scheme)s::text as scheme_code,
+           case when s.metric_code is null then 0 else 1 end as has_score
       from regions r
       left join region_facts s
         on s.region_code = r.region_code
        and s.metric_code = %(score_metric)s
+       and s.year is null
+       and s.month is null
+       and s.series is null
+       and s.confidence is null
       left join region_facts c
         on c.region_code = r.region_code
        and c.metric_code = %(class_metric)s
+       and c.year is null
+       and c.month is null
+       and c.series is null
+       and c.confidence is null
       cross join tile
      where r.geom is not null
        and st_intersects(r.geom, st_transform(tile.env_3857, 4326))
@@ -170,7 +188,7 @@ def _sensitivity_rows(row: dict[str, Any]) -> list[dict[str, Any]]:
 @router.get("/tiles/risk/{z}/{x}/{y:int}.mvt")
 def risk_tile(
     scheme: Literal["a", "b", "c"] = Query(
-        default="a",
+        default=DEFAULT_SCHEME,
         description=(
             "Skema bobot skor kerawanan. `a` dipakai sebagai tampilan awal "
             "(titik panas 50% + kejadian 50%)."
@@ -180,12 +198,14 @@ def risk_tile(
     x: int = Path(ge=0),
     y: int = Path(ge=0),
     conn: psycopg.Connection = Depends(get_connection),
-) -> Any:
+) -> Response:
     """Tile kabupaten/kota dengan skor dan kelas kerawanan satu skema bobot.
 
     Tile tanpa poligon dibalas **204 tanpa isi**, sama seperti tile titik panas.
     Hanya tingkat kabupaten/kota (`SRS-F-37`): tidak ada varian provinsi.
     """
+    check_tile_bounds(z, x, y)
+
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             QUERY_RISK_TILE,
@@ -193,6 +213,7 @@ def risk_tile(
                 "z": z,
                 "x": x,
                 "y": y,
+                "scheme": scheme,
                 "score_metric": SCORE_METRIC[scheme],
                 "class_metric": CLASS_METRIC[scheme],
             },
@@ -216,7 +237,7 @@ def risk_schemes(
         row = cur.fetchone()
 
     return {
-        "default_scheme": "a",
+        "default_scheme": DEFAULT_SCHEME,
         "schemes": list(RISK_SCHEMES),
         "sensitivity": _sensitivity_rows(row),
         "region_total": row["region_total"],

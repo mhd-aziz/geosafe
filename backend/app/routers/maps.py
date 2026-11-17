@@ -20,7 +20,7 @@ from psycopg.rows import dict_row
 from typing import Literal
 
 from app.db import get_connection
-from app.tiles import render_tile
+from app.tiles import check_tile_bounds, render_tile
 
 router = APIRouter(prefix="/tiles", tags=["P1 peta titik panas"])
 
@@ -121,6 +121,8 @@ def region_tile(
     muatan kosong. Penyaring `confidence` hanya berlaku di tingkat ini (`SRS-F-15`):
     baris fakta tingkat provinsi dan nasional tidak dipecah per kelas.
     """
+    check_tile_bounds(z, x, y)
+
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             QUERY_REGION_TILE,
@@ -159,6 +161,7 @@ def province_tile(
                 "basis data tidak punya baris provinsi per kelas kepercayaan"
             ),
         )
+    check_tile_bounds(z, x, y)
 
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(QUERY_PROVINCE_TILE, {"z": z, "x": x, "y": y, "year": year})
