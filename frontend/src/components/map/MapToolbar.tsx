@@ -7,6 +7,7 @@ import type {
   RiskScheme,
   RiskSchemeCode,
   RiskSchemesResponse,
+  VillageProvincesResponse,
 } from '../../types/geosafe';
 import { Segmented } from '../common/Segmented';
 
@@ -17,19 +18,25 @@ export interface MapToolbarProps {
   onRiskSchemeChange: (scheme: RiskSchemeCode) => void;
   /** Status permintaan `/risk/schemes`; ikut menentukan pesan yang tampil. */
   riskSchemes: RemoteState<RiskSchemesResponse>;
+  /** Provinsi terpilih untuk lapisan desa (`SRS-F-38`). */
+  provinceCode: string | null;
+  onProvinceChange: (provinceCode: string) => void;
+  /** Status permintaan `/provinces`; isi pemilih provinsi lapisan desa. */
+  provinces: RemoteState<VillageProvincesResponse>;
   year: number;
   level: MapLevel;
   onYearChange: (year: number) => void;
   onLevelChange: (level: MapLevel) => void;
 }
 
-/** Kendali peta: lapisan, tahun, tingkat wilayah, dan skema bobot kerawanan.
+/** Kendali peta: lapisan, tahun, tingkat wilayah, skema bobot, provinsi lapisan desa.
  *
- * Dua lapisan tematik tidak pernah bersamaan (`P1` dan `P4`): lapisan titik panas
- * memakai filter tahun dan saklar tingkat (`SRS-F-12`, `SRS-F-13`), sedangkan
- * lapisan kerawanan tidak bertahun dan hanya ada di tingkat kabupaten/kota
- * (`SRS-F-37`). Karena itu kendali yang tidak berlaku dinonaktifkan dengan
- * sebabnya, bukan disembunyikan diam-diam.
+ * Tiga lapisan tematik tidak pernah bersamaan (`P1` dan `P4`): lapisan titik panas
+ * memakai filter tahun dan saklar tingkat (`SRS-F-12`, `SRS-F-13`), lapisan
+ * kerawanan kabupaten/kota tidak bertahun dan hanya ada di tingkat itu
+ * (`SRS-F-37`), sedangkan lapisan kerawanan desa dimuat **per provinsi** dan baru
+ * pada zoom 8 ke atas (`SRS-F-38`). Karena itu kendali yang tidak berlaku
+ * dinonaktifkan dengan sebabnya, bukan disembunyikan diam-diam.
  */
 export function MapToolbar({
   layer,
@@ -37,14 +44,22 @@ export function MapToolbar({
   riskScheme,
   onRiskSchemeChange,
   riskSchemes,
+  provinceCode,
+  onProvinceChange,
+  provinces,
   year,
   level,
   onYearChange,
   onLevelChange,
 }: MapToolbarProps) {
+  // Tahun dan tingkat wilayah hanya berlaku untuk lapisan titik panas; dua
+  // lapisan kerawanan adalah ringkasan satu periode pada tingkat tetap.
+  const hotspotActive = layer === 'hotspot';
   const riskActive = layer === 'risk';
+  const villageActive = layer === 'risk_village';
   const schemeOptions = riskSchemes.data?.schemes ?? FALLBACK_SCHEMES;
   const activeScheme = schemeOptions.find((scheme) => scheme.scheme_code === riskScheme);
+  const provinceOptions = provinces.data?.provinces ?? [];
 
   return (
     <div className="w-full space-y-2 rounded-xl border border-slate-200 bg-white/95 p-2.5 shadow-lg backdrop-blur-sm sm:w-auto">
@@ -59,6 +74,11 @@ export function MapToolbar({
             label: 'Kerawanan',
             title: 'Skor kerawanan susunan penelitian, tingkat kabupaten/kota (P4)',
           },
+          {
+            value: 'risk_village',
+            label: 'Kerawanan desa',
+            title: 'Kelas kerawanan desa/kelurahan per provinsi (P4, SRS-F-38)',
+          },
         ]}
       />
 
@@ -67,11 +87,11 @@ export function MapToolbar({
           Tahun
           <select
             value={year}
-            disabled={riskActive}
+            disabled={!hotspotActive}
             title={
-              riskActive
-                ? 'Lapisan kerawanan adalah ringkasan satu periode, bukan seri tahunan'
-                : undefined
+              hotspotActive
+                ? undefined
+                : 'Lapisan kerawanan adalah ringkasan satu periode, bukan seri tahunan'
             }
             onChange={(event) => onYearChange(Number(event.target.value))}
             className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-900 transition-colors duration-200 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 sm:min-h-8"
@@ -93,14 +113,53 @@ export function MapToolbar({
             {
               value: 'province',
               label: 'Provinsi',
-              disabled: riskActive,
-              title: riskActive
-                ? 'Skor kerawanan hanya dihitung untuk kabupaten/kota (SRS-F-37)'
-                : undefined,
+              disabled: !hotspotActive,
+              title: hotspotActive
+                ? undefined
+                : 'Skor kerawanan hanya dihitung untuk kabupaten/kota (SRS-F-37)',
             },
           ]}
         />
       </div>
+
+      {villageActive ? (
+        <div className="space-y-1.5 border-t border-slate-100 pt-2">
+          <label className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Provinsi
+            <select
+              value={provinceCode ?? ''}
+              disabled={provinceOptions.length === 0}
+              onChange={(event) => onProvinceChange(event.target.value)}
+              className="min-h-9 max-w-[13rem] rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-900 transition-colors duration-200 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 sm:min-h-8"
+            >
+              <option value="">pilih provinsi...</option>
+              {provinceOptions.map((province) => (
+                <option key={province.province_code} value={province.province_code}>
+                  {province.province_name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-[11px] leading-snug text-slate-600">
+            {provinces.status === 'error'
+              ? `daftar provinsi gagal dimuat (${provinces.error ?? 'sebab tidak diketahui'}); lapisan desa tidak bisa dipilih`
+              : provinces.data === null
+                ? 'daftar provinsi sedang dimuat...'
+                : `${provinceOptions.length} provinsi · ${
+                    provinceCode === null
+                      ? 'pilih satu provinsi untuk menggambar lapisan desa'
+                      : 'peta sudah diperbesar ke provinsi terpilih'
+                  }`}
+          </p>
+          {/* Alasan penonaktifan kendali harus terbaca di teks layar, bukan hanya di
+           * atribut `title`: elemen nonaktif tidak dapat difokus pengguna keyboard. */}
+          <p className="text-[11px] leading-snug text-slate-600">
+            Kelas kerawanan desa adalah susunan penelitian ini dan hanya ada per desa, jadi penyaring
+            tahun dan tingkat wilayah tidak berlaku. Lapisan ini dimuat satu provinsi pada satu waktu
+            dan baru tampil pada zoom 8 ke atas.
+          </p>
+        </div>
+      ) : null}
 
       {riskActive ? (
         <div className="space-y-1.5 border-t border-slate-100 pt-2">
