@@ -13,13 +13,13 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 69 passed, 45-85 dtk (Aiven); butuh basis data hidup
+uv run pytest -q                         # 80 passed, 45-85 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
 cd frontend
 npm ci                                   # sekali, dari package-lock.json
-npm test                                 # 78 passed (13 berkas, Vitest + jsdom), tanpa DB
+npm test                                 # 93 passed (15 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
                                          #   nginx menyajikan dist/ di 127.0.0.1:8080
@@ -97,7 +97,7 @@ dokumen boleh langsung ke `main`.
 4. Tidak ada `.env` di repo (di-`.gitignore`). DSN **wajib** di-`export` dulu, kalau tidak
    `app/config.py` melempar `RuntimeError`.
 5. `StarletteDeprecationWarning` soal `httpx`/`httpx2` adalah peringatan lama, bukan kegagalan
-   (69 passed, 1 warning).
+   (80 passed, 1 warning).
 6. Nama folder `project-GeoSafe` dan `planning-GeoSafe` sengaja tidak diubah — jangan "dirapikan" tanpa
    persetujuan.
 7. Merauke (`9301`) kini provinsi Papua Selatan, bukan Papua. Jangan mengandalkan pengetahuan lama soal
@@ -113,8 +113,8 @@ dokumen boleh langsung ke `main`.
 
    `tr -d '"'` bukan hiasan: berkas yang mengutip DSN membuat `sed` ikut membawa tanda kutip, dan
    psycopg menolak DSN berawalan kutip — 2026-11-17 perintah tanpa `tr` menghasilkan **52 gagal,
-   17 lulus** alih-alih 69 lulus. Setelah dijalankan, periksa dua hal: panjang nilainya (berkutip
-   = 2 karakter lebih panjang) dan `pytest` hijau.
+   17 lulus** dari 69 uji yang ada saat itu (suite kini 80 uji). Setelah dijalankan, periksa dua hal:
+   panjang nilainya (berkutip = 2 karakter lebih panjang) dan `pytest` hijau.
 9. nginx harus memetakan `.mjs` ke `text/javascript`; tanpa itu worker MapLibre ditolak Chrome dan
    **peta kosong tanpa galat di antarmuka** (`curl` tetap 200). `reload nginx` tidak seketika, dan
    halaman yang dimuat ulang bisa memakai salinan lama karena `immutable` — uji lewat origin lain

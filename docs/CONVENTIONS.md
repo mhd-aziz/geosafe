@@ -98,7 +98,7 @@ penanda traceability**, bukan sebagai nama berkas. Nama berkas router:
 | `risk.py` | P4 — skor kerawanan, kelas, dan uji sensitivitas skema bobot |
 | `panels.py` | W1–W4 — panel wilayah per tingkat |
 | `analysis.py` | A1–A3 — tren, komposisi wilayah, peringkat |
-| `search.py` | C1 — pencarian tiga tingkat wilayah |
+| `search.py` | C1 — pencarian empat tingkat wilayah (provinsi, kabupaten/kota, kecamatan, desa/kelurahan) |
 | `latest.py` | P2 — titik panas terkini 24/48/72 jam + cache 15 menit |
 | `transparency.py` | T1 — sumber & batas data, unduh CSV |
 

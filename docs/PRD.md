@@ -5,7 +5,7 @@ Kebutuhan teknis (126 kebutuhan ber-ID `SRS-*`) tetap di
 `../../planning-GeoSafe/docs/SRS-GeoSafe.md` — dokumen ini **tidak** menggantikannya,
 hanya merangkum sisi produk. Kalau ada selisih, SRS yang menang.
 
-Status: 2026-11-16 · belum ada rilis; backend berjalan (lihat `../README.md`).
+Status: 2026-11-17 · belum ada rilis; backend berjalan (lihat `../README.md`).
 
 ---
 
@@ -59,7 +59,7 @@ di tingkat kabupaten/kota, karena hanya tingkat itu yang punya seluruh indikator
 | W2 | panel kabupaten/kota (kejadian, korban & kerusakan, titik panas, status darurat 2025, IRBI) | Panel |
 | W3 | panel kecamatan | Panel |
 | W4 | panel desa/kelurahan | Panel |
-| C1 | pencarian 3 tingkat wilayah (kode + nama) | Pencarian |
+| C1 | pencarian 4 tingkat wilayah (provinsi, kabupaten/kota, kecamatan, desa/kelurahan; kode + nama) | Pencarian |
 | T1 | halaman Sumber & Batas Data + unduh CSV + daftar istilah | Transparansi |
 
 ## 4. Istilah yang tidak boleh dicampur
