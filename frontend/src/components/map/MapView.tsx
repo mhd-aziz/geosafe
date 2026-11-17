@@ -15,12 +15,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 // dihapus tanpa memeriksa `curl -sI` pada berkas `.mjs` hasil build.
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
-import { riskTileUrlTemplate, tileSourceLayer, tileUrlTemplate } from '../../api/geosafe';
 import { fillColorExpression } from '../../lib/choropleth';
 import { latestCircleColorExpression, pointsToGeoJson } from '../../lib/latest-layer';
 import { basemapStyle } from '../../lib/map-style';
-import { RISK_SOURCE_LAYER, riskFillColorExpression } from '../../lib/risk';
+import { riskFillColorExpression } from '../../lib/risk';
 import type { LatestPoint, MapLayer, MapLevel, RiskSchemeCode, SearchLevel } from '../../types/geosafe';
+import { THEMATIC_IDS, readoutText, thematicSpec } from './thematic-layer';
 
 setWorkerUrl(`${maplibreWorkerUrl}?v=mjs-mime`);
 
@@ -31,19 +31,13 @@ setWorkerUrl(`${maplibreWorkerUrl}?v=mjs-mime`);
 // perlu ditangkap dan pemanggilan ulang tidak berbahaya.
 addProtocol('pmtiles', new Protocol().tile);
 
-const HOTSPOT_SOURCE_ID = 'hotspot';
-const HOTSPOT_FILL_LAYER_ID = 'hotspot-fill';
-const HOTSPOT_LINE_LAYER_ID = 'hotspot-line';
-const RISK_SOURCE_ID = 'risk';
-const RISK_FILL_LAYER_ID = 'risk-fill';
-const RISK_LINE_LAYER_ID = 'risk-line';
 const LATEST_SOURCE_ID = 'latest-hotspot';
 const LATEST_LAYER_ID = 'latest-hotspot-points';
 
-/** Layer poligon yang sedang aktif; dipakai klik dan kursor. */
+/** Layer poligon yang sedang aktif; dipakai klik, kursor, dan bacaan angka. */
 const ACTIVE_FILL_LAYER: Record<MapLayer, string> = {
-  hotspot: HOTSPOT_FILL_LAYER_ID,
-  risk: RISK_FILL_LAYER_ID,
+  hotspot: 'hotspot-fill',
+  risk: 'risk-fill',
 };
 
 const CODE_PROPERTY: Record<MapLevel, string> = {
@@ -93,10 +87,12 @@ export function MapView({
   // di antarmuka; sudah dua kali kejadian peta tampak kosong tanpa pesan apa pun,
   // jadi pesannya ditangkap dan ditampilkan.
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** Bacaan angka di balik warna; mengikuti kursor dan hilang saat keluar peta. */
+  const [readout, setReadout] = useState<{ x: number; y: number; text: string } | null>(null);
   // Handler peta tidak dibuat ulang setiap render, jadi nilai terbaru dibaca
   // lewat ref: kalau tidak, klik selalu memakai tingkat wilayah/lapisan yang lama.
-  const latest = useRef({ layer, level, onSelectRegion });
-  latest.current = { layer, level, onSelectRegion };
+  const latest = useRef({ layer, level, year, onSelectRegion });
+  latest.current = { layer, level, year, onSelectRegion };
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -148,14 +144,26 @@ export function MapView({
     });
 
     map.on('mousemove', (event) => {
-      const fillLayer = ACTIVE_FILL_LAYER[latest.current.layer];
-      const cursor =
-        map.getLayer(fillLayer) &&
-        map.queryRenderedFeatures(event.point, { layers: [fillLayer] }).length > 0
-          ? 'pointer'
-          : '';
-      map.getCanvas().style.cursor = cursor;
+      const current = latest.current;
+      const fillLayer = ACTIVE_FILL_LAYER[current.layer];
+      if (!map.getLayer(fillLayer)) {
+        return;
+      }
+      const [feature] = map.queryRenderedFeatures(event.point, { layers: [fillLayer] });
+      map.getCanvas().style.cursor = feature ? 'pointer' : '';
+
+      if (!feature?.properties) {
+        setReadout(null);
+        return;
+      }
+      setReadout({
+        x: event.point.x,
+        y: event.point.y,
+        text: readoutText(current.layer, current.level, current.year, feature.properties),
+      });
     });
+
+    map.on('mouseout', () => setReadout(null));
 
     return () => {
       map.remove();
@@ -173,19 +181,16 @@ export function MapView({
       return;
     }
 
-    for (const layerId of [
-      HOTSPOT_FILL_LAYER_ID,
-      HOTSPOT_LINE_LAYER_ID,
-      RISK_FILL_LAYER_ID,
-      RISK_LINE_LAYER_ID,
-    ]) {
-      if (map.getLayer(layerId)) {
-        map.removeLayer(layerId);
+    const spec = thematicSpec(layer, level, year, riskScheme);
+    for (const ids of THEMATIC_IDS) {
+      if (map.getLayer(ids.fillLayerId)) {
+        map.removeLayer(ids.fillLayerId);
       }
-    }
-    for (const sourceId of [HOTSPOT_SOURCE_ID, RISK_SOURCE_ID]) {
-      if (map.getSource(sourceId)) {
-        map.removeSource(sourceId);
+      if (map.getLayer(ids.lineLayerId)) {
+        map.removeLayer(ids.lineLayerId);
+      }
+      if (map.getSource(ids.sourceId)) {
+        map.removeSource(ids.sourceId);
       }
     }
 
@@ -194,74 +199,41 @@ export function MapView({
     // berganti — kalau tidak, urutannya bergantung efek mana yang selesai dulu.
     const beforeId = map.getLayer(LATEST_LAYER_ID) ? LATEST_LAYER_ID : undefined;
 
-    if (layer === 'risk') {
-      map.addSource(RISK_SOURCE_ID, {
-        type: 'vector',
-        tiles: [riskTileUrlTemplate(riskScheme)],
-        minzoom: 0,
-        maxzoom: 14,
-      });
-      map.addLayer(
-        {
-          id: RISK_FILL_LAYER_ID,
-          type: 'fill',
-          source: RISK_SOURCE_ID,
-          'source-layer': RISK_SOURCE_LAYER,
-          paint: {
-            'fill-color': riskFillColorExpression() as never,
-            'fill-outline-color': '#ffffff',
-            // Kelas kerawanan hanya tiga, jadi opasitas bisa lebih tinggi daripada
-            // choropleth titik panas dan jalan basemap masih terbaca.
-            'fill-opacity': 0.78,
-          },
-        },
-        beforeId,
-      );
-      map.addLayer(
-        {
-          id: RISK_LINE_LAYER_ID,
-          type: 'line',
-          source: RISK_SOURCE_ID,
-          'source-layer': RISK_SOURCE_LAYER,
-          paint: { 'line-color': '#94a3b8', 'line-width': 0.4 },
-        },
-        beforeId,
-      );
-      return;
-    }
-
-    map.addSource(HOTSPOT_SOURCE_ID, {
+    map.addSource(spec.sourceId, {
       type: 'vector',
-      tiles: [tileUrlTemplate(level, year)],
+      tiles: [spec.url],
       minzoom: 0,
       maxzoom: 14,
     });
     map.addLayer(
       {
-        id: HOTSPOT_FILL_LAYER_ID,
+        id: spec.fillLayerId,
         type: 'fill',
-        source: HOTSPOT_SOURCE_ID,
-        'source-layer': tileSourceLayer(level),
+        source: spec.sourceId,
+        'source-layer': spec.sourceLayer,
         paint: {
           // Nilai `fill-color` adalah ekspresi gaya; tipe resminya tidak diekspor
           // oleh maplibre-gl v6, jadi nilainya di-cast di sini (bentuknya diuji di
-          // `src/lib/choropleth.test.ts`).
-          'fill-color': fillColorExpression() as never,
+          // `src/lib/choropleth.test.ts` dan `src/lib/risk.test.ts`).
+          'fill-color': (layer === 'risk'
+            ? riskFillColorExpression()
+            : fillColorExpression()) as never,
           'fill-outline-color': '#ffffff',
-          // Tembus pandang 0,72: pada 0,82 jalan dan sungai dari basemap tak lagi
-          // terlihat di bawah kelas warna (diperiksa di peramban, tidak cukup dari
-          // kode), sementara kelas warnanya masih terpisah jelas.
-          'fill-opacity': 0.72,
+          // Tembus pandang 0,72 pada lapisan titik panas: pada 0,82 jalan dan
+          // sungai dari basemap tak lagi terlihat di bawah kelas warna (diperiksa
+          // di peramban, tidak cukup dari kode). Kelas kerawanan hanya tiga, jadi
+          // opasitasnya boleh lebih tinggi.
+          'fill-opacity': layer === 'risk' ? 0.78 : 0.72,
         },
       },
       beforeId,
     );
     map.addLayer(
       {
-        id: HOTSPOT_LINE_LAYER_ID,
+        id: spec.lineLayerId,
         type: 'line',
-        source: HOTSPOT_SOURCE_ID,
-        'source-layer': tileSourceLayer(level),
+        source: spec.sourceId,
+        'source-layer': spec.sourceLayer,
         paint: { 'line-color': '#94a3b8', 'line-width': 0.4 },
       },
       beforeId,
@@ -331,6 +303,17 @@ export function MapView({
         <p className="absolute inset-0 flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-700">
           Peta vektor butuh WebGL pada peramban ini, sehingga peta tidak dapat digambar. Panel dan
           pencarian tetap bisa dipakai. Penyebab: {error}
+        </p>
+      ) : null}
+      {readout ? (
+        // Bacaan angka di balik warna; digeser sedikit dari kursor supaya tidak
+        // menutupi poligon yang sedang dibaca.
+        <p
+          data-testid="map-readout"
+          style={{ left: Math.max(8, readout.x - 120), top: readout.y + 14 }}
+          className="pointer-events-none absolute z-10 max-w-[16rem] rounded-lg bg-slate-900/90 px-2 py-1 text-[11px] leading-tight text-white shadow-lg"
+        >
+          {readout.text}
         </p>
       ) : null}
       {loadError ? (

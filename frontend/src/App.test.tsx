@@ -261,5 +261,23 @@ describe('App', () => {
     expect(screen.getAllByText(/IRBI 2025 ditampilkan sejajar/).length).toBeGreaterThanOrEqual(1);
     // Lapisan kerawanan tidak bertahun: penyaring tahun nonaktif, bukan dibiarkan berlaku.
     expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(true);
+    // Alasan penonaktifan harus terbaca di teks layar, bukan hanya di `title`
+    // (elemen nonaktif tidak dapat difokus pengguna keyboard).
+    expect(screen.getByText(/ringkasan satu periode, jadi penyaring tahun tidak berlaku/)).toBeTruthy();
+  });
+
+  it('menyebut kegagalan keterangan skema alih-alih menulis "sedang dimuat"', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    fetchRiskSchemesMock.mockRejectedValue(new Error('Failed to fetch'));
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan' }));
+
+    // Satu layar tidak boleh memuat dua pesan yang saling bertentangan.
+    expect(screen.getByText(/keterangan skema gagal dimuat/)).toBeTruthy();
+    expect(screen.queryByText(/keterangan skema sedang dimuat/)).toBeNull();
+    // Peta dan kendali tetap bisa dipakai; skema default tetap ditawarkan.
+    expect(screen.getByRole('button', { name: 'A' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText(/Peta tetap memakai skema default/)).toBeTruthy();
   });
 });

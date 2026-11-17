@@ -7,6 +7,8 @@ export interface LegendProps {
   layer: MapLayer;
   /** Keterangan skema aktif pada lapisan kerawanan (dari API). */
   riskSchemeName?: string | null;
+  /** Titik panas terkini (`P2`) sedang digambar di atas lapisan tematik. */
+  latestShown?: boolean;
 }
 
 /** Legenda lapisan aktif, dengan angka setiap kelas (`SRS-F-18`).
@@ -17,7 +19,7 @@ export interface LegendProps {
  * "belum ada baris fakta tahun itu", pada lapisan kerawanan berarti "skor belum
  * dihitung" — dan itu disebutkan, bukan disamakan.
  */
-export function Legend({ layer, riskSchemeName }: LegendProps) {
+export function Legend({ layer, riskSchemeName, latestShown = false }: LegendProps) {
   const riskActive = layer === 'risk';
   const entries = riskActive ? riskLegendEntries() : legendEntries();
 
@@ -57,6 +59,17 @@ export function Legend({ layer, riskSchemeName }: LegendProps) {
           ? 'Abu-abu berarti skor wilayah itu belum ada, bukan kerawanan rendah. Skor hanya dihitung untuk kabupaten/kota karena hanya tingkat itu yang punya seluruh indikator.'
           : 'Abu-abu berarti wilayah itu belum punya baris fakta pada tahun terpilih, jadi angkanya tidak boleh dibaca sebagai nol tanpa membaca catatan panel.'}
       </p>
+
+      {latestShown ? (
+        // Titik terkini tetap digambar di atas lapisan tematik apa pun; tanpa
+        // keterangan ini, titik oranye di atas peta kerawanan terbaca sebagai
+        // bagian dari kerawanan.
+        <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] text-slate-600">
+          Titik oranye di peta adalah <strong>titik panas terkini</strong> (24/48/72 jam, seri{' '}
+          <code>nrt</code>) — seri berbeda yang tidak digambarkan oleh skala warna di atas dan tidak
+          boleh dibaca sebagai kerawanan.
+        </p>
+      ) : null}
     </div>
   );
 }

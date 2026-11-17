@@ -1,6 +1,6 @@
 import type { RemoteState } from '../../hooks/useRemoteData';
 import { formatCount, formatDecimal } from '../../lib/format';
-import { RISK_CLASSES } from '../../lib/risk';
+import { riskLegendEntries } from '../../lib/risk';
 import type { RiskSchemeCode, RiskSchemesResponse } from '../../types/geosafe';
 import { DataNotes } from '../common/DataNotes';
 
@@ -19,12 +19,20 @@ export interface RiskPanelProps {
  */
 export function RiskPanel({ state, scheme }: RiskPanelProps) {
   if (state.status === 'loading' && !state.data) {
-    return <p className="text-sm text-slate-600">memuat skema kerawanan...</p>;
+    // `aria-live` supaya perubahan status diumumkan pembaca layar; tanpa itu
+    // panel hanya berubah diam-diam.
+    return (
+      <p role="status" aria-live="polite" className="text-sm text-slate-600">
+        memuat skema kerawanan...
+      </p>
+    );
   }
 
   if (state.status === 'error') {
     return (
       <section
+        role="status"
+        aria-live="polite"
         aria-label="Keterangan kerawanan"
         className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800"
       >
@@ -85,9 +93,11 @@ export function RiskPanel({ state, scheme }: RiskPanelProps) {
           ))}
         </ul>
         <p className="mt-1.5 text-[11px] text-slate-600">
-          {active?.includes_irbi
-            ? 'Skema ini ikut memakai IRBI 2025 sebesar 20%; IRBI sendiri adalah indeks gabungan semua jenis bahaya, jadi skema A tetap dipakai sebagai tampilan awal.'
-            : 'Skema A tidak memakai IRBI: IRBI 2025 ditampilkan sejajar sebagai konteks, bukan komponen skor.'}
+          {active === undefined
+            ? `Skema ${scheme.toUpperCase()} tidak ada di daftar balasan API, jadi keterangan bobotnya tidak bisa dipastikan di sini.`
+            : active.includes_irbi
+              ? 'Skema ini ikut memakai IRBI 2025 sebesar 20%; IRBI sendiri adalah indeks gabungan semua jenis bahaya, jadi skema A tetap dipakai sebagai tampilan awal.'
+              : 'Skema A tidak memakai IRBI: IRBI 2025 ditampilkan sejajar sebagai konteks, bukan komponen skor.'}
         </p>
       </div>
 
@@ -133,17 +143,21 @@ export function RiskPanel({ state, scheme }: RiskPanelProps) {
       <div>
         <h3 className="text-xs font-semibold text-slate-900">Kelas yang digambar di peta</h3>
         <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-700">
-          {RISK_CLASSES.map((riskClass) => (
-            <li key={riskClass.value} className="flex items-center gap-1.5">
+          {riskLegendEntries().map((entry) => (
+            <li key={entry.label} className="flex items-center gap-1.5">
               <span
                 aria-hidden="true"
                 className="inline-block h-3 w-5 rounded-sm border border-slate-400"
-                style={{ backgroundColor: riskClass.color }}
+                style={{ backgroundColor: entry.color }}
               />
-              {riskClass.label}
+              {entry.label}
             </li>
           ))}
         </ul>
+        <p className="mt-1.5 text-[11px] text-slate-600">
+          Daftar ini sama dengan legenda di peta, termasuk penanda abu-abu untuk wilayah yang skornya
+          belum ada — wilayah seperti itu bukan kerawanan rendah.
+        </p>
       </div>
 
       <DataNotes title="Catatan wajib lapisan kerawanan" notes={state.data.notes} />

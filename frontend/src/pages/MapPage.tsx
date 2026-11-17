@@ -41,7 +41,10 @@ const CARD = 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm';
  */
 export function MapPage() {
   const [layer, setLayer] = useState<MapLayer>('hotspot');
-  const [riskScheme, setRiskScheme] = useState<RiskSchemeCode>(DEFAULT_RISK_SCHEME);
+  // Pilihan skema dibiarkan kosong sampai pengguna memilih: selama belum dipilih,
+  // yang dipakai adalah `default_scheme` dari API (`SRS-F-33`) — bukan nilai yang
+  // dikunci di klien, supaya keputusan mana yang jadi tampilan awal tetap di API.
+  const [schemeChoice, setSchemeChoice] = useState<RiskSchemeCode | null>(null);
   const [year, setYear] = useState<number>(DEFAULT_YEAR);
   const [level, setLevel] = useState<MapLevel>('regency');
   const [selected, setSelected] = useState<SelectedRegion | null>(null);
@@ -56,6 +59,8 @@ export function MapPage() {
   // jendela baru, dan bila tarikan jendela baru gagal hal itu disebut apa adanya.
   const latestMatchesWindow =
     latest.data?.window_hours === latestWindow && latest.summary?.window_hours === latestWindow;
+  const riskScheme = schemeChoice ?? riskSchemes.data?.default_scheme ?? DEFAULT_RISK_SCHEME;
+  const latestShown = (latest.data?.points?.length ?? 0) > 0;
 
   const handleLayerChange = useCallback((next: MapLayer) => {
     setLayer(next);
@@ -94,7 +99,11 @@ export function MapPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <section
-        aria-label="Peta sebaran titik panas"
+        aria-label={
+          layer === 'risk'
+            ? 'Peta kelas kerawanan kabupaten/kota'
+            : 'Peta sebaran titik panas'
+        }
         className="relative h-[58vh] min-h-[340px] shrink-0 sm:h-[56vh] sm:min-h-[380px] lg:h-auto lg:min-h-0 lg:flex-1"
       >
         <MapView
@@ -109,14 +118,14 @@ export function MapPage() {
         {/* Kendali mengapung: di layar kecil daftar ini bisa digulir dan tingginya
          * dibatasi supaya peta tetap kelihatan di bawahnya — tanpa batas itu peta
          * tertutup penuh oleh kendali dan legenda. */}
-        <div className="pointer-events-none absolute inset-x-2 top-2 flex max-h-[45%] flex-col items-stretch gap-2 overflow-y-auto sm:inset-x-3 sm:top-3 sm:max-h-none sm:flex-row sm:items-start sm:justify-between sm:overflow-visible">
+        <div className="pointer-events-auto absolute inset-x-2 top-2 flex max-h-[45%] flex-col items-stretch gap-2 overflow-y-auto sm:pointer-events-none sm:inset-x-3 sm:top-3 sm:max-h-none sm:flex-row sm:items-start sm:justify-between sm:overflow-visible">
           <div className="pointer-events-auto">
             <MapToolbar
               layer={layer}
               onLayerChange={handleLayerChange}
               riskScheme={riskScheme}
-              onRiskSchemeChange={setRiskScheme}
-              riskSchemes={riskSchemes.data?.schemes ?? null}
+              onRiskSchemeChange={setSchemeChoice}
+              riskSchemes={riskSchemes}
               year={year}
               level={level}
               onYearChange={setYear}
@@ -124,7 +133,7 @@ export function MapPage() {
             />
           </div>
           <div className="pointer-events-auto">
-            <Legend layer={layer} riskSchemeName={activeSchemeName} />
+            <Legend layer={layer} riskSchemeName={activeSchemeName} latestShown={latestShown} />
           </div>
           <div className="pointer-events-auto order-last sm:order-none">
             <LatestControl

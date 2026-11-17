@@ -1,6 +1,13 @@
+import type { RemoteState } from '../../hooks/useRemoteData';
 import { YEARS } from '../../lib/constants';
 import { DEFAULT_RISK_SCHEME } from '../../lib/risk';
-import type { MapLayer, MapLevel, RiskScheme, RiskSchemeCode } from '../../types/geosafe';
+import type {
+  MapLayer,
+  MapLevel,
+  RiskScheme,
+  RiskSchemeCode,
+  RiskSchemesResponse,
+} from '../../types/geosafe';
 import { Segmented } from '../common/Segmented';
 
 export interface MapToolbarProps {
@@ -8,8 +15,8 @@ export interface MapToolbarProps {
   onLayerChange: (layer: MapLayer) => void;
   riskScheme: RiskSchemeCode;
   onRiskSchemeChange: (scheme: RiskSchemeCode) => void;
-  /** Skema dari API; `null` = belum termuat, tombol skema memakai kode apa adanya. */
-  riskSchemes: RiskScheme[] | null;
+  /** Status permintaan `/risk/schemes`; ikut menentukan pesan yang tampil. */
+  riskSchemes: RemoteState<RiskSchemesResponse>;
   year: number;
   level: MapLevel;
   onYearChange: (year: number) => void;
@@ -36,6 +43,8 @@ export function MapToolbar({
   onLevelChange,
 }: MapToolbarProps) {
   const riskActive = layer === 'risk';
+  const schemeOptions = riskSchemes.data?.schemes ?? FALLBACK_SCHEMES;
+  const activeScheme = schemeOptions.find((scheme) => scheme.scheme_code === riskScheme);
 
   return (
     <div className="w-full space-y-2 rounded-xl border border-slate-200 bg-white/95 p-2.5 shadow-lg backdrop-blur-sm sm:w-auto">
@@ -99,20 +108,30 @@ export function MapToolbar({
             label="Skema"
             value={riskScheme}
             onChange={onRiskSchemeChange}
-            options={(riskSchemes ?? FALLBACK_SCHEMES).map((scheme) => ({
+            options={schemeOptions.map((scheme) => ({
               value: scheme.scheme_code,
               label: scheme.scheme_code.toUpperCase(),
               title: scheme.scheme_name,
             }))}
           />
           <p className="text-[11px] leading-snug text-slate-600">
-            {riskSchemes === null
-              ? 'Keterangan skema sedang dimuat.'
-              : (riskSchemes.find((scheme) => scheme.scheme_code === riskScheme)?.scheme_name ??
-                'skema tidak dikenal')}
-            {riskScheme === DEFAULT_RISK_SCHEME
-              ? ' — tampilan awal; IRBI 2025 ditampilkan sejajar, bukan bagian skor'
-              : ' — skema uji; IRBI 2025 ikut masuk 20%'}
+            {riskSchemes.status === 'error'
+              ? `keterangan skema gagal dimuat (${riskSchemes.error ?? 'sebab tidak diketahui'}); peta tetap memakai skema ${riskScheme.toUpperCase()} tanpa hasil uji sensitivitasnya`
+              : riskSchemes.data === null
+                ? 'keterangan skema sedang dimuat...'
+                : `${activeScheme?.scheme_name ?? 'skema tidak dikenal'}${
+                    riskScheme === DEFAULT_RISK_SCHEME
+                      ? ' — tampilan awal; IRBI 2025 ditampilkan sejajar, bukan bagian skor'
+                      : ' — skema uji; IRBI 2025 ikut masuk 20%'
+                  }`}
+          </p>
+          {/* Alasan penonaktifan ini harus terbaca di teks layar, bukan hanya di
+           * atribut `title`: elemen nonaktif tidak dapat difokus, jadi pengguna
+           * keyboard tidak akan pernah melihat keterangan itu. */}
+          <p className="text-[11px] leading-snug text-slate-600">
+            Lapisan kerawanan adalah ringkasan satu periode, jadi penyaring tahun tidak berlaku; dan
+            skornya hanya dihitung untuk kabupaten/kota (`SRS-F-37`), jadi tingkat provinsi
+            dinonaktifkan.
           </p>
         </div>
       ) : null}

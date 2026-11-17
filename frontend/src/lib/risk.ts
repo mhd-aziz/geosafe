@@ -66,4 +66,10 @@ export function riskFillColorExpression(): readonly unknown[] {
   ];
 }
 
-/** Label tombol skema: bobot dibaca dari API, bukan ditulis ulang di antarmuka. */
+/** Nama kelas untuk dibaca manusia; nilai tak dikenal dikembalikan apa adanya. */
+export function riskClassLabel(value: string | null | undefined): string {
+  if (!value) {
+    return 'kelas tidak diketahui';
+  }
+  return RISK_CLASSES.find((riskClass) => riskClass.value === value)?.label ?? value;
+}

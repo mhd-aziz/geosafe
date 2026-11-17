@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   NO_SCORE_COLOR,
   RISK_CLASSES,
+  riskClassLabel,
   riskFillColorExpression,
   riskLegendEntries,
 } from './risk';
@@ -18,6 +19,27 @@ describe('riskLegendEntries', () => {
       'skor belum ada (bukan kerawanan rendah)',
     ]);
     expect(entries.at(-1)?.color).toBe(NO_SCORE_COLOR);
+  });
+});
+
+describe('pasangan kelas dan warna', () => {
+  // Ditulis sebagai matriks, bukan keanggotaan daftar: menukar dua warna antar
+  // kelas tetap lolos kalau yang diperiksa hanya "warna ada di daftar".
+  it.each([
+    ['rendah', '#fee391'],
+    ['sedang', '#fe9929'],
+    ['tinggi', '#993404'],
+  ])('kelas %s memakai warna %s', (value, color) => {
+    const riskClass = RISK_CLASSES.find((item) => item.value === value);
+
+    expect(riskClass?.color).toBe(color);
+    expect(riskClass?.label).toBe(value.charAt(0).toUpperCase() + value.slice(1));
+  });
+
+  it('menyebut kelas tak dikenal tanpa menebak', () => {
+    expect(riskClassLabel('sangat tinggi')).toBe('sangat tinggi');
+    expect(riskClassLabel(null)).toBe('kelas tidak diketahui');
+    expect(riskClassLabel('tinggi')).toBe('Tinggi');
   });
 });
 
