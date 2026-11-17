@@ -45,7 +45,7 @@ sendiri di `/docs` dan `/openapi.json`, jangan dibuatkan berkas daftar endpoint.
 
 - Satu berkas router per kelompok fitur, namanya Inggris, dipetakan ke kode fitur dokumen perencanaan:
   `maps.py` (P1, P3, P5 — tile MVT jumlah titik panas), `risk.py` (P4 — skor kerawanan +
-  uji sensitivitas), `panels.py` (W1–W4), `analysis.py` (A1–A3), `search.py` (C1), `latest.py`
+  uji sensitivitas + kelas kerawanan desa per provinsi), `panels.py` (W1–W4), `analysis.py` (A1–A3), `search.py` (C1), `latest.py`
   (P2 — terkini, cache 15 menit), `transparency.py` (T1). Berkas dipisah saat fiturnya membawa
   perilaku sendiri (cache/snapshot di `latest.py`, skema bobot di `risk.py`), bukan menurut nomor
   kelompoknya. Buat berkas **saat** fiturnya dikerjakan; berkas yang belum ada berarti belum
@@ -132,7 +132,11 @@ dokumen boleh langsung ke `main`.
 13. Koordinat tile yang sah hanya `0..2^z-1`; di luar itu `ST_TileEnvelope` melempar
     `Invalid tile x value` dan permintaan salah alamat berakhir `500`. Setiap endpoint tile baru
     wajib memanggil `check_tile_bounds(z, x, y)` dari `app/tiles.py` (membalas `422`). Aturan
-    "tile kosong → 204" juga tinggal di berkas itu (`render_tile`), jangan disalin.
+    "tile kosong → 204" juga tinggal di berkas itu (`render_tile`), jangan disalin. Lapisan yang
+    poligonnya sangat rapat punya batas zoom minimum di berkas yang sama
+    (`check_zoom_floor`, lapisan desa: `z>=8`); uji batas zoom harus memakai koordinat yang
+    **sah pada zoom itu** (`z=7` hanya `0..127`), kalau tidak penjaga rentang yang menjawab
+    lebih dulu dan ujinya menguji hal yang salah.
 14. Properti `has_fact` (lapisan titik panas) dan `has_score` (lapisan kerawanan) **tidak sama
     artinya**: `has_fact = 0` berarti nol deteksi yang terukur, `has_score = 0` berarti skor
     kerawanan belum ada. Baris kerawanan di `region_facts` tidak bertahun/bulan/seri (periksa

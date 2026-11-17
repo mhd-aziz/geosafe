@@ -23,10 +23,10 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 14 endpoint, `uv run pytest` 80 passed |
+| Backend (`backend/`) | berjalan — 16 endpoint, `uv run pytest` 91 passed |
 | Frontend (`frontend/`) | berjalan — 3 halaman (peta + lapisan titik terkini + lapisan kerawanan · tren · sumber data), basemap PMTiles z12, `npm test` 93 passed |
 | Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna, nginx menyajikan halaman, proxy API, dan basemap PMTiles z12 (216 MB) di `127.0.0.1:8080` |
-| Iterasi selesai | **11c** (`P4` kerawanan di antarmuka + perapian tampilan; `P4` di API pada 11b, basis data pindah ke Aiven pada 11a, `P2`/`W1` di API 10a dan di antarmuka 10b, basemap 09c, nginx 09b, unit systemd 09a, penyisipan 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | **11d** (API lapisan kelas kerawanan desa + daftar provinsi; antarmukanya menyusul di 11e) — `P4` kerawanan di antarmuka 11c, `P4` di API 11b, basis data pindah ke Aiven pada 11a, `P2`/`W1` di API 10a dan di antarmuka 10b, basemap 09c, nginx 09b, unit systemd 09a, penyisipan 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -140,6 +140,8 @@ yang sengaja belum dikerjakan ada di [`frontend/README.md`](frontend/README.md).
 | `GET /tiles/provinces/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT provinsi (saklar tingkat tampilan) |
 | `GET /tiles/risk/{z}/{x}/{y}.mvt?scheme=` | P4 | *vector tile* MVT kabupaten/kota + skor dan kelas kerawanan satu skema bobot (`a`/`b`/`c`) |
 | `GET /api/v1/risk/schemes` | P4 | tiga skema bobot + uji sensitivitasnya (korelasi peringkat, jumlah wilayah berpindah kelas) + batasan yang wajib ditampilkan |
+| `GET /tiles/risk/villages/{z}/{x}/{y}.mvt?province=` | P4 | *vector tile* MVT desa/kelurahan + kelas kerawanannya (`rendah`/`sedang`/`tinggi`/`tidak_ada_deteksi`), **satu provinsi**, hanya zoom 8–14 |
+| `GET /api/v1/provinces` | P4 | 38 provinsi (kode, nama, kotak wilayah) + sebaran kelas kerawanan desa + dua celah datanya — bahan pemilih lapisan desa |
 | `GET /api/v1/panel/kabupaten_kota/{kode}` | W2 | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI |
 | `GET /api/v1/search/regions?q=` | C1 | pencarian wilayah empat tingkat (provinsi, kabupaten/kota, kecamatan, desa/kelurahan), maksimal 20 baris + `bbox` untuk memperbesar peta |
 | `GET /api/v1/analysis/national_trend` | A1 | tren nasional 2020–2026: titik panas (seri `main`/`fill`/`nrt` apa adanya + `archive_total`) dan kejadian, plus luas terbakar sebagai konteks |
@@ -152,6 +154,10 @@ Catatan pemakaian: tile tanpa poligon dibalas `204`; wilayah yang belum punya
 baris fakta tetap terkirim dengan properti `has_fact = 0` (pada lapisan kerawanan
 namanya `has_score`, karena `0` di sana berarti *skor tidak diketahui*, bukan *nol
 deteksi*); koordinat tile di luar rentang `0..2^z-1` dibalas `422`, bukan `500`;
+lapisan desa hanya dilayani **per provinsi** (`?province=`) dan pada **zoom 8 ke
+atas** — di bawah itu `422`, karena lapisan yang tetap dilayani justru menumpuk
+seluruh provinsi ke segelintir tile raksasa; kelas `tidak_ada_deteksi` pada
+lapisan desa berarti tidak ada satu pun deteksi, dan **bukan** kerawanan rendah;
 panel menyertakan medan `notes` berisi batasan data yang **wajib** ikut
 ditampilkan; pencarian membalas `200` dengan `results: []` + `notes` saat kata
 kuncinya tidak menemukan wilayah (bukan `404`).
