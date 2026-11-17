@@ -9,8 +9,10 @@ hasil build, meneruskan `/api` serta `/tiles` ke API, dan melayani basemap
 `/pmtiles/`). Iterasi 10 (P2 titik panas terkini + W1 panelnya) selesai di API
 (10a) dan di antarmuka (10b); iterasi 11 mengerjakan P4 kerawanan versi B — 11a
 memindahkan basis data pengembangan ke Aiven, 11b menyelesaikan sisinya di API,
-11c mengerjakannya di antarmuka sekaligus merapikan tampilan dan tata letak.
-Sisa yang direncanakan: 11d lapisan kelas kerawanan desa.
+11c mengerjakannya di antarmuka sekaligus merapikan tampilan dan tata letak, dan
+11d menambahkan lapisan **kelas kerawanan desa** di API (per provinsi, zoom 8 ke
+atas) beserta daftar provinsi untuk pemilihnya.
+Sisa yang direncanakan: 11e lapisan desa itu di antarmuka.
 
 ---
 
@@ -79,7 +81,8 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 11a | basis data pengembangan pindah ke Aiven (PG 18.7 + PostGIS 3.6.4) + skrip sinkronisasi data | ✅ PR #17, tag `iter-11a-aiven-db` |
 | 11b | `feat/api-risk-map` — `P4` di API: tile kerawanan tiga skema bobot + endpoint uji sensitivitas | ✅ PR #19, tag `iter-11b-risk-api` |
 | 11c | `feat/frontend-risk-ui` — `P4` di antarmuka: pemilih skema, legenda kelas, bacaan skor, perapian tampilan + responsif | ✅ PR #20, tag `iter-11c-risk-ui` |
-| 11d | lapisan kelas kerawanan desa/kelurahan (`SRS-F-38`/`39`) | setelah 11c |
+| 11d | `feat/api-village-risk-tiles` — `P4` di API: tile kelas kerawanan desa per provinsi (`SRS-F-38`) + daftar provinsi untuk pemilihnya, pagar zoom di `app/tiles.py` | ✅ PR #21, tag `iter-11d-village-risk-api` |
+| 11e | lapisan kelas kerawanan desa di antarmuka (`P4`, lanjutan 11d) | setelah 11d |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar

@@ -32,13 +32,75 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 11a | `docs/aiven-database` | basis data **pengembangan pindah ke Aiven** (`geosafe`), `pg_dump -Fc` + `pg_restore`, DSN dari `~/.config/geosafe/geosafe.env` | #17 | `iter-11a-aiven-db` |
 | 11b | `feat/api-risk-map` | `P4` di API: tile kerawanan tiga skema bobot + uji sensitivitas dari data, penjaga koordinat tile bersama | #19 | `iter-11b-risk-api` |
 | 11c | `feat/frontend-risk-ui` | `P4` di antarmuka: lapisan kerawanan + pemilih skema, bacaan skor, perapian tampilan dan tata letak responsif | #20 | `iter-11c-risk-ui` |
+| 11d | `feat/api-village-risk-tiles` | `P4` di API: tile kelas kerawanan desa per provinsi (`SRS-F-38`) + daftar provinsi untuk pemilihnya, pagar zoom di `app/tiles.py` | #21 | `iter-11d-village-risk-api` |
 
-Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, dan 11c (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
+Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, dan 11d (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 11d — `feat/api-village-risk-tiles` (PR #21)
+
+Tag `iter-11d-village-risk-api` menandai commit hasil *squash merge* di `main`.
+
+Bagian API dari `SRS-F-38`: kelas kerawanan **desa/kelurahan** sebagai lapisan yang
+dimuat per provinsi, dengan `SRS-F-39` (desa tanpa deteksi tidak boleh disebut
+"rendah"). Datanya sudah ada sejak iterasi data (`village_facts` metrik
+`risk_class_desa`, 83.315 baris), tetapi belum terjangkau peta sama sekali.
+
+Berkas: `backend/app/routers/risk.py` · `backend/app/tiles.py` (pagar zoom baru) ·
+`backend/tests/test_risk_villages.py` (baru, 11 uji).
+
+Dua endpoint baru: `GET /tiles/risk/villages/{z}/{x}/{y}.mvt?province=NN` (properti
+`village_code`, `village_name`, `district_code`, `district_name`, `region_code`,
+`region_name`, `province_code`, `risk_class`, `has_score`) dan
+`GET /api/v1/provinces` (38 provinsi: kode, nama, `bbox`, plus sebaran kelas dan
+dua celah data) sebagai bahan pemilih lapisan.
+
+Bukti — lewat HTTP di jalur aplikasi (`http://127.0.0.1:8080`, nginx mem-proxy
+`/api` dan `/tiles`):
+
+| Uji | Hasil |
+|---|---|
+| `/api/v1/provinces` | **200** · 0,83–1,20 dtk · 5.061 B · 38 provinsi · `min_zoom` 8 |
+| sebaran kelas desa | `tidak_ada_deteksi` **43.753** · `sedang` 24.293 · `rendah` 8.881 · `tinggi` 6.388 (jumlah 83.315) |
+| celah data | **215** desa tanpa baris kelas · **812** desa tanpa kode kecamatan induk |
+| tile provinsi 33 (Jawa Tengah, 8.480 desa), z=8 | 6 tile, seluruhnya berisi, total **753 KB**, tile terbesar **334 KB** |
+| z=9 | 20 tile (17 berisi), total 787 KB, terbesar 146 KB |
+| z=10 | 80 tile (44 berisi), total 891 KB, terbesar 47 KB |
+| z=7 dengan koordinat yang sah | **422** `z=7 di bawah batas lapisan ini` |
+| z=9 x=9999 y=9999 | **422** `di luar rentang` |
+| tanpa `province` | **422** `Field required` |
+| `province=99` (kode sah, tanpa desa) | **204** |
+| tile 9/410/266 `province=33` vs `province=35` | 26.197 B (memuat `3301010005`, `tidak_ada_deteksi`, `has_score`, `risk_villages`) vs **204 tanpa isi** — saringan provinsi bekerja, isi tidak bocor |
+| `uv run pytest -q` | **91 passed**, 1 warning, 59,31 dtk (80 sebelum cabang) |
+
+Temuan:
+
+1. **Uji batas zoom harus memakai koordinat yang sah pada zoom itu.** Versi pertama
+   menguji `z=7` dengan `x=410,y=266` — koordinat yang sah pada z=9, tetapi pada z=7
+   rentangnya hanya `0..127`, sehingga yang menjawab lebih dulu adalah penjaga
+   rentang, bukan penjaga zoom. Ujinya kini memakai `x=100,y=42` supaya yang
+   diperiksa memang batas zoom.
+2. **Probe SQL bukan pengganti pengukuran HTTP.** Ukuran tile terbesar z=8 tadinya
+   dihitung dengan query yang tidak memuat semua properti (**267 KB**); angka
+   sebenarnya lewat jalur aplikasi **334 KB** karena `district_code`,
+   `region_code`, dan `has_score` ikut dikirim. Angka yang dipakai di komentar
+   `VILLAGE_MIN_ZOOM` adalah angka HTTP.
+3. **Agregat per provinsi terlalu mahal untuk keterangan tambahan.**
+   `/api/v1/provinces` versi pertama mengirim jumlah desa per provinsi dan memakan
+   **0,689 dtk** hanya untuk agregat itu (endpoint 2,83 dtk, karena seluruh panggilan
+   ±1 dtk); dibuang → endpoint **0,83 dtk**. Celah 812 desa tanpa kecamatan induk
+   tetap dihitung, lewat `not exists` (0,07–0,10 dtk), supaya penjumlahannya tidak
+   tampak bulat tanpa alasan.
+4. **`provinces` punya 39 baris, bukan 38.** Selain 38 provinsi ada satu baris
+   `level = 'national'` (kode `00`, `INDONESIA`) tanpa geometri; tanpa
+   `where level = 'province'` daftar pemilih memuat satu entri berkotak kosong.
+5. **Kode provinsi tak dikenal dijawab `204`, bukan `404`.** Kode datang dari
+   pemilih yang diisi endpoint ini, dan seluruh API ini memakai aturan "tile tanpa
+   poligon = 204"; format kode tetap dijaga (`^\d{2}$` → selain itu `422`).
 
 ## Iterasi 11a — basis data pengembangan di Aiven (PR #17)
 
