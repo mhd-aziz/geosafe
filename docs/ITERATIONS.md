@@ -29,7 +29,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 10b | `feat/frontend-latest` | `P2`/`W1` di antarmuka: lapisan titik terkini, pemilih 24/48/72 jam, panel ringkasan nasional | #16 | `iter-10b-frontend-latest` |
 | 08a | `feat/api-transparency-downloads` | titik di luar poligon, cetak unduhan tabel siap pakai, penyaring `confidence` | #11 | `iter-08a-t1-api` |
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
-| 11a | *(tanpa cabang — hanya env)* | basis data **pengembangan pindah ke Aiven** (`geosafe`), `pg_dump -Fc` + `pg_restore`, DSN dari `~/.config/geosafe/geosafe.env` | — | belum |
+| 11a | `docs/aiven-database` | basis data **pengembangan pindah ke Aiven** (`geosafe`), `pg_dump -Fc` + `pg_restore`, DSN dari `~/.config/geosafe/geosafe.env` | #17 | `iter-11a-aiven-db` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -38,7 +38,7 @@ Semua dikerjakan 2026-11-16, kecuali penyisipan 09b (2026-11-17). Cabang **tidak
 
 ---
 
-## Iterasi 11a — basis data pengembangan di Aiven (tanpa cabang, hanya env)
+## Iterasi 11a — basis data pengembangan di Aiven (PR #17)
 
 Tidak ada perubahan kode: `app/config.py` sudah membaca `GEOSAFE_DATABASE_URL`, jadi
 pindah basis data cukup mengganti nilai di `~/.config/geosafe/geosafe.env` (dibaca unit
@@ -93,8 +93,9 @@ Temuan yang harus diingat:
    (dokumen lama yang masih menuliskannya perlu dikoreksi saat disentuh).
 6. **Sinkronisasi ulang setelah data berubah** punya skrip sendiri di repo perencanaan:
    `data/pembangun/sinkron_aiven.py` (dump `--data-only` → lepas kunci asing → kosongkan
-   tabel → restore → pasang kunci → verifikasi jumlah baris). Uji 2026-11-17: 16 tabel
-   diperiksa, **0 berbeda**, 27/27 kunci asing tervalidasi. Alasan melepas kunci: FK tidak
+   tabel → restore → pasang kunci → verifikasi jumlah baris). Uji 2026-11-17 dua kali:
+   16 tabel diperiksa, **0 berbeda**, 27 kunci asing dilepas dan 27 dipasang kembali
+   (semuanya tervalidasi); satu putaran ±10 menit, 88 MB dump. Alasan melepas kunci: FK tidak
    `DEFERRABLE`, sedangkan `pg_restore` tidak menjamin urutan tabel yang aman dan
    `avnadmin` bukan superuser (tidak boleh `session_replication_role`).
 7. `muat_postgres.py` menerima `GEOSAFE_DSN=<dsn>` untuk menembak basis data terkelola
