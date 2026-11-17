@@ -31,8 +31,9 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 08 | `feat/frontend-t1-trend` | halaman tren nasional (A1) + Sumber & Batas Data (T1) di balik router | #12 | `iter-08-frontend-t1` |
 | 11a | `docs/aiven-database` | basis data **pengembangan pindah ke Aiven** (`geosafe`), `pg_dump -Fc` + `pg_restore`, DSN dari `~/.config/geosafe/geosafe.env` | #17 | `iter-11a-aiven-db` |
 | 11b | `feat/api-risk-map` | `P4` di API: tile kerawanan tiga skema bobot + uji sensitivitas dari data, penjaga koordinat tile bersama | #19 | `iter-11b-risk-api` |
+| 11c | `feat/frontend-risk-ui` | `P4` di antarmuka: lapisan kerawanan + pemilih skema, bacaan skor, perapian tampilan dan tata letak responsif | #20 | `iter-11c-risk-ui` |
 
-Semua dikerjakan 2026-11-16, kecuali penyisipan 09b, iterasi 11a, dan iterasi 11b (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
+Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, dan 11c (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
@@ -194,6 +195,65 @@ Temuan:
 6. **Nomor iterasi:** `11a` sudah dipakai untuk pemindahan basis data ke Aiven
    (PR #17), jadi pekerjaan P4 memakai `11b` (API), `11c` (antarmuka), dan `11d`
    (lapisan desa) — bukan `11`.
+
+## Iterasi 11c — `feat/frontend-risk-ui` (PR #20)
+
+`P4` sampai ke antarmuka, sekalian perapian tampilan dan tata letak responsif. Tidak ada
+perubahan API maupun basis data: seluruh angka dibaca dari dua endpoint yang sudah ada
+(`/tiles/risk`, `/api/v1/risk/schemes`).
+
+Berkas: `frontend/src/lib/risk.ts` (baru) · `components/map/thematic-layer.ts` (baru) ·
+`components/common/Segmented.tsx` (baru) · `components/panel/RiskPanel.tsx` (baru) ·
+`components/map/{MapToolbar,Legend,MapView,LatestControl}.tsx` ·
+`components/panel/RegionPanel.tsx` · `components/search/SearchBox.tsx` ·
+`components/analysis/{TrendChart,BurnedAreaChart}.tsx` · `pages/{MapPage,TrendPage,SourcesPage}.tsx` ·
+`App.tsx` · `index.css` · `api/geosafe.ts` · `types/geosafe.ts` · `lib/format.ts` · uji.
+
+Bentuknya: saklar **Lapisan** (Titik panas / Kerawanan), pemilih **Skema** A/B/C, legenda yang
+berganti per lapisan, dan panel skema berisi bobot + uji sensitivitas + catatan wajib. Saat
+lapisan kerawanan aktif, penyaring tahun dan saklar provinsi dimatikan **beserta sebabnya di
+teks layar**, dan membaca angka skor dilakukan lewat bacaan kursor di peta (`readoutText`),
+karena peta hanya mewarnai kelasnya.
+
+Bukti:
+
+| Uji | Hasil |
+|---|---|
+| `npm run typecheck` | bersih |
+| `npm test` | **93 passed**, 15 berkas (±50 dtk; 78 sebelum cabang) |
+| `npm run build` | 14,42 dtk |
+| lebar 375 · 768 · 1440 px | `scrollWidth <= innerWidth` di ketiganya; tinggi peta 471 / 573 / 727 px |
+| warna kelas di peta | 7 titik uji dari pusat poligon: Kapuas Hulu `#a25b31`, Malinau `#eea84d`, Mimika `#f1e49f` (kelas tertimpa basemap pada opasitas 0,78) |
+| bacaan kursor vs basis data | Kutai Timur **95,67 Tinggi** · Merauke **73,88 Tinggi** · Malinau **49,61 Sedang** — sama dengan `risk_score_a`/`risk_class_a` di basis data |
+| uji sensitivitas di panel | 0,9252 · 106 (20,6 %) · 0,9590 · 75 (14,6 %) · 0,9823 · 53 (10,3 %) |
+| pergantian lapisan | log nginx hanya memuat satu keluarga tile pada satu waktu (`/tiles/risk/...` **atau** `/tiles/regions/...`) |
+
+Temuan:
+
+1. **Pesan status harus berpasangan.** Versi pertama menerima daftar skema sebagai
+   `RiskScheme[] | null`, sehingga saat `/risk/schemes` gagal blok kendali menulis "sedang
+   dimuat" sementara panel di layar yang sama menulis "gagal dimuat". Prop diganti menjadi
+   status permintaan (`RemoteState`), dan ujinya menegaskan tidak ada dua pesan bertentangan.
+2. **Angka skor tidak boleh hanya ada di basis data.** Peta mewarnai kelas, jadi skor 0–100
+   tidak terbaca di mana pun sampai ditambahkan bacaan kursor; angka yang muncul di layar
+   dibandingkan dengan `risk_score_a` di basis data (95,67 / 73,88 / 49,61 — sama).
+3. **Skema awal ditentukan API.** Nilai awal di klien hanya berlaku sebelum balasan API tiba;
+   setelah itu `default_scheme` dari API yang dipakai, supaya keputusan "skema A sebagai
+   tampilan awal" (`SRS-F-33`) tidak terpaku di dua tempat.
+4. **Alasan kendali dinonaktifkan harus terbaca, bukan hanya di `title`.** Elemen nonaktif
+   tidak dapat difokus, jadi pengguna keyboard tidak pernah melihat alasan itu.
+5. **Uji warna harus matriks, bukan keanggotaan daftar.** Uji lama lolos walau warna `rendah`
+   dan `tinggi` ditukar; sekarang pasangan kelas→warna ditulis eksplisit.
+6. **Putaran perbaikan setelah tinjauan** (versi pertama ditolak `passed: false`): selain
+   kelima hal di atas, daftar kelas di panel kini sama dengan legenda peta (termasuk penanda
+   abu-abu "skor belum ada"), skema yang tidak ada di balasan API tidak lagi disimpulkan
+   seolah skema A, `aria-live` dipasang pada status panel, legenda menyebut bahwa titik
+   oranye di peta adalah titik panas terkini (seri berbeda, bukan kerawanan), `aria-label`
+   bagian peta mengikuti lapisan aktif, wadah kendali di ponsel bisa digulir dengan roda
+   tetikus (`pointer-events-auto` di layar kecil saja), dan `MapView` memakai
+   `thematic-layer.ts` yang diuji tanpa WebGL (spesifikasi sumber/layer tidak boleh bertumpuk).
+7. **Lapisan kelas kerawanan desa (`SRS-F-38`/`F-39`) belum dikerjakan** — datanya sudah ada
+   di `village_facts`, lapisannya menjadi iterasi `11d`.
 
 ## Iterasi 01 — `feat/api-database` (PR #1)
 
