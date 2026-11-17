@@ -23,10 +23,10 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 16 endpoint, `uv run pytest` 91 passed |
-| Frontend (`frontend/`) | berjalan — 3 halaman (peta + lapisan titik terkini + lapisan kerawanan · tren · sumber data), basemap PMTiles z12, `npm test` 93 passed |
+| Backend (`backend/`) | berjalan — 16 endpoint, `uv run pytest` 91 passed, koneksi lewat kolam kecil (`psycopg_pool`) |
+| Frontend (`frontend/`) | berjalan — 3 halaman (peta + lapisan titik terkini + lapisan kerawanan kabupaten/kota + lapisan kerawanan desa · tren · sumber data), basemap PMTiles z12, `npm test` 112 passed |
 | Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna, nginx menyajikan halaman, proxy API, dan basemap PMTiles z12 (216 MB) di `127.0.0.1:8080` |
-| Iterasi selesai | **11d** (API lapisan kelas kerawanan desa + daftar provinsi; antarmukanya menyusul di 11e) — `P4` kerawanan di antarmuka 11c, `P4` di API 11b, basis data pindah ke Aiven pada 11a, `P2`/`W1` di API 10a dan di antarmuka 10b, basemap 09c, nginx 09b, unit systemd 09a, penyisipan 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | **11e** (lapisan kelas kerawanan desa di antarmuka + kolam koneksi basis data) — `P4` kerawanan desa di API 11d, `P4` kerawanan di antarmuka 11c, `P4` di API 11b, basis data pindah ke Aiven pada 11a, `P2`/`W1` di API 10a dan di antarmuka 10b, basemap 09c, nginx 09b, unit systemd 09a, penyisipan 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -83,7 +83,10 @@ supaya bisa ditelusuri: `maps.py` (P1–P5) · `panels.py` (W1–W4) ·
 
 Prasyarat: `uv` terpasang, dan basis data `geosafe` hidup. **Sejak 2026-11-17 basis
 data pengembangan ada di Aiven** (PostgreSQL 18.7 + PostGIS 3.6.4, TLS wajib); isi
-kedua basis data identik, dipindahkan `pg_dump -Fc` + `pg_restore`. Kontainer lokal
+kedua basis data identik, dipindahkan `pg_dump -Fc` + `pg_restore`. Koneksi basis
+data dipinjam dari kolam kecil (`psycopg_pool`, maksimal 3 koneksi) karena
+`max_connections` server Aiven hanya 15 — satu lapisan peta bisa meminta belasan
+tile MVT sekaligus. Kontainer lokal
 `pg` (port 5433, PostGIS 3.7.0) tetap dipakai untuk ETL lewat
 `../planning-GeoSafe/data/pembangun/muat_postgres.py`.
 

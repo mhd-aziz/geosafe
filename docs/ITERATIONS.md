@@ -33,13 +33,82 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 11b | `feat/api-risk-map` | `P4` di API: tile kerawanan tiga skema bobot + uji sensitivitas dari data, penjaga koordinat tile bersama | #19 | `iter-11b-risk-api` |
 | 11c | `feat/frontend-risk-ui` | `P4` di antarmuka: lapisan kerawanan + pemilih skema, bacaan skor, perapian tampilan dan tata letak responsif | #20 | `iter-11c-risk-ui` |
 | 11d | `feat/api-village-risk-tiles` | `P4` di API: tile kelas kerawanan desa per provinsi (`SRS-F-38`) + daftar provinsi untuk pemilihnya, pagar zoom di `app/tiles.py` | #21 | `iter-11d-village-risk-api` |
+| 11e | `feat/frontend-village-risk` | `P4` di antarmuka: lapisan kerawanan desa + pemilih provinsi (`SRS-F-38`/`F-39`), zoom peta dijaga 8 ke atas; sekaligus `fix(api)` kolam koneksi basis data | #22 | `iter-11e-village-risk-ui` |
 
-Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, dan 11d (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
+Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 11e — `feat/frontend-village-risk` (PR #22)
+
+Tag `iter-11e-village-risk-ui` menandai commit hasil *squash merge* di `main`.
+
+Bagian antarmuka dari `SRS-F-38`/`F-39`: lapisan kelas kerawanan desa/kelurahan
+sampai ke peta, memakai dua endpoint yang sudah ada sejak 11d. Iterasi ini juga
+membawa satu perbaikan API (`fix(api)`) yang **hanya ketahuan lewat jalur
+peramban**, bukan lewat uji: kolam koneksi basis data.
+
+Berkas: `frontend/src/lib/risk.ts` · `components/map/{thematic-layer,MapView,Legend,MapToolbar}.tsx` ·
+`components/panel/VillagePanel.tsx` (baru) · `pages/MapPage.tsx` · `api/geosafe.ts` · `types/geosafe.ts` ·
+`components/map/{MapView,thematic-layer}.test.ts(x)` (baru/diperluas) · uji lain yang ikut disesuaikan.
+Backend: `app/db.py` · `app/main.py` · `pyproject.toml` · `uv.lock`.
+
+Bentuknya: saklar **Lapisan** bertambah pilihan ketiga ("Kerawanan desa"), dan
+saat aktif muncul pemilih **Provinsi** (diisi `/api/v1/provinces`) yang langsung
+memperbesar peta ke kotak wilayah provinsi itu. Kelasnya empat —
+`rendah`/`sedang`/`tinggi`/`tidak_ada_deteksi` — dengan warna sendiri, legenda
+berisi jumlah desa tiap kelas, dan dua celah data yang disebut apa adanya (215
+desa tanpa baris kelas, 812 desa tanpa kode kecamatan induk). Bacaan kursor
+menulis nama desa + kecamatan + kelasnya; klik desa tidak membuka panel karena
+`W4` belum ada.
+
+Bukti — lewat HTTP dan peramban sungguhan (`http://127.0.0.1:8080`):
+
+| Uji | Hasil |
+|---|---|
+| `npm run typecheck` · `npm test` · `npm run build` | bersih · **112 passed** (16 berkas, dari 93 di `main`) · 14,29 dtk |
+| `uv run pytest -q` | **91 passed**, 1 warning, 79,04 dtk (`check` kolam mati, jadi tidak ada tambahan bolak-balik) |
+| sapuan kursor 192 titik pada kanvas | **113 bacaan unik** (dari 0 sebelum perbaikan zoom) — tanpa pita galat |
+| bacaan kursor vs basis data (6 desa) | Papasan/Bangsri `tidak_ada_deteksi` · Dermolo/Kembang `sedang` · Puncel/Dukuhseti `rendah` · Mulyoharjo/Jepara `sedang` · Bakaran Wetan/Juwana `tidak_ada_deteksi` · Guwo/Tlogowungu `tidak_ada_deteksi` — **sama persis** dengan `village_facts` |
+| piksel kelas di daerah peta (969 × 534) | `tidak_ada_deteksi` **80.046** · `sedang` 43.055 · `rendah` 13.126 · `tinggi` 3.933 · abu tanpa kelas 21.545 (opasitas 0,78 di atas basemap) |
+| swatch legenda | kelima warna ada: tinggi `#993404` · sedang `#fe9929` · rendah `#fee391` · tidak ada deteksi `#bdd7ee` · kelas belum ada `#d8dee9` |
+| permintaan tile desa dari peramban | 39 permintaan, semuanya `?province=33` pada z=8 (tidak ada permintaan di bawah batas), jawaban 200/204; **tidak ada 500** setelah kolam koneksi |
+| lebar 500 · 768 · 1439 px | `scrollWidth <= innerWidth` di ketiganya; tinggi peta 401 / 436 / 605 px; pemilih provinsi tetap ada dan aktif |
+| `select count(*) from pg_stat_activity` | total 17 baris, 3 di antaranya koneksi aplikasi (kolam maksimal 3), sisanya proses internal Aiven |
+
+Temuan:
+
+1. **Sumber MapLibre ber-`minzoom` lebih tinggi daripada zoom peta tidak meminta satu
+   tile pun.** Lapisan desa sempat diam total: sumbernya terpasang, `isSourceLoaded`
+   `true`, tanpa galat di konsol, tanpa pita galat, dan **tanpa satu pun permintaan di
+   log nginx** — sebabnya `transform.coveringTiles` berhenti lebih dulu saat
+   `zoom < minzoom` (peta duduk di zoom 6,94, sumbernya `minzoom: 8`). Perbaikannya:
+   zoom peta ikut dijaga (`map.setMinZoom(8)` selama lapisan desa aktif, `fitBounds`
+   diberi `minZoom: 8`). Dua uji regresi ditambahkan di `MapView.test.tsx`
+   (MapLibre ditiru, `addSource`/`setMinZoom`/`fitBounds` diperiksa).
+2. **Cacat kelas yang sama tidak terlihat oleh uji komponen.** Uji `thematicSpec`
+   dan `MapView` versi pertama lulus sementara petanya kosong; yang menemukannya
+   adalah penyapuan kursor di peramban (0 bacaan dari 192 titik). Karena itu bukti
+   iterasi ini berisi angka peramban, bukan hanya uji.
+3. **Satu koneksi per permintaan tidak lagi cukup.** Saat lapisan desa meminta
+   belasan tile sekaligus, Aiven menolak koneksi
+   (`FATAL: remaining connection slots are reserved for roles with the SUPERUSER
+   attribute`) dan 5 tile dijawab `500` dengan pita galat di peta. `max_connections`
+   server hanya **15**, dan 11 di antaranya dipakai proses internal Aiven
+   (TimescaleDB, pg_cron, pghoard, management-agent, 7 worker tanpa nama). Perbaikan:
+   `app/db.py` memakai `psycopg_pool.ConnectionPool` (min 1, maks 3) yang ditutup lewat
+   `lifespan` FastAPI; kolam juga menghapus jabat tangan TLS per permintaan. Ini
+   pembatalan sadar keputusan iterasi 01 ("koneksi per permintaan cukup, 0,028 dtk")
+   atas dasar pengukuran, seperti yang diminta komentar lama di berkas itu.
+4. **Zoom minimum 375 px tidak bisa diverifikasi di peramban mesin ini.** Chrome
+   menahan lebar jendela pada 500 px (`Browser.setWindowBounds` 375 → `innerWidth` 500),
+   dan `Emulation.setDeviceMetricsOverride` diabaikan target yang sudah ada maupun
+   target baru. Yang diukur: 500 px (di bawah ambang 640 px, jadi tata letak ponsel),
+   768, dan 1439 px — ketiganya tanpa gulir horizontal. Klaim 375 px dari iterasi 11c
+   tidak dibatalkan, hanya tidak diukur ulang di sini.
 
 ## Iterasi 11d — `feat/api-village-risk-tiles` (PR #21)
 
