@@ -352,9 +352,12 @@ describe('App', () => {
     // `SRS-F-16`: angka tampilan aktif beserta yang di luar poligon. Kalimatnya
     // memuat `<code>main</code>`, jadi dibaca dari `textContent` legenda — bukan
     // `getByText`, yang hanya melihat simpul teks langsung.
-    expect(await screen.findByText(/Tampilan aktif memakai seri/)).toBeTruthy();
+    expect(await screen.findByText(/Tampilan aktif/)).toBeTruthy();
     const legendText = document.body.textContent ?? '';
-    expect(legendText).toContain('54.084 titik');
+    // Angka pertama = `point_count`, bukan `series.main`: `placed`/`outside`
+    // dihitung atas seluruh seri, jadi menuliskan seri main saja membuat
+    // aritmetikanya tidak berjumlah (ketahuan saat diperiksa di peramban).
+    expect(legendText).toContain('54.084 titik (main 54.084)');
     expect(legendText).toContain('58 di luar (tidak dihitung nol)');
   });
 
