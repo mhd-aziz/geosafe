@@ -75,6 +75,13 @@ blok `/pmtiles/indonesia.pmtiles` di nginx mengirim `206`, `Content-Range`, dan
 **Kalau basemap gagal dimuat, seluruh peta kosong** — bukan hanya latar: layer tematik dipasang setelah
 gaya selesai dimuat, jadi kegagalan sumber basemap menunda semuanya.
 
+**Jangan menyimpulkan "peta kosong" dari tab latar belakang.** Chrome menahan `requestAnimationFrame`
+di tab yang tidak aktif, sehingga MapLibre tidak pernah menggambar: `isStyleLoaded()` selamanya
+`false`, `getStyle()` tanpa layer, tanpa satu pun permintaan tile di `performance`, dan tangkapan layar
+hanya abu-abu rata — sama persis dengan gaya yang benar-benar rusak. Aktifkan tabnya dulu
+(`Page.bringToFront` lewat CDP atau buka di jendela yang terlihat) sebelum menyimpulkan ada bug.
+Pewaktu juga ikut ditahan, jadi perbaikan berbasis `setTimeout` tampak mati di tab latar.
+
 Basis data harus hidup: **Aiven PostgreSQL 18.7 + PostGIS 3.6.4** (basis data `geosafe`, TLS wajib)
 sejak 2026-11-17, DSN di `~/.config/geosafe/geosafe.env` (jangan pernah ditulis di repo). Koneksi
 lewat kolam kecil (`psycopg_pool`, maksimal 3) karena `max_connections` server hanya 15 — lihat
