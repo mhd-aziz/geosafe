@@ -37,7 +37,8 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 12a | `feat/api-panel-risk-density` | data hasil bangun ulang 2026-11-19 masuk aplikasi: 12 angka uji disinkronkan, panel `W2` memuat skor kerawanan tiga skema, label kepadatan diperbaiki | #23 | `iter-12a-data-sync-panel` |
 | 12b | `fix/frontend-nrt-leftovers` | sisa seri NRT dibersihkan: kolom `nrt` dan kode mati di halaman tren hilang, T1 mengirim rincian seri arsip + menyatakan NRT tidak dimuat, `README` 29 → 31 tabel | #24 | `iter-12b-t1-archive-nrt` |
 | 12c | `ci/github-actions` | CI GitHub Actions: job **frontend** (typecheck · 113 uji · build) dan **backend** (93 uji ke basis data hidup lewat role baca-saja `geosafe_ci`); proteksi `main` mewajibkan kedua check, admin tetap boleh push dokumen | #25 | `iter-12c-ci-github-actions` |
-| 12d | `ci/deploy-self-hosted` | CD: runner self-hosted di mesin ini (label `geosafe`, unit pengguna `geosafe-runner.service`), `deploy.yml` pada push ke `main` — sinkron working copy, build, restart API, reload nginx, uji asap `:8080` | belum | `iter-12d-deploy-self-hosted` |
+| 12d | `ci/deploy-self-hosted` | CD: runner self-hosted di mesin ini (label `geosafe`, unit pengguna `geosafe-runner.service`), `deploy.yml` pada push ke `main` — sinkron working copy, build, restart API, reload nginx, uji asap `:8080` | #26 · #27 | `iter-12d-deploy-self-hosted` |
+| 12e | `feat/cors-vercel-preview` | API publik lewat Cloudflare Tunnel `geosafe-api.zisaltech.site` + `CORSMiddleware` (origin `geosafe*.vercel.app`, hanya `GET`) agar frontend bisa dipratinjau di Vercel; `frontend/vercel.json` | belum | `iter-12e-vercel-preview` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang

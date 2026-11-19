@@ -7,7 +7,9 @@ Hanya berisi pembuatan aplikasi dan endpoint dasar. Router per kelompok fitur
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import VERCEL_PREVIEW_ORIGIN_REGEX, allowed_origins
 from app.db import get_pool
 from app.routers import analysis, latest, maps, panels, risk, search, transparency
 
@@ -33,6 +35,18 @@ app = FastAPI(
         "kerawanan kebakaran hutan dan lahan."
     ),
     lifespan=lifespan,
+)
+
+# CORS: pratinjau Vercel memanggil API di domain lain (tunnel Cloudflare), jadi
+# peramban menuntut izin eksplisit. Hanya metode baca yang diizinkan — aplikasi
+# ini tidak punya endpoint tulis (SRS-C-07).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins(),
+    allow_origin_regex=VERCEL_PREVIEW_ORIGIN_REGEX,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+    max_age=600,
 )
 
 # Satu router per kelompok fitur; ditambah seiring fiturnya dikerjakan.

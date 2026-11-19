@@ -23,6 +23,17 @@ kunci rahasia di sisi peramban. `/pmtiles` ikut di-proxy, tetapi ke nginx
 yang melayaninya — jadi **nginx harus hidup** saat `npm run dev` ingin menampilkan
 basemap.
 
+### Pratinjau di Vercel
+
+Frontend bisa dipasang di Vercel untuk pratinjau (API tetap di homelab). Di
+sana tidak ada proxy, jadi alamat API wajib diberikan lewat variabel lingkungan
+**`VITE_API_BASE`** saat build (nilainya dibaca `src/api/client.ts`); contoh:
+`VITE_API_BASE=https://geosafe-api.zisaltech.site`. API itu dijangkau lewat
+Cloudflare Tunnel dan hanya mengizinkan origin `https://geosafe*.vercel.app`
+(CORS, lihat `backend/app/config.py`). `vercel.json` di folder ini mengatur build
+Vite + SPA fallback. Basemap PMTiles **tidak** ikut terpasang di Vercel (216 MB,
+dilayani nginx); tanpa itu peta tetap menggambar geometri di atas latar polos.
+
 Perintah lain:
 
 ```bash
