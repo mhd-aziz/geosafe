@@ -51,9 +51,9 @@ Fitur lain memperkuat, tapi tidak menentukan.
 | P2 titik panas terkini | butuh penarik FIRMS + cache 15 menit + snapshot; kuota kunci harus dijaga | iterasi setelah MVP jalan |
 | P4 peta kerawanan (versi B) | skor disusun sendiri; bobot + uji sensitivitas belum ditetapkan | setelah W2/A1 jadi bahan pembanding |
 | P3, P5 peta kejadian dan titik | bergantung pada lapisan peta yang sudah stabil | setelah P1 stabil |
-| A2, A3 komposisi dan peringkat | turunan dari A1 | cepat, setelah A1 |
+| A2, A3 komposisi dan peringkat | turunan dari A1 | ✅ dikerjakan 13a |
 | W1 panel terkini | bergantung P2 | bersama P2 |
-| W3, W4 panel kecamatan/desa | angka pendukung, bukan unit analisis | setelah MVP |
+| W3, W4 panel kecamatan/desa | angka pendukung, bukan unit analisis | ✅ dikerjakan: `W4` di 12m, `W3` di 14 |
 | mode heatmap di P1 | ratusan ribu titik per tahun; diukur dulu | setelah P1 choropleth stabil |
 | basemap PMTiles (216 MB) | berkas besar; untuk MVP cukup geometri sendiri di atas latar polos | sebelum demo |
 | HTTPS + domain | perlu saat dipasang, bukan saat dikembangkan | saat unjuk kerja |
@@ -102,7 +102,8 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 12l | `chore/drop-homelab-frontend` — hosting frontend di mesin ini dihapus (nginx mati, `:8080` hilang), CD hanya memuat ulang API, basemap dev dari R2; halaman sepenuhnya di Vercel | ✅ PR #31, tag `iter-12l-vercel-only` |
 | 12m | `feat/api-village-panel` — panel desa/kelurahan (`W4`): `GET /api/v1/panel/desa/{kode}` + panel di antarmuka, terbuka dari klik poligon desa maupun pencarian | ✅ PR #32, tag `iter-12m-village-panel` |
 | 13a | `feat/api-composition-ranking` — `A2` komposisi wilayah + `A3` peringkat 514 kabupaten/kota + penanda tahun parsial dari tanggal deteksi terakhir | ✅ PR #33, tag `iter-13a-composition-ranking` |
-| 13b | `feat/api-tile-yearly-density` — kepadatan titik panas per tahun jadi properti tile kabupaten/kota + tampil di bacaan kursor | PR, tag `iter-13b-tile-density` |
+| 13b | `feat/api-tile-yearly-density` — kepadatan titik panas per tahun jadi properti tile kabupaten/kota + tampil di bacaan kursor | ✅ PR #34, tag `iter-13b-tile-density` |
+| 14 | `feat/api-panel-kecamatan` — panel kecamatan (`W3`): `GET /api/v1/panel/kecamatan/{kode}` + panel di antarmuka lewat hasil pencarian; baris bulanan disaring, sifat angka pendukung dinyatakan | ✅ PR #35, tag `iter-14-district-panel` |
 | — | `P3` peta kejadian dan `P5` peta titik (918 ribu titik; perlu keputusan heatmap/klaster) | belum dijadwalkan |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti

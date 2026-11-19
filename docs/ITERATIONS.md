@@ -48,15 +48,97 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 12l | `chore/drop-homelab-frontend` | Hosting frontend di mesin ini dihapus: nginx dimatikan & di-disable, situs `:8080` hilang, CD hanya memuat ulang API, basemap dev dari R2 | #31 | `iter-12l-vercel-only` |
 | 12m | `feat/api-village-panel` | Panel desa/kelurahan `W4`: endpoint `GET /api/v1/panel/desa/{kode}` + panel di antarmuka (klik poligon desa maupun pencarian) | #32 | `iter-12m-village-panel` |
 | 13a | `feat/api-composition-ranking` | `A2` komposisi (10 provinsi + 10 kabupaten/kota, metrik titik panas ↔ kejadian, pangsa %) + `A3` peringkat 514 kabupaten/kota (urut titik panas/kepadatan/kejadian, pencarian) + penanda tahun parsial dari tanggal deteksi terakhir | #33 | `iter-13a-composition-ranking` |
-| 13b | `feat/api-tile-yearly-density` | Kepadatan titik panas **per tahun** jadi properti tile kabupaten/kota dan muncul di bacaan kursor; rumusnya dibuktikan sama dengan metrik `hotspot_per_1000_km2` tersimpan | PR | `iter-13b-tile-density` |
+| 13b | `feat/api-tile-yearly-density` | Kepadatan titik panas **per tahun** jadi properti tile kabupaten/kota dan muncul di bacaan kursor; rumusnya dibuktikan sama dengan metrik `hotspot_per_1000_km2` tersimpan | #34 | `iter-13b-tile-density` |
+| 14 | `feat/api-panel-kecamatan` | Panel kecamatan `W3`: `GET /api/v1/panel/kecamatan/{kode}` (baris bulanan disaring, sifat angka pendukung dinyatakan) + `DistrictDetailPanel` di antarmuka lewat hasil pencarian | #35 | `iter-14-district-panel` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
-iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14 (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 14 — `feat/api-panel-kecamatan` (panel kecamatan `W3`)
+
+Antrean tinggal menyisakan `W3` di antara panel wilayah; `W2` (03), `W4` (12m), dan sisi
+analisisnya sudah jalan. SRS menetapkan isinya dengan tegas — `SRS-F-63`: identitas, luas,
+kejadian per tahun, titik panas per tahun, kepadatan; `SRS-F-64`: angka kecamatan **pendukung**,
+bukan unit analisis — dan tabel sumbernya `panel_kecamatan.csv` → `DISTRICT_FACTS`.
+
+Data diperiksa dulu (read-only, 2026-11-19) sebelum satu baris kode ditulis:
+
+| Hal | Angka |
+|---|---|
+| baris tabel `districts` | **7.357** |
+| tanpa kode BPS di sumbernya | **188** — tidak bisa dibuka sebagai panel |
+| berkode BPS | **7.169**, semuanya punya baris titik panas |
+| punya baris kejadian | **1.525** dari 7.169 |
+| baris `district_facts` metrik `hotspot_count` | **150.942**, **95.949 di antaranya bulanan** |
+
+Dua hal terakhir itu yang menentukan bentuk endpoint: tanpa `month is null` satu tahun tampil
+beberapa kali (Jekan Raya 2023 = 293 tahunan **plus** 57/81/154/1 bulanan), dan cakupan kejadian
+yang hanya 1 dari 5 kecamatan harus dinyatakan di `notes`, bukan ditampilkan sebagai nol.
+Kelas/skor kerawanan tidak ikut: `P4` menyusunnya hanya untuk kabupaten/kota dan desa.
+
+| Berkas | Isi |
+|---|---|
+| `backend/app/routers/panels.py` | `district_router` + `QUERY_DISTRICT_PANEL` + `_district_notes` (tag `W3 panel kecamatan`) |
+| `backend/app/main.py` | router didaftarkan di antara `W2` dan `W4` |
+| `backend/tests/test_panels.py` | 6 uji baru terhadap basis data hidup |
+| `frontend/src/api/geosafe.ts` · `types/geosafe.ts` | `fetchDistrictPanel` + `DistrictPanelData` |
+| `frontend/src/components/panel/DistrictDetailPanel.tsx` (+ uji) | panel `W3`: identitas, penanda "pendukung", kepadatan, tabel titik panas, tabel kejadian |
+| `frontend/src/pages/MapPage.tsx` | cabang `district`: hasil pencarian kecamatan membuka panel, bukan placeholder "belum dikerjakan" |
+
+```
+cd backend && uv run pytest -q
+120 passed, 1 warning in 32,66 dtk          (sebelumnya 114)
+uv run pytest -q tests/test_panels.py
+17 passed, 1 warning in 2,38 dtk
+
+cd frontend && npm run typecheck && npm test
+tsc --noEmit                                 (bersih)
+Test Files 20 passed (20)
+Tests      154 passed (154)                  (sebelumnya 148)
+```
+
+Bukti jalur yang dipakai peramban — `systemctl --user restart geosafe-api`, lalu lewat HTTP
+bukan `psql`:
+
+```
+GET /health                              → 200
+GET /api/v1/panel/kecamatan/6271012      → 200 (28 ms) · 2023 = 293, baris bulanan tersaring
+GET /api/v1/panel/kecamatan/9999999      → 404
+GET /api/v1/panel/kecamatan/6271         → 422 (kode kecamatan selalu 7 digit)
+GET /openapi.json                        → 20 path (sebelumnya 19)
+```
+
+CI pada PR: `frontend` (typecheck · 154 uji · build) lulus 32 dtk, `backend` (120 uji ke basis data
+hidup lewat role baca-saja) lulus 1m54s. Setelah *squash merge* (`a204f41`), job **Deploy** lulus
+20 dtk dan tag `iter-14-district-panel` menunjuk commit hasil merge.
+
+Temuan yang harus diingat:
+
+1. **`_single_value` membaca `value_text`, `district_facts` tidak punya kolom itu.** Versi pertama
+   gagal `KeyError: 'value_text'` pada 5 uji. Perbaikannya di SQL (`null::text as value_text`),
+   bukan menyalin helper — bentuk baris `W2`/`W3`/`W4` tetap satu sehingga helper-nya tetap satu.
+2. **"Tidak punya baris fakta" bukan satu keadaan.** Angka pertama yang keluar (188 kecamatan tanpa
+   baris) ternyata seluruhnya baris **tanpa kode BPS**; 7.169 kecamatan yang berkode justru semuanya
+   punya baris titik panas. Menyebut keduanya "belum dimuat" akan salah — karena itu satu `notes`
+   untuk 188 tanpa kode, dan satu `notes` lain untuk cakupan kejadian 1.525/7.169.
+3. **Keterangan yang wajib tampil dua kali membuat uji `getByText` ambigu.** "Pendukung, bukan unit
+   analisis" ditulis di panel **dan** di `notes` (keduanya dituntut SRS), sehingga uji memakai pola
+   beranchor (`^Angka kecamatan…`) alih-alih `getByText` telanjang.
+
+Ikut disinkronkan dalam iterasi ini (dokumen yang menyatakan keadaan sekarang):
+
+- `README.md` — 19 → **20 endpoint**, 114 → **120 uji**, baris status frontend menyebut `W3`,
+  148 → **154 uji**, baris iterasi jadi **14**, dan tabel endpoint memuat `panel/kecamatan`,
+  `panel/desa`, `analysis/composition`, `analysis/ranking` yang tadinya belum terdaftar.
+- `docs/MVP.md` — baris 13b dilengkapi nomor PR-nya (**#34**, tadinya masih `PR`), ditambah baris 14,
+  dan tabel "Yang sengaja tidak masuk MVP" tidak lagi menyebut `W3`/`W4`/`A2`/`A3` sebagai tertunda.
+- `frontend/README.md` — basemap tidak lagi "dilayani nginx" (R2), panel `W4`/`W3` dan grafik
+  `A2`/`A3` tidak lagi berstatus "belum dikerjakan", pohon komponen menyebut panel yang ada.
 
 ## Iterasi 13b — `feat/api-tile-yearly-density` (kepadatan per tahun di tile)
 

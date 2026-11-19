@@ -34,14 +34,14 @@ Cloudflare Tunnel dan hanya mengizinkan origin `https://geosafe*.vercel.app`
 (CORS, lihat `backend/app/config.py`). `vercel.json` di folder ini mengatur build
 Vite + SPA fallback.
 
-Basemap PMTiles (216 MB) **tidak** ikut ke Vercel sebagai berkas repo, melainkan diunggah ke
-**Vercel Blob** dan alamatnya diisi lewat **`VITE_BASEMAP_URL`**, contoh:
+Basemap PMTiles (216 MB) **tidak** ikut ke Vercel sebagai berkas repo, melainkan disajikan dari
+**Cloudflare R2** di domain sendiri dan alamatnya diisi lewat **`VITE_BASEMAP_URL`**, contoh:
 
 ```
-VITE_BASEMAP_URL=pmtiles://https://<store>.public.blob.vercel-storage.com/indonesia.pmtiles
+VITE_BASEMAP_URL=pmtiles://https://geosafe-tiles.zisaltech.site/indonesia.pmtiles
 ```
 
-Tanpa variabel itu, bawaannya tetap `/pmtiles/indonesia.pmtiles` (nginx lokal, untuk `npm run dev`).
+Tanpa variabel itu, bawaannya tetap URL R2 di `src/lib/map-style.ts` (dipakai `npm run dev` juga).
 Kalau basemap gagal dimuat, **seluruh peta kosong** — bukan hanya latar — karena layer tematik dipasang
 setelah gaya selesai dimuat.
 
@@ -81,7 +81,7 @@ frontend/
     ├── components/
     │   ├── map/                MapView · MapToolbar · LatestControl · Legend
     │   ├── search/             SearchBox
-    │   ├── panel/              RegionPanel · LatestPanel
+    │   ├── panel/              RegionPanel · DistrictDetailPanel · VillageDetailPanel · LatestPanel · RiskPanel · VillagePanel
     │   ├── analysis/           TrendChart · BurnedAreaChart (SVG, tanpa pustaka grafik)
     │   └── common/             DataNotes
     ├── hooks/                  useDebouncedValue · useRegionSearch · useRegionPanel ·
@@ -93,7 +93,7 @@ frontend/
     └── test/setup.ts           pembersihan DOM antar uji
 ```
 
-Halaman: `/` peta (P1 + C1 + W2 + P2/W1 lapisan terkini + W4 panel desa) · `/tren` grafik nasional
+Halaman: `/` peta (P1 + C1 + W2 + P2/W1 lapisan terkini + W3 panel kecamatan + W4 panel desa) · `/tren` grafik nasional
 (A1) · `/analisis` komposisi wilayah (A2) + peringkat kabupaten/kota (A3) · `/sumber` Sumber &
 Batas Data (T1). Uji diletakkan bersebelahan dengan berkas yang diuji
 (`*.test.ts(x)`), supaya perubahan komponen dan ujinya terlihat dalam satu
@@ -167,7 +167,7 @@ lapisannya dimuat **satu provinsi pada satu waktu** melalui
 | kelas `tidak_ada_deteksi` diberi warna biru muda dan label **"bukan rendah"** | nol deteksi bisa berarti tidak terdeteksi satelit (`SRS-F-39`); mewarnainya seperti kelas rendah akan menyatakan sesuatu yang datanya tidak katakan |
 | legenda dan panel memuat jumlah desa tiap kelas dan dua celah datanya (215 desa tanpa kelas, 812 desa tanpa kode kecamatan induk) | angkanya datang dari `/api/v1/provinces`, bukan ditulis di kode; celah yang tidak disebut akan terbaca sebagai nol |
 | **zoom peta dipaksa 8 ke atas** selama lapisan ini aktif (`map.setMinZoom`, `fitBounds` dengan `minZoom`) | API menolak tile di bawah z=8 (`422`), dan MapLibre tidak meminta satu tile pun bila `minzoom` sumbernya di atas zoom peta (jebakan 15 di `AGENTS.md`) |
-| klik pada desa tidak membuka panel apa pun | panel desa (`W4`) belum dikerjakan; membaca nama desa, kecamatan, dan kelasnya dilakukan lewat bacaan kursor, bukan panel kabupaten/kota yang salah wilayah |
+| klik pada desa membuka panel desa/kelurahan (`W4`) | kelas kerawanan, kepadatan, titik panas, dan kejadian satu desa dibaca dari `/api/v1/panel/desa/{kode}` — bacaan kursor tetap ada untuk menjelajah cepat |
 | memilih provinsi langsung memperbesar peta ke kotak wilayahnya | pada zoom nasional lapisan ini tidak bisa digambar sama sekali, jadi memperbesar bukan pilihan pengguna melainkan syarat lapisannya |
 
 Ringkasan nasionalnya: 83.530 desa/kelurahan — `tidak_ada_deteksi` 43.753 ·
@@ -192,14 +192,14 @@ peta memperbesar ke wilayah hasil pencarian (`MapView.tsx`).
 
 | Hal | Alasan |
 |---|---|
-| basemap PMTiles | **sudah ada** sejak penyisipan 09c: berkas 216 MB di `../planning-GeoSafe/data/basemap/`, dilayani nginx `/pmtiles/`, gaya dari `@protomaps/basemaps` |
+| basemap PMTiles | **sudah ada** sejak penyisipan 09c: berkas 216 MB di `../planning-GeoSafe/data/basemap/`, disajikan **Cloudflare R2** (`geosafe-tiles.zisaltech.site`), gaya dari `@protomaps/basemaps` |
 | heatmap titik panas (`SRS-F-14`) | endpoint tile titik belum ada (titik berkoordinat, bukan agregat wilayah) |
 | lapisan kelas kerawanan desa (`SRS-F-38`, `SRS-F-39`) | **sudah ada** sejak iterasi 11e: lapisan ketiga di saklar peta, dimuat per provinsi pada zoom 8 ke atas |
-| panel desa/kelurahan saat desa diklik (`W4`) | lapisan desanya sudah ada, panelnya belum: kelas dan kecamatan dibaca lewat bacaan kursor |
+| panel desa/kelurahan saat desa diklik (`W4`) | **sudah ada** sejak iterasi 12m: panel terbuka dari klik poligon desa maupun hasil pencarian |
 | kendali penyaring `confidence` di toolbar (`SRS-F-15`) | API sudah menerima `?confidence=h\|n\|l` untuk tile kabupaten/kota; kendalinya menyusul |
-| panel kecamatan dan desa (`W3`, `W4`) | angka pendukung, bukan unit analisis; panelnya belum dikerjakan |
-| grafik A2 dan A3 | turunan dari A1, belum dikerjakan |
-| Apache ECharts | rencana awal memakai ECharts; grafik A1 cukup dua garis + tujuh titik, jadi digambar sebagai SVG tanpa pustaka tambahan. ECharts masuk saat A2/A3 butuh batang dan peringkat |
+| panel kecamatan (`W3`) | **sudah ada** sejak iterasi 14: hasil pencarian tingkat kecamatan membuka panelnya; angkanya pendukung, bukan unit analisis (`SRS-F-64`) |
+| grafik A2 dan A3 | **sudah ada** sejak iterasi 13a: komposisi digambar sebagai batang SVG dan peringkat 514 kabupaten/kota sebagai tabel yang bisa diurutkan/dicari |
+| Apache ECharts | rencana awal memakai ECharts; A1–A3 cukup SVG dan tabel, jadi digambar tanpa pustaka grafik tambahan |
 | ESLint/Prettier | repo belum punya konfigurasi lint; `tsc --noEmit` + Vitest jadi penjaga mutu |
 
 ## Lapisan titik panas terkini (`P2` + `W1`)

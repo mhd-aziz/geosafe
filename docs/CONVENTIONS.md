@@ -25,12 +25,13 @@ di sini — beberapa keputusan tampak sepele tapi menutup jebakan nyata.
    dipakai yang dibuat: tidak ada placeholder, fungsi kosong ber-`TODO`,
    konfigurasi untuk nilai yang belum ada, atau folder kosong ber-`.gitkeep`.
    Folder `routers/`, `frontend/`, dan `deploy/` dibuat **saat** isinya ditulis.
-6. **Gap berarti nol, dan itu harus dinyatakan.** ETL tidak menulis baris bernilai
-   nol (`panel_kabupaten_kota.csv` mengisinya dengan 0, basis data tidak). Karena
-   itu setiap endpoint yang angkanya bisa nol **wajib** menyebutkan tahun/seri mana
-   yang tidak punya baris — panel memakai medan `notes`, tile memakai properti
-   `has_fact`. Antarmuka yang menampilkan "0" harus ikut menampilkan catatannya.
-   Jangan menambah baris nol diam-diam di aplikasi.
+6. **Nol ditulis eksplisit, dan artinya harus dinyatakan.** Sejak data dibangun ulang
+   2026-11-19 ETL **menulis baris bernilai 0**, jadi `hotspot_count = 0` berarti nol deteksi
+   terukur. Yang masih mungkin tidak punya baris adalah wilayah yang belum dimuat sama sekali;
+   itu ditandai `has_fact = 0` (tile) dan disebut di `notes` (panel). Setiap endpoint yang
+   angkanya bisa nol **wajib** menyebutkan tahun/seri mana yang tidak punya baris — panel memakai
+   medan `notes`, tile memakai properti `has_fact`. Jangan mencampur dua keadaan itu, dan jangan
+   menambah baris nol diam-diam di aplikasi.
 7. **Komentar dan docstring Bahasa Indonesia**, sedangkan nama folder, berkas,
    fungsi, kelas, variabel, kolom JSON, dan pesan commit Bahasa Inggris.
 8. **Berkas layanan tidak masuk repo** (keputusan 2026-11-17). `deploy/` diabaikan
