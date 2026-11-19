@@ -81,6 +81,39 @@ Temuan:
    `.pmtiles` yang tidak ada dengan `index.html` berkode `206`, sehingga "apakah URL hidup" lolos
    padahal klien gagal mengurai. Yang menentukan: `content-type` dan `content-range`.
 
+## Iterasi 12j — basemap pindah ke Cloudflare R2 (di luar repo)
+
+Vercel Blob dihitung per transfer, dan peta memicu beberapa permintaan rentang setiap kunjungan. Basemap
+dipindah ke R2 yang **tidak memungut biaya egress**.
+
+| Hal | Nilai |
+|---|---|
+| Bucket | `geosafe-basemap` (location hint `apac`, kelas Standard) |
+| Objek | `indonesia.pmtiles` · **216.138.172 byte** · etag `dfdf311c…` |
+| Unggahan | REST Cloudflare `PUT /accounts/…/r2/buckets/geosafe-basemap/objects/indonesia.pmtiles` → **HTTP 200**, **39,6 dtk** |
+| Domain | `geosafe-tiles.zisaltech.site` (CNAME `public.r2.dev`, TLS 1.2+, status aktif) |
+| CORS | `GET`/`HEAD`, header `range`, `exposeHeaders: Content-Range, Content-Length, Accept-Ranges, ETag` |
+| Env | `VITE_BASEMAP_URL=pmtiles://https://geosafe-tiles.zisaltech.site/indonesia.pmtiles` |
+
+Bukti di peramban (produksi `dpl_GKd5Q78UWLRmypgY4g5MbbNf3dFf`): bundel memuat host R2 **1×** dan host
+Blob **0×**; halaman melakukan **6 permintaan rentang `206`** ke `geosafe-tiles.zisaltech.site` dan
+**0** ke Blob; tangkapan layar area peta **5.703 warna unik** (laut `#80deea`, darat `#c4e7d2`).
+`curl -r 0-99` ke domain R2: `206` + `content-range: bytes 0-99/216138172` +
+`access-control-allow-origin: <origin Vercel>`.
+
+Temuan:
+
+1. **Token Cloudflare API ≠ kredensial S3 R2.** Token `cfat_…` yang diberikan awalnya sah untuk
+   `/accounts` (200) tetapi R2 menolak (`401 Authentication error 10000`) karena izin
+   *Workers R2 Storage* belum ada. Setelah izin ditambahkan, unggahan REST berjalan tanpa perlu
+   `Access Key ID`/`Secret Access Key`.
+2. **Custom domain R2 butuh waktu provision.** Permintaan pertama dibalas `403` `error code: 1014`
+   (CNAME cross-user) selama status `ssl: pending`/`ownership: pending`; sekitar satu menit kemudian
+   statusnya aktif dan balasan berubah menjadi `404` (objek belum ada) lalu `206` setelah unggahan.
+3. **Token rahasia tidak disimpan.** Nilainya hanya dipakai untuk satu unggahan lewat berkas
+   `~/.config/geosafe/cf_token.txt` (chmod 600) yang **sudah dihapus**; token itu sendiri harus
+   di-revoke di dasbor karena sempat tertulis di percakapan.
+
 ## Iterasi 12i — merapikan sisa Vercel
 
 Pembersihan setelah 12f–12h, tanpa menyentuh aplikasi.

@@ -71,20 +71,23 @@ Berikutnya, keadaan Vercel per 2026-11-19 (catat supaya tidak bingung lagi):
 | Objek | Keadaan |
 |---|---|
 | Proyek | **`geosafe`** saja (`prj_SoYy4Gxw8MXbVFjLc8GZH9p4B3IB`) — produksi dari `main`, pratinjau per cabang; git integrasi aktif (status `Vercel` di commit menunjuk proyek ini) |
-| Env | `VITE_API_BASE=https://geosafe-api.zisaltech.site` · `VITE_BASEMAP_URL=pmtiles://https://nwn0yxwn6uggklp6.public.blob.vercel-storage.com/indonesia.pmtiles` |
-| Blob store berisi basemap | `geosafe-basemap-files` (`store_NWn0yxwn6uGGKlp6`), publik, 216.138.172 byte, 1 berkas, **tidak tertaut proyek** — URL-nya publik dan stabil, jadi ini sah |
+| Env | `VITE_API_BASE=https://geosafe-api.zisaltech.site` · `VITE_BASEMAP_URL=pmtiles://https://geosafe-tiles.zisaltech.site/indonesia.pmtiles` |
+| Blob store berisi basemap | **tidak dipakai lagi** — basemap pindah ke Cloudflare R2 (lihat bagian berikut) |
+| Cloudflare R2 | bucket **`geosafe-basemap`**, objek `indonesia.pmtiles` 216.138.172 byte, domain publik `geosafe-tiles.zisaltech.site` (CNAME `public.r2.dev`, TLS aktif) |
 | Proyek sementara | `geosafe-uploader` **sudah dihapus** (API `404`, semua deployment `410`) |
-| Sisa yang harus dihapus manusia | store kosong **`geosafe-basemap`** (`store_3QUGvXe0QDtRRitP`, 0 byte) — hanya bisa dihapus dari dasbor: *Storage → `geosafe-basemap` → Delete*. Token `BLOB_READ_WRITE_TOKEN` di proyek `geosafe` ikut hilang sendiri saat store itu dihapus |
+| Sisa yang harus dihapus manusia | dua store Blob Vercel yang kini **tidak dipakai**: `geosafe-basemap-files` (216 MB) dan `geosafe-basemap` (0 byte) → *Storage → Delete*. Keduanya tidak dirujuk kode mana pun |
 
-Basemap PMTiles (216 MB) **tidak** ikut ke Vercel sebagai berkas repo; berkasnya diunggah ke **Vercel
-Blob** (store `geosafe-basemap-files`, publik, region `sin1`) dan alamatnya diberikan lewat
-`VITE_BASEMAP_URL` (`pmtiles://https://nwn0yxwn6uggklp6.public.blob.vercel-storage.com/indonesia.pmtiles`).
-Unggahannya 206,1 MB dalam 43,7 dtk lewat token unggah sisi-klien (`@vercel/blob/client`), bukan lewat
-badan fungsi: fungsi Vercel membatasi badan permintaan beberapa MB dan percobaan pertama berakhir
-`terminated`. **Server homelab tidak lagi melayani basemap ke internet**: host
-`geosafe-tiles.zisaltech.site` sudah dicabut dari ingress tunnel dan record CNAME-nya dihapus; nginx
-tetap menyajikan `/pmtiles/indonesia.pmtiles` untuk `npm run dev` lokal. Tunnel yang tersisa hanya
-`geosafe-api.zisaltech.site` → `127.0.0.1:8000`. **Kalau basemap gagal dimuat, seluruh peta kosong** —
+Basemap PMTiles (216 MB) **tidak** ikut ke Vercel sebagai berkas repo; berkasnya disimpan di **Cloudflare
+R2** (bucket `geosafe-basemap`, objek `indonesia.pmtiles`, 216.138.172 byte, kelas Standard) dan disajikan
+dari domain sendiri `geosafe-tiles.zisaltech.site` (CNAME `public.r2.dev`, TLS 1.2+, CORS `GET/HEAD` +
+`exposeHeaders: Content-Range, Content-Length, Accept-Ranges, ETag`). Alamatnya diberikan lewat
+`VITE_BASEMAP_URL` (`pmtiles://https://geosafe-tiles.zisaltech.site/indonesia.pmtiles`). **R2 dipilih
+karena tidak memungut biaya egress** — Vercel Blob dihitung per transfer, dan pemuatan peta memicu
+beberapa permintaan rentang setiap kali. Unggahan 216 MB memakai REST Cloudflare (`PUT …/r2/buckets/…/objects/…`,
+39,6 dtk, HTTP 200) dengan token API ber-izin *Workers R2 Storage: Edit*; berkasnya **tidak** pernah
+melewati badan fungsi Vercel. Token itu **sudah dihapus dari mesin** setelah dipakai dan harus di-revoke
+di dasbor. nginx tetap menyajikan `/pmtiles/indonesia.pmtiles` untuk `npm run dev` lokal, dan tunnel
+`geosafe-api.zisaltech.site` tetap hanya melayani API. **Kalau basemap gagal dimuat, seluruh peta kosong** —
 bukan hanya latar: layer tematik dipasang setelah gaya selesai dimuat, jadi kegagalan sumber basemap
 menunda semuanya.
 
