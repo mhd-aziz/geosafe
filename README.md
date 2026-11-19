@@ -1,5 +1,8 @@
 # GeoSafe
 
+[![CI](https://github.com/mhd-aziz/geosafe/actions/workflows/ci.yml/badge.svg)](https://github.com/mhd-aziz/geosafe/actions/workflows/ci.yml)
+[![Deploy](https://github.com/mhd-aziz/geosafe/actions/workflows/deploy.yml/badge.svg)](https://github.com/mhd-aziz/geosafe/actions/workflows/deploy.yml)
+
 Sistem informasi geografis berbasis web untuk memetakan **sebaran titik panas
 (hotspot)** sebagai indikator kerawanan **kebakaran hutan dan lahan (karhutla)**
 di Indonesia, rentang data 1 Januari 2020 sampai sekarang.

@@ -40,6 +40,16 @@ Tidak ada ESLint/Prettier — yang diperiksa CI persis yang diperiksa di mesin i
 **dilewati** di runner karena folder `../planning-GeoSafe/data/siap-pakai/` ada di luar repo; jangan
 menggantinya dengan tiruan — endpoint-nya sendiri sudah menjawab jujur (`count: 0` + catatan).
 
+CD ada di `.github/workflows/deploy.yml` dan berjalan **hanya pada push ke `main`**: runner
+**self-hosted** di mesin ini (label `geosafe`, `~/actions-runner`, unit pengguna
+`geosafe-runner.service`) menyinkronkan working copy (`git fetch` + `merge --ff-only origin/main` —
+**tidak** `reset --hard`, supaya cabang lain dan pekerjaan yang belum di-commit tidak tertimpa;
+deploy gagal dengan pesan jelas kalau working copy tidak di `main` atau kotor), menjalankan
+`uv sync --frozen`, `npm ci && npm run build`, `systemctl --user restart geosafe-api`,
+`sudo systemctl reload nginx`, lalu uji asap `:8080` + `/health` + panel Merauke. Runner ini
+mengeksekusi kode di mesin yang menyimpan layanan, karena itu workflow-nya **tidak pernah** memakai
+pemicu `pull_request`; jangan menambahkannya.
+
 Basis data harus hidup: **Aiven PostgreSQL 18.7 + PostGIS 3.6.4** (basis data `geosafe`, TLS wajib)
 sejak 2026-11-17, DSN di `~/.config/geosafe/geosafe.env` (jangan pernah ditulis di repo). Koneksi
 lewat kolam kecil (`psycopg_pool`, maksimal 3) karena `max_connections` server hanya 15 — lihat

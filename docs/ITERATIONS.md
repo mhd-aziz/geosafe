@@ -35,7 +35,9 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 11d | `feat/api-village-risk-tiles` | `P4` di API: tile kelas kerawanan desa per provinsi (`SRS-F-38`) + daftar provinsi untuk pemilihnya, pagar zoom di `app/tiles.py` | #21 | `iter-11d-village-risk-api` |
 | 11e | `feat/frontend-village-risk` | `P4` di antarmuka: lapisan kerawanan desa + pemilih provinsi (`SRS-F-38`/`F-39`), zoom peta dijaga 8 ke atas; sekaligus `fix(api)` kolam koneksi basis data | #22 | `iter-11e-village-risk-ui` |
 | 12a | `feat/api-panel-risk-density` | data hasil bangun ulang 2026-11-19 masuk aplikasi: 12 angka uji disinkronkan, panel `W2` memuat skor kerawanan tiga skema, label kepadatan diperbaiki | #23 | `iter-12a-data-sync-panel` |
-| 12b | `fix/frontend-nrt-leftovers` | sisa seri NRT dibersihkan: kolom `nrt` dan kode mati di halaman tren hilang, T1 mengirim rincian seri arsip + menyatakan NRT tidak dimuat, `README` 29 → 31 tabel | belum | `iter-12b-t1-archive-nrt` |
+| 12b | `fix/frontend-nrt-leftovers` | sisa seri NRT dibersihkan: kolom `nrt` dan kode mati di halaman tren hilang, T1 mengirim rincian seri arsip + menyatakan NRT tidak dimuat, `README` 29 → 31 tabel | #24 | `iter-12b-t1-archive-nrt` |
+| 12c | `ci/github-actions` | CI GitHub Actions: job **frontend** (typecheck · 113 uji · build) dan **backend** (93 uji ke basis data hidup lewat role baca-saja `geosafe_ci`); proteksi `main` mewajibkan kedua check, admin tetap boleh push dokumen | #25 | `iter-12c-ci-github-actions` |
+| 12d | `ci/deploy-self-hosted` | CD: runner self-hosted di mesin ini (label `geosafe`, unit pengguna `geosafe-runner.service`), `deploy.yml` pada push ke `main` — sinkron working copy, build, restart API, reload nginx, uji asap `:8080` | belum | `iter-12d-deploy-self-hosted` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -44,7 +46,42 @@ Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c,
 
 ---
 
-## Iterasi 12b — `fix/frontend-nrt-leftovers` (PR belum dibuka)
+## Iterasi 12c — `ci/github-actions` (PR #25)
+
+CI pertama untuk repo ini. Sebelumnya `AGENTS.md` menyatakan "tidak ada CI";
+sekarang setiap push dan PR menjalankan dua job yang isinya **persis perintah
+harian**: `frontend` (`npm ci` · `typecheck` · 113 uji · build) dan `backend`
+(`uv sync --frozen` · koleksi uji · 93 uji ke basis data hidup).
+
+Bukti dan angka:
+
+| Hal | Hasil |
+|---|---|
+| Role baru di Aiven | `geosafe_ci`: login, tanpa SUPERUSER/CREATEDB/CREATEROLE, NOINHERIT; `SELECT` pada 15 tabel `public` + hak baca sequence; `has_schema_privilege(...,'CREATE')` = **false** |
+| Seluruh uji dengan DSN role itu | **93 passed**, 34,92 dtk — bukti semua uji memang hanya membaca |
+| Rahasia | `gh secret set GEOSAFE_DATABASE_URL` (role CI), tidak pernah ditulis di repo dan tidak dicetak |
+| Job `frontend` di runner | **pass**, 25–37 dtk |
+| Job `backend` di runner | **pass**, 1 mnt 48 dtk – 1 mnt 51 dtk (runner GitHub → Aiven) |
+| Proteksi `main` | check wajib: `frontend (typecheck · test · build)` + `backend (pytest ke basis data hidup)`; `enforce_admins` **false** (pemilik repo tetap boleh push dokumen), force-push dan hapus cabang ditolak |
+
+Temuan:
+
+1. **Versi action harus yang benar-benar ada.** Dua percobaan gagal dalam 2 dtk
+   dengan `Unable to resolve action astral-sh/setup-uv@v8` lalu `@v10`: rilis
+   terbaru hanya punya tag `v10.3.3`, tanpa ref mayor bergerak. Dipakai tag
+   rilis penuh.
+2. **Dua uji unduhan tidak bisa jalan di runner** karena folder
+   `../planning-GeoSafe/data/siap-pakai/` ada di luar repo: `0 >= 25` gagal dan
+   unduhan menjawab `404`. Bukan cacat kode — endpoint-nya memang menjawab jujur
+   (`count: 0` + catatan). Diselesaikan dengan `pytest.mark.skipif` berdasarkan
+   `data_dir().is_dir()` (bukan tiruan), sehingga di mesin ini tetap 93 uji dan
+   di runner 91 lulus + 2 dilewati dengan alasan tercetak.
+3. **Repo publik + uji yang butuh rahasia** menuntut pagar: PR dari fork tidak
+   menerima secret, jadi job backend hanya sampai `pytest --collect-only` dan
+   menulis alasannya di ringkasan job. Tidak ada masukan tak tepercaya yang
+   dipakai di `run:`; `permissions: contents: read`.
+
+## Iterasi 12b — `fix/frontend-nrt-leftovers` (PR #24)
 
 Melanjutkan 12a: setelah seri `nrt` dikeluarkan dari tabel tahunan, tiga tempat di
 antarmuka dan satu di API masih membicarakannya seolah masih ada. Iterasi ini
