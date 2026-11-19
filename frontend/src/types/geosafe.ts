@@ -370,6 +370,30 @@ export interface VillageProvincesResponse {
   notes: string[];
 }
 
+/** Identitas kecamatan beserta rantai wilayah induknya (`SRS-F-63`). */
+export interface DistrictPanelIdentity {
+  district_code: string;
+  district_name: string;
+  region_code: string | null;
+  region_name: string | null;
+  province_code: string | null;
+  province_name: string | null;
+  area_km2: number | null;
+}
+
+/** `GET /api/v1/panel/kecamatan/{district_code}` — panel kecamatan (`W3`).
+ *
+ * Angka kecamatan hanya pendukung, bukan unit analisis (`SRS-F-64`);
+ * `hotspot_by_year` memuat baris tahunan saja, bukan baris bulanan.
+ */
+export interface DistrictPanelData {
+  district: DistrictPanelIdentity;
+  hotspot_by_year: HotspotSeriesRow[];
+  event_by_year: EventSeriesRow[];
+  hotspot_per_1000_km2: number | null;
+  notes: string[];
+}
+
 /** Identitas desa/kelurahan beserta rantai wilayah induknya (`SRS-F-65`). */
 export interface VillagePanelIdentity {
   village_code: string;
