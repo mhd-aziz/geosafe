@@ -89,17 +89,30 @@ export function fetchNationalTrend(): Promise<TrendData> {
 
 /** Titik panas terkini untuk lapisan peta (`P2`).
  *
- * `bbox` tidak dikirim: antarmuka selalu menyajikan seluruh Indonesia dan tidak
- * punya kendali kotak wilayah. Bila balasan menyatakan `truncated` (`points`
- * bernilai `null` karena muatan melewati 2 MB), lapisan tidak menggambar titik dan
- * pengguna diberi tahu apa adanya — penyempitan `bbox` yang disebut kontrak
- * `API-P2.md` bagian 1 belum dikerjakan di antarmuka.
+ * `bbox` opsional (`min_lon,min_lat,max_lon,max_lat`) mempersempit titik yang
+ * dikirim. Kontrak `API-P2.md` bagian 1 mewajibkan klien mengulang permintaan
+ * dengan kotak yang lebih sempit saat balasan menyatakan `truncated` (`points`
+ * bernilai `null` karena muatan melewati 2 MB); antarmuka melakukannya lewat
+ * kendali "Batasi ke area tampak" yang mengirim kotak peta yang sedang tampil.
  */
-export function fetchLatest(windowHours: LatestWindow): Promise<LatestResponse> {
-  return fetchJson<LatestResponse>(`/api/v1/latest?window=${windowHours}`);
+export function fetchLatest(windowHours: LatestWindow, bbox: string | null = null): Promise<LatestResponse> {
+  return fetchJson<LatestResponse>(`/api/v1/latest${latestQuery(windowHours, bbox)}`);
 }
 
-/** Ringkasan nasional terkini untuk panel `W1`. */
-export function fetchLatestSummary(windowHours: LatestWindow): Promise<LatestSummary> {
-  return fetchJson<LatestSummary>(`/api/v1/latest/summary?window=${windowHours}`);
+/** Ringkasan nasional terkini untuk panel `W1`.
+ *
+ * `bbox` hanya menyaring `top_provinces`; `point_count` tetap nasional
+ * (`API-P2.md` bagian 2), jadi angka nasional di panel tidak berubah karena kotak peta.
+ */
+export function fetchLatestSummary(
+  windowHours: LatestWindow,
+  bbox: string | null = null,
+): Promise<LatestSummary> {
+  return fetchJson<LatestSummary>(`/api/v1/latest/summary${latestQuery(windowHours, bbox)}`);
+}
+
+/** Kueri bersama kedua endpoint `latest`: jendela jam wajib, `bbox` tidak. */
+function latestQuery(windowHours: LatestWindow, bbox: string | null): string {
+  const query = `?window=${windowHours}`;
+  return bbox === null ? query : `${query}&bbox=${bbox}`;
 }

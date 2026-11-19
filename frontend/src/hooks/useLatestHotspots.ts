@@ -28,8 +28,11 @@ export interface LatestState {
  * antara keduanya, sehingga `fetched_at` kedua balasan bisa berbeda. Karena itu
  * panel dan kendali menampilkan `fetched_at` dari balasannya masing-masing, bukan
  * satu waktu bersama yang tidak dijamin.
+ *
+ * `bbox` (kotak peta yang diminta pengguna) ikut jadi kunci tarikan: menggantinya
+ * berarti permintaan baru, sama seperti berganti jendela jam.
  */
-export function useLatestHotspots(windowHours: LatestWindow): LatestState {
+export function useLatestHotspots(windowHours: LatestWindow, bbox: string | null = null): LatestState {
   const [state, setState] = useState<Omit<LatestState, 'refresh'>>({
     status: 'loading',
     data: null,
@@ -45,7 +48,7 @@ export function useLatestHotspots(windowHours: LatestWindow): LatestState {
     // tarikan sedang berjalan.
     setState((previous) => ({ ...previous, status: 'loading', error: null }));
 
-    Promise.all([fetchLatest(windowHours), fetchLatestSummary(windowHours)])
+    Promise.all([fetchLatest(windowHours, bbox), fetchLatestSummary(windowHours, bbox)])
       .then(([data, summary]) => {
         if (!cancelled) {
           setState({ status: 'ready', data, summary, error: null });
@@ -64,7 +67,7 @@ export function useLatestHotspots(windowHours: LatestWindow): LatestState {
     return () => {
       cancelled = true;
     };
-  }, [windowHours, generation]);
+  }, [windowHours, bbox, generation]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setGeneration((value) => value + 1), LATEST_REFRESH_MS);

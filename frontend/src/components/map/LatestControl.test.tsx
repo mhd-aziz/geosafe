@@ -20,8 +20,12 @@ function renderControl(overrides: Partial<Parameters<typeof LatestControl>[0]> =
     usingSnapshot: false,
     pointCount: 880,
     truncated: false,
+    bboxActive: false,
+    canUseViewport: true,
     error: null,
     onRefresh: vi.fn(),
+    onUseViewport: vi.fn(),
+    onClearBounds: vi.fn(),
     ...overrides,
   };
   render(<LatestControl {...props} />);
@@ -83,15 +87,41 @@ describe('LatestControl', () => {
     );
   });
 
-  it('menyatakan titik tidak digambar ketika muatan dipotong 2 MB, tanpa saran yang mustahil', () => {
-    renderControl({ truncated: true, pointCount: 0 });
+  it('menawarkan penyempitan ke kotak peta saat muatan dipotong 2 MB (`API-P2` bagian 1)', () => {
+    const props = renderControl({ truncated: true, pointCount: 0 });
 
     const pesan = screen.getByTestId('latest-truncated').textContent ?? '';
     expect(pesan).toContain('melewati 2 MB');
     // 24 jam adalah jendela terpendek: menyuruh pengguna memilih jendela lebih
     // pendek tidak bisa diikuti.
     expect(pesan).not.toContain('jendela jam yang lebih pendek');
-    expect(pesan).toContain('Penyempitan wilayah belum tersedia');
+
+    screen.getByRole('button', { name: 'Batasi ke area tampak' }).click();
+    expect(props.onUseViewport).toHaveBeenCalledTimes(1);
+  });
+
+  it('mematikan tombol kotak peta selama kotak peta belum diketahui', () => {
+    // Sebelum peta siap tidak ada `getBounds()`; tombol yang bisa ditekan tetapi
+    // tidak mengirim apa pun lebih buruk daripada tombol yang mati.
+    renderControl({ truncated: true, canUseViewport: false });
+
+    const tombol = screen.getByRole('button', { name: 'Batasi ke area tampak' });
+    expect((tombol as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('menyatakan angka hanya untuk kotak peta dan menawarkan kembali ke nasional', () => {
+    const props = renderControl({ bboxActive: true, pointCount: 120 });
+
+    expect(screen.getByText(/120 titik di dalam kotak peta/)).toBeTruthy();
+    screen.getByRole('button', { name: 'Seluruh Indonesia' }).click();
+    expect(props.onClearBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('tidak menampilkan pita kotak peta selama tidak ada batas', () => {
+    renderControl();
+
+    expect(screen.queryByTestId('latest-bbox')).toBeNull();
+    expect(screen.queryByText(/di dalam kotak peta/)).toBeNull();
   });
 
   it('tidak menampilkan pita snapshot pada tarikan yang sehat', () => {

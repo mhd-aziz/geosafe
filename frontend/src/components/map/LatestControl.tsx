@@ -14,8 +14,16 @@ export interface LatestControlProps {
   usingSnapshot: boolean;
   pointCount: number | null;
   truncated: boolean;
+  /** `true` = ada kotak peta yang sedang membatasi titik (parameter `bbox` aktif). */
+  bboxActive: boolean;
+  /** Kotak peta yang tampil belum diketahui (peta belum siap): tombol dimatikan. */
+  canUseViewport: boolean;
   error: string | null;
   onRefresh: () => void;
+  /** Pakai kotak peta yang sedang tampil sebagai `bbox` permintaan berikutnya. */
+  onUseViewport: () => void;
+  /** Lepas batas kotak: kembali ke seluruh Indonesia. */
+  onClearBounds: () => void;
 }
 
 /** Kendali lapisan titik terkini di atas peta (`SRS-F-21`, `F-23`, `F-27`).
@@ -28,6 +36,11 @@ export interface LatestControlProps {
  * Angka jendela sebelumnya tidak ditampilkan saat pengguna baru berganti jendela
  * (`loading`): tombol yang sudah menunjuk jendela baru sementara angkanya masih
  * jendela lama adalah dua bacaan berbeda di satu layar.
+ *
+ * Muatan yang melewati 2 MB membuat API mengirim `points: null` + `truncated`
+ * (`API-P2.md` bagian 1). Di sini pengguna diberi satu jalan keluar yang benar-benar
+ * bisa diikuti: kirim kotak peta yang sedang tampak sebagai `bbox`, bukan menyuruh
+ * memilih jendela lebih pendek (24 jam sudah yang terpendek).
  */
 export function LatestControl({
   windowHours,
@@ -38,8 +51,12 @@ export function LatestControl({
   usingSnapshot,
   pointCount,
   truncated,
+  bboxActive,
+  canUseViewport,
   error,
   onRefresh,
+  onUseViewport,
+  onClearBounds,
 }: LatestControlProps) {
   const available = satellites.filter((satellite) => satellite.available).map((s) => s.name);
 
@@ -67,7 +84,8 @@ export function LatestControl({
       ) : (
         <>
           <p className="mt-1 text-slate-700">
-            {formatCount(pointCount)} titik · tarikan {formatMoment(fetchedAt)}
+            {formatCount(pointCount)} titik{bboxActive ? ' di dalam kotak peta' : ''} · tarikan{' '}
+            {formatMoment(fetchedAt)}
           </p>
           <p className="text-slate-600">
             Satelit tersedia:{' '}
@@ -91,9 +109,32 @@ export function LatestControl({
       ) : null}
 
       {truncated ? (
-        <p data-testid="latest-truncated" className="mt-1 text-amber-800">
-          Titik tidak digambar: muatan melewati 2 MB. Penyempitan wilayah belum tersedia di
-          antarmuka ini, dan jumlah titiknya tetap terbaca di panel.
+        <div data-testid="latest-truncated" className="mt-1 text-amber-800">
+          <p>
+            Titik tidak digambar: muatan melewati 2 MB. Perbesar peta ke wilayah yang ingin dilihat,
+            lalu batasi permintaan ke kotak yang tampak.
+          </p>
+          <button
+            type="button"
+            onClick={onUseViewport}
+            disabled={!canUseViewport}
+            className="mt-1 min-h-8 cursor-pointer rounded-lg border border-amber-300 bg-white px-3 text-xs font-medium text-amber-900 transition-colors duration-200 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Batasi ke area tampak
+          </button>
+        </div>
+      ) : null}
+
+      {bboxActive ? (
+        <p data-testid="latest-bbox" className="mt-1 text-slate-700">
+          Hanya titik di dalam kotak peta.{' '}
+          <button
+            type="button"
+            onClick={onClearBounds}
+            className="min-h-8 cursor-pointer rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-100"
+          >
+            Seluruh Indonesia
+          </button>
         </p>
       ) : null}
     </div>

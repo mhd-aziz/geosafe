@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  fetchLatest,
+  fetchLatestSummary,
   fetchRegionPanel,
   fetchVillageProvinces,
   searchRegions,
@@ -50,6 +52,36 @@ describe('searchRegions', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/search/regions?q=kota%20bogor',
+      undefined,
+    );
+  });
+});
+
+describe('fetchLatest', () => {
+  it('mengirim jendela jam saja selama tidak ada kotak peta', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchLatest(24);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/latest?window=24', undefined);
+  });
+
+  it('menambahkan `bbox` apa adanya supaya penyempitan wilayah sampai ke API', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchLatest(72, '95,-11,141,6');
+    await fetchLatestSummary(72, '95,-11,141,6');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/latest?window=72&bbox=95,-11,141,6',
+      undefined,
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/latest/summary?window=72&bbox=95,-11,141,6',
       undefined,
     );
   });

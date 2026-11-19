@@ -42,13 +42,67 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 12f | Vercel (di luar repo) | Proyek `geosafe` di Vercel: Root Directory `frontend`, Vite, `VITE_API_BASE=https://geosafe-api.zisaltech.site`, protection dimatikan; deploy produksi `READY` dan `CORS` terbukti untuk origin Vercel asli | — | `iter-12f-vercel-preview-live` |
 | 12g | `fix/vercel-basemap` | Basemap bisa diarahkan lewat `VITE_BASEMAP_URL`; nginx mengirim CORS untuk berkas PMTiles; tanpa basemap seluruh peta kosong | #29 | `iter-12g-vercel-basemap` |
 | 12h | Vercel (di luar repo) | Basemap 216 MB pindah ke Vercel Blob (`geosafe-basemap-files`, unggah 206,1 MB / 43,7 dtk lewat token sisi-klien); host `geosafe-tiles` dicabut dari tunnel + CNAME-nya dihapus | — | `iter-12h-basemap-blob` |
+| 12i | Vercel (di luar repo) | Sisa Vercel dirapikan: proyek `omniroute-relay`/`geosafe-uploader` hilang (`404`/`410`), status `Vercel` menunjuk proyek `geosafe`, token unggah tidak dipakai lagi | — | `iter-12i-vercel-cleanup` |
+| 12j | Cloudflare R2 (di luar repo) | Basemap 216 MB pindah ke R2 (`geosafe-basemap` + domain `geosafe-tiles.zisaltech.site`); unggah REST 39,6 dtk; peta terbukti `206` dari R2 dengan **0** permintaan ke Blob | — | `iter-12j-basemap-r2` |
+| 12k | `feat/frontend-latest-bbox` | `truncated` di lapisan terkini punya jalan keluar: kendali kotak peta mengirim `bbox` hasil potongan batas Indonesia; `bash`/`pytest` tidak berubah | #30 | `iter-12k-latest-bbox` |
 
-Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
+Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 12k — `feat/frontend-latest-bbox` (PR #30)
+
+Lapisan titik terkini sudah lama punya satu keadaan tanpa jalan keluar: begitu muatan
+`/latest` melewati 2 MB, API mengganti `points` dengan `null` dan menyetel
+`truncated: true`, sementara kontrak `API-P2.md` bagian 1 meminta **klien** mengulang
+permintaan dengan `bbox` lebih sempit — dan antarmuka tidak punya kendali kotak wilayah.
+Iterasi ini menutup celah itu tanpa menyentuh backend: parameter `bbox` sudah ada dan
+sudah diuji di sana sejak iterasi 10a.
+
+| Hal | Nilai |
+|---|---|
+| Berkas disentuh | `src/lib/format.ts` (`bboxParam`), `src/api/geosafe.ts`, `src/hooks/useLatestHotspots.ts`, `src/components/map/MapView.tsx`, `src/components/map/LatestControl.tsx`, `src/pages/MapPage.tsx` + 5 berkas uji |
+| Kendali | tombol **Batasi ke area tampak** (muncul saat `truncated`) dan **Seluruh Indonesia** (untuk melepas batas) |
+| Kotak peta | dilaporkan `MapView` saat gaya siap **dan** setiap `moveend`; dikirim hanya ketika tombol ditekan, tidak setiap kali peta digeser |
+| Pembulatan | 4 desimal (± 11 m) supaya URL pendek dan cache 60 detik tidak pecah per piksel |
+| Uji | `npm test` **125 lulus** (16 berkas; sebelumnya 113), `npm run typecheck` bersih, `npm run build` ok |
+| Backend | tidak berubah |
+
+Bukti lewat peramban (Chrome, CDP, tab di depan), dengan pagar 2 MB di server uji
+sementara dikecilkan ke 20 kB supaya `truncated` benar-benar terjadi pada data nyata:
+
+1. Awal: pita "Titik tidak digambar: muatan melewati 2 MB" + tombol, seperti yang
+   diharapkan.
+2. Cari `Jawa Tengah` → peta `fitBounds` ke provinsi → tekan tombol.
+3. Permintaan tercatat:
+   `/api/v1/latest?window=72&bbox=107.5137,-8.4559,112.7337,-5.4801` dan
+   `/api/v1/latest/summary?window=72&bbox=…` (kotak sama), keduanya `200`.
+4. Pita hilang, kendali membaca **36 titik di dalam kotak peta · tarikan 19 Nov 2026,
+   16.16 WIB**, tanpa galat.
+
+`bbox` di API sendiri diukur ulang tanpa perubahan backend: `window=72` → **4.390** titik;
+`window=72&bbox=95,-11,120,-2` → **413** titik.
+
+Temuan:
+
+1. **Kotak peta pada zoom nasional lebih lebar daripada Indonesia.** `getBounds()` di
+   zoom 3,2 mengembalikan 79,1695…156,8305 E / -24,064…19,4199 N, sedangkan API menolak
+   `bbox` di luar `94,5…141,5` / `-11,5…6,5` dengan `422`. Versi pertama iterasi ini
+   mengirim kotak apa adanya: setiap klik dijawab `422` — tepat pada keadaan yang memicu
+   `truncated`. Perbaikan: kotak dipotong ke batas API sebelum dikirim, dan bila hasil
+   potongannya kosong (peta sedang menunjuk area di luar Indonesia) tombol dimatikan
+   (`bboxParam` → `null`). Ditemukan di peramban, bukan di uji unit.
+2. **Balasan tidak memuat `bbox` yang dipakai**, jadi kesegaran data terhadap kotak tidak
+   bisa diperiksa seperti jendela jam (`window_hours`). Yang dijaga: kotak hanya berubah
+   atas permintaan pengguna, dan pita "Hanya titik di dalam kotak peta" menyatakan
+   bahwa angkanya bukan angka nasional.
+3. **Angka nasional di panel `W1` tidak ikut menyempit** — `bbox` hanya menyaring
+   `top_provinces` (`API-P2.md` bagian 2). Panel sengaja tidak diubah supaya tidak ada
+   dua bacaan nasional yang berbeda di satu layar.
 
 ## Iterasi 12h — basemap pindah ke Vercel Blob (di luar repo)
 
