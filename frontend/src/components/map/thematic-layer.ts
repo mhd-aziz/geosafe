@@ -136,5 +136,12 @@ export function readoutText(
   if (Number(properties.has_fact ?? 0) === 0) {
     return `${name} · belum ada baris fakta ${year}`;
   }
-  return `${name} · ${formatCount(Number(properties.hotspot_count))} titik panas ${year}`;
+  const count = `${formatCount(Number(properties.hotspot_count))} titik panas ${year}`;
+  // Kepadatan hanya ada di tile kabupaten/kota (`regions.area_km2`); tile provinsi
+  // tidak punya luas wilayah, jadi bacaannya berhenti di jumlah titik panas.
+  const density = properties.hotspot_per_1000_km2;
+  if (density === null || density === undefined) {
+    return `${name} · ${count}`;
+  }
+  return `${name} · ${count} · ${formatDecimal(Number(density))} per 1.000 km²`;
 }

@@ -101,8 +101,9 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 12k | `feat/frontend-latest-bbox` — lapisan terkini bisa dipersempit ke kotak peta saat muatan `truncated`; kotak dipotong ke batas wilayah Indonesia lebih dulu | ✅ PR #30, tag `iter-12k-latest-bbox` |
 | 12l | `chore/drop-homelab-frontend` — hosting frontend di mesin ini dihapus (nginx mati, `:8080` hilang), CD hanya memuat ulang API, basemap dev dari R2; halaman sepenuhnya di Vercel | ✅ PR #31, tag `iter-12l-vercel-only` |
 | 12m | `feat/api-village-panel` — panel desa/kelurahan (`W4`): `GET /api/v1/panel/desa/{kode}` + panel di antarmuka, terbuka dari klik poligon desa maupun pencarian | ✅ PR #32, tag `iter-12m-village-panel` |
-| 13a | `feat/api-composition-ranking` — `A2` komposisi wilayah + `A3` peringkat 514 kabupaten/kota + penanda tahun parsial dari tanggal deteksi terakhir | PR, tag `iter-13a-composition-ranking` |
-| — | kepadatan per tahun sebagai atribut tile, lalu `P3`/`P5` | belum dijadwalkan |
+| 13a | `feat/api-composition-ranking` — `A2` komposisi wilayah + `A3` peringkat 514 kabupaten/kota + penanda tahun parsial dari tanggal deteksi terakhir | ✅ PR #33, tag `iter-13a-composition-ranking` |
+| 13b | `feat/api-tile-yearly-density` — kepadatan titik panas per tahun jadi properti tile kabupaten/kota + tampil di bacaan kursor | PR, tag `iter-13b-tile-density` |
+| — | `P3` peta kejadian dan `P5` peta titik (918 ribu titik; perlu keputusan heatmap/klaster) | belum dijadwalkan |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar

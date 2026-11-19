@@ -100,6 +100,57 @@ def test_year_outside_range_is_rejected() -> None:
     assert client.get(WORLD_TILE, params={"year": 2027}).status_code == 422
 
 
+def test_region_tile_carries_yearly_density_property() -> None:
+    """Kepadatan per tahun ikut di tile kabupaten/kota, tidak di tile provinsi.
+
+    Nama properti tertulis di tabel string protobuf MVT, jadi keberadaannya bisa
+    diperiksa tanpa pustaka pengurai — sama seperti nama layer.
+    """
+    region_body = client.get(WORLD_TILE, params={"year": 2023}).content
+    assert b"hotspot_per_1000_km2" in region_body
+
+    province_body = client.get(WORLD_PROVINCE_TILE, params={"year": 2023}).content
+    assert b"hotspot_per_1000_km2" not in province_body
+
+
+def test_yearly_density_uses_the_same_formula_as_the_stored_metric() -> None:
+    """Kepadatan per tahun = metrik tersimpan, bukan rumus baru yang berbeda.
+
+    Metrik `hotspot_per_1000_km2` di `REGION_FACTS` adalah rata-rata kepadatan
+    tahunan 2020–2025 (tanpa tahun). Kalau rumus kepadatan di tile menyimpang dari
+    itu, satu wilayah akan punya dua angka kepadatan yang berbeda artinya.
+    """
+    with psycopg.connect(database_url(), row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                with yearly as (
+                    select f.region_code, f.year, sum(f.value) as hotspots
+                      from region_facts f
+                     where f.metric_code = 'hotspot_count'
+                       and f.month is null and f.confidence is null
+                       and f.region_code is not null
+                       and f.year between 2020 and 2025
+                     group by 1, 2
+                ), mean_density as (
+                    select y.region_code, avg(y.hotspots) * 1000.0 / r.area_km2 as density
+                      from yearly y
+                      join regions r on r.region_code = y.region_code
+                     group by y.region_code, r.area_km2
+                )
+                select count(*) filter (where abs(m.density - s.value) > 0.05) as mismatch,
+                       count(*) as compared
+                  from region_facts s
+                  join mean_density m on m.region_code = s.region_code
+                 where s.metric_code = 'hotspot_per_1000_km2'
+                """
+            )
+            row = cur.fetchone()
+
+    assert row["compared"] == 514
+    assert row["mismatch"] == 0
+
+
 def test_province_tile_contains_provinces_layer() -> None:
     response = client.get(WORLD_PROVINCE_TILE, params={"year": 2020})
 
