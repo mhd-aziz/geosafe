@@ -87,13 +87,13 @@ frontend/
     ├── hooks/                  useDebouncedValue · useRegionSearch · useRegionPanel ·
     │                           useLatestHotspots (lapisan terkini) · useSourceSummary ·
     │                           useRemoteData (baca-saja halaman)
-    ├── lib/                    constants · format · choropleth · latest-layer · map-style ·
-    │                           transparency-content
+    ├── lib/                    constants · format · choropleth · events · latest-layer · map-style ·
+    │                           risk · transparency-content
     ├── types/geosafe.ts        bentuk balasan API (nama medan = nama kolom DB)
     └── test/setup.ts           pembersihan DOM antar uji
 ```
 
-Halaman: `/` peta (P1 + C1 + W2 + P2/W1 lapisan terkini + W3 panel kecamatan + W4 panel desa) · `/tren` grafik nasional
+Halaman: `/` peta (P1 + P3 lapisan kejadian + C1 + W2 + P2/W1 lapisan terkini + W3 panel kecamatan + W4 panel desa) · `/tren` grafik nasional
 (A1) · `/analisis` komposisi wilayah (A2) + peringkat kabupaten/kota (A3) · `/sumber` Sumber &
 Batas Data (T1). Uji diletakkan bersebelahan dengan berkas yang diuji
 (`*.test.ts(x)`), supaya perubahan komponen dan ujinya terlihat dalam satu
@@ -172,6 +172,19 @@ lapisannya dimuat **satu provinsi pada satu waktu** melalui
 
 Ringkasan nasionalnya: 83.530 desa/kelurahan — `tidak_ada_deteksi` 43.753 ·
 `sedang` 24.293 · `rendah` 8.881 · `tinggi` 6.388 (angka 2026-11-17).
+
+## Lapisan kejadian (`P3`, `SRS-F-28`…`31`)
+
+Lapisan keempat memakai tile sendiri (`/tiles/events/{z}/{x}/{y}.mvt?year=`) karena yang
+diwarnai adalah **kejadian tercatat BNPB**, bukan deteksi satelit (`SRS-F-30`) — warna, kelas, dan
+artinya berbeda dari lapisan titik panas, sehingga tidak boleh berbagi skala.
+
+| Hal | Alasan |
+|---|---|
+| warna abu-abu berarti **tidak ada kejadian tercatat** | berbeda dari lapisan titik panas, tempat abu-abu berarti wilayah belum punya baris fakta; BNPB hanya mencatat kejadian yang terjadi, jadi tidak ada baris nol yang perlu dibaca |
+| tingkat wilayah dikunci ke kabupaten/kota | kejadian dipetakan pada tingkat itu (`SRS-F-28`); baris provinsi dan nasional hanya jadi pembanding |
+| angka nasional dibaca dari `/api/v1/analysis/national_trend` | tile hanya memuat wilayah di dalam kotak peta, jadi menjumlahkan tile akan membuat angka nasional berubah setiap kali peta digeser (`SRS-F-31`) |
+| tahun 2026 ditandai angka berjalan | data kejadian 2026 belum lengkap sampai akhir tahun (`SRS-AS-06`) |
 
 ## Responsif
 

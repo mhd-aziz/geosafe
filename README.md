@@ -26,10 +26,10 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 20 endpoint, `uv run pytest` 120 passed, koneksi lewat kolam kecil (`psycopg_pool`), CORS hanya untuk origin pratinjau Vercel |
-| Frontend (`frontend/`) | berjalan — 4 halaman (peta + lapisan titik terkini + lapisan kerawanan kabupaten/kota + lapisan kerawanan desa · tren · analisis wilayah · sumber data), basemap PMTiles z12, panel `W2` memuat skor kerawanan, panel kecamatan `W3` dan desa/kelurahan `W4` terbuka dari hasil pencarian (desa juga dari klik poligonnya), komposisi `A2` + peringkat 514 kabupaten/kota `A3` bisa diurutkan/dicari, tahun parsial ditandai dari tanggal deteksi terakhir, bacaan kursor memuat kepadatan per tahun, kendali "Batasi ke area tampak" mempersempit lapisan terkini lewat `bbox` saat muatan `truncated`, `npm test` 154 passed |
+| Backend (`backend/`) | berjalan — 21 endpoint, `uv run pytest` 125 passed, koneksi lewat kolam kecil (`psycopg_pool`), CORS hanya untuk origin pratinjau Vercel |
+| Frontend (`frontend/`) | berjalan — 4 halaman (peta + lapisan titik panas + lapisan kejadian `P3` + lapisan titik terkini + lapisan kerawanan kabupaten/kota + lapisan kerawanan desa · tren · analisis wilayah · sumber data), basemap PMTiles z12, panel `W2` memuat skor kerawanan, panel kecamatan `W3` dan desa/kelurahan `W4` terbuka dari hasil pencarian (desa juga dari klik poligonnya), komposisi `A2` + peringkat 514 kabupaten/kota `A3` bisa diurutkan/dicari, tahun parsial ditandai dari tanggal deteksi terakhir, bacaan kursor memuat kepadatan per tahun, kendali "Batasi ke area tampak" mempersempit lapisan terkini lewat `bbox` saat muatan `truncated`, `npm test` 164 passed |
 | Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna di `127.0.0.1:8000` (nginx dimatikan & di-disable 2026-11-19); frontend produksi dilayani **Vercel**, memanggil API publik lewat Cloudflare Tunnel, basemap dari Cloudflare R2 (`geosafe-tiles.zisaltech.site`) |
-| Iterasi selesai | **14** panel kecamatan `W3` — endpoint + panel antarmuka, baris bulanan disaring, sifat angka pendukung dinyatakan (sebelumnya 13b kepadatan titik panas per tahun di tile + bacaan kursor, 13a komposisi wilayah `A2` + peringkat `A3` + penanda tahun parsial, 12m panel desa/kelurahan `W4`, 12l hosting frontend di mesin ini dihapus — halaman sepenuhnya di Vercel, 12k kendali kotak peta untuk lapisan terkini, 12j basemap pindah ke Cloudflare R2, 12i sisa Vercel dirapikan, 12h basemap di Vercel Blob, 12g basemap lewat `VITE_BASEMAP_URL`, 12f pratinjau Vercel hidup, 12e CORS + Cloudflare Tunnel, 12d CD otomatis di mesin ini, 12c CI GitHub Actions, 12b sisa seri NRT dibersihkan, 12a data 2026-11-19 masuk aplikasi + skor kerawanan di panel `W2`, 11e lapisan kelas kerawanan desa, 11d kerawanan desa di API, 11c `P4` di antarmuka, 11b `P4` di API, 11a basis data pindah ke Aiven, 10b/10a `P2`+`W1`, 09c basemap, 09b nginx, 09a unit systemd, 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | **15** peta kejadian `P3` — tile kejadian tercatat BNPB per tahun + lapisan keempat di antarmuka (sebelumnya 14 panel kecamatan `W3`, 13b kepadatan titik panas per tahun di tile + bacaan kursor, 13a komposisi wilayah `A2` + peringkat `A3` + penanda tahun parsial, 12m panel desa/kelurahan `W4`, 12l hosting frontend di mesin ini dihapus — halaman sepenuhnya di Vercel, 12k kendali kotak peta untuk lapisan terkini, 12j basemap pindah ke Cloudflare R2, 12i sisa Vercel dirapikan, 12h basemap di Vercel Blob, 12g basemap lewat `VITE_BASEMAP_URL`, 12f pratinjau Vercel hidup, 12e CORS + Cloudflare Tunnel, 12d CD otomatis di mesin ini, 12c CI GitHub Actions, 12b sisa seri NRT dibersihkan, 12a data 2026-11-19 masuk aplikasi + skor kerawanan di panel `W2`, 11e lapisan kelas kerawanan desa, 11d kerawanan desa di API, 11c `P4` di antarmuka, 11b `P4` di API, 11a basis data pindah ke Aiven, 10b/10a `P2`+`W1`, 09c basemap, 09b nginx, 09a unit systemd, 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -142,6 +142,7 @@ yang sengaja belum dikerjakan ada di [`frontend/README.md`](frontend/README.md).
 | `GET /api/v1/sources` | T1 | daftar dataset sumber, institusi, tanggal akses, jumlah baris |
 | `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT kabupaten/kota + jumlah titik panas tahun itu |
 | `GET /tiles/provinces/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT provinsi (saklar tingkat tampilan) |
+| `GET /tiles/events/{z}/{x}/{y}.mvt?year=` | P3 | *vector tile* MVT kabupaten/kota + jumlah **kejadian tercatat BNPB** tahun itu (bukan deteksi satelit) |
 | `GET /tiles/risk/{z}/{x}/{y}.mvt?scheme=` | P4 | *vector tile* MVT kabupaten/kota + skor dan kelas kerawanan satu skema bobot (`a`/`b`/`c`) |
 | `GET /api/v1/risk/schemes` | P4 | tiga skema bobot + uji sensitivitasnya (korelasi peringkat, jumlah wilayah berpindah kelas) + batasan yang wajib ditampilkan |
 | `GET /tiles/risk/villages/{z}/{x}/{y}.mvt?province=` | P4 | *vector tile* MVT desa/kelurahan + kelas kerawanannya (`rendah`/`sedang`/`tinggi`/`tidak_ada_deteksi`), **satu provinsi**, hanya zoom 8–14 |
@@ -162,7 +163,8 @@ Catatan pemakaian: tile tanpa poligon dibalas `204`; nol ditulis eksplisit, jadi
 `hotspot_count = 0` berarti *nol deteksi terukur* dan wilayah yang belum punya
 baris sama sekali tetap terkirim dengan properti `has_fact = 0` (pada lapisan
 kerawanan namanya `has_score`, karena `0` di sana berarti *skor tidak diketahui*,
-bukan *nol deteksi*); koordinat tile di luar rentang `0..2^z-1` dibalas `422`,
+bukan *nol deteksi*; pada lapisan kejadian `P3` `has_fact = 0` berarti *tidak ada
+kejadian tercatat* — BNPB hanya mencatat kejadian yang terjadi); koordinat tile di luar rentang `0..2^z-1` dibalas `422`,
 bukan `500`;
 lapisan desa hanya dilayani **per provinsi** (`?province=`) dan pada **zoom 8 ke
 atas** — di bawah itu `422`, karena lapisan yang tetap dilayani justru menumpuk

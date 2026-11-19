@@ -50,14 +50,102 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 13a | `feat/api-composition-ranking` | `A2` komposisi (10 provinsi + 10 kabupaten/kota, metrik titik panas ↔ kejadian, pangsa %) + `A3` peringkat 514 kabupaten/kota (urut titik panas/kepadatan/kejadian, pencarian) + penanda tahun parsial dari tanggal deteksi terakhir | #33 | `iter-13a-composition-ranking` |
 | 13b | `feat/api-tile-yearly-density` | Kepadatan titik panas **per tahun** jadi properti tile kabupaten/kota dan muncul di bacaan kursor; rumusnya dibuktikan sama dengan metrik `hotspot_per_1000_km2` tersimpan | #34 | `iter-13b-tile-density` |
 | 14 | `feat/api-panel-kecamatan` | Panel kecamatan `W3`: `GET /api/v1/panel/kecamatan/{kode}` (baris bulanan disaring, sifat angka pendukung dinyatakan) + `DistrictDetailPanel` di antarmuka lewat hasil pencarian | #35 | `iter-14-district-panel` |
+| 15 | `feat/api-event-map` | Peta kejadian `P3`: `GET /tiles/events/{z}/{x}/{y}.mvt?year=` (kejadian tercatat BNPB, baris bulanan disaring) + lapisan keempat "Kejadian" beserta panel angka nasional tahun terpilih | #36 | `iter-15-event-map` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
-iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14 (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15 (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 15 — `feat/api-event-map` (peta kejadian `P3`)
+
+Antrean menyisakan `P3` dan `P5`; `P5` menunggu keputusan heatmap/klaster, sedangkan `P3` tidak —
+SRS sudah menetapkan bentuknya: choropleth **jumlah kejadian tercatat BNPB** per kabupaten/kota per
+tahun (`SRS-F-28`), filter tahun 2020–2026 (`SRS-F-29`), keterangan bahwa ini catatan kejadian bukan
+deteksi satelit (`SRS-F-30`), dan angka nasional tahun terpilih sebagai pembanding (`SRS-F-31`).
+
+Data diperiksa lebih dulu (read-only, 2026-11-19), dan tiga hal di `region_facts` langsung
+menentukan query:
+
+| Hal | Angka |
+|---|---|
+| baris `event_count` tahunan (kabupaten/kota), 2023 | **254 wilayah**, jumlah **2.153** |
+| baris **bulanan** `event_count`, 2023 | jumlah juga **2.153** — tanpa `month is null` satu tahun terhitung dua kali |
+| baris nasional 2023 | **2.153**, sama dengan jumlah baris kabupaten/kota |
+| baris provinsi 2023 | **2.153**, juga sama (angka provinsi sejajar, bukan hasil penjumlahan) |
+| kolom `series` pada metrik ini | selalu kosong; tidak ada `main`/`fill`/`nrt` |
+| total 2020–2026 | **6.390** kejadian (SRS menyebut 6.383 dari bangun data sebelumnya; selisih 7 berasal dari data 2026-11-19) |
+
+Karena baris nasional **sama** dengan jumlah baris kabupaten/kota setiap tahun, wilayah tanpa baris
+di lapisan ini berarti *tidak ada kejadian tercatat* — bukan "angkanya belum dimuat" seperti pada
+lapisan titik panas. Perbedaan arti `has_fact` itu ditulis di kode, legenda, panel, dan README.
+
+| Berkas | Isi |
+|---|---|
+| `backend/app/routers/maps.py` | `event_router` + `QUERY_EVENT_TILE` (layer MVT `events`, tag `P3 peta kejadian`) |
+| `backend/app/main.py` | router didaftarkan setelah `maps.router` |
+| `backend/tests/test_tiles.py` | 5 uji baru: layer & properti, `204` di laut, `422` tahun/koordinat, penyaring bulanan + kesamaan angka nasional, ketiadaan `series` |
+| `frontend/src/lib/events.ts` (+ uji) | lima kelas warna kejadian, legenda, ekspresi gaya `fill` |
+| `frontend/src/api/geosafe.ts` · `types/geosafe.ts` | `eventTileUrlTemplate` + `MapLayer` menerima `'events'` |
+| `frontend/src/components/map/thematic-layer.ts` | spesifikasi sumber kejadian + bacaan kursor ("kejadian tercatat BNPB", "tidak ada kejadian tercatat") |
+| `frontend/src/components/map/MapView.tsx` · `MapToolbar.tsx` · `Legend.tsx` | lapisan keempat, kendali tahun tetap aktif, saklar provinsi mati dengan sebabnya, legenda + keterangan `SRS-F-30` |
+| `frontend/src/components/panel/EventPanel.tsx` (+ uji) | angka nasional tahun terpilih (`SRS-F-31`) dari `/api/v1/analysis/national_trend`, penanda angka berjalan 2026 |
+| `frontend/src/pages/MapPage.tsx` | kartu `P3` + seri nasional dimuat sekali di halaman |
+
+```
+cd backend && uv run pytest -q
+125 passed, 1 warning in 43,87 dtk          (sebelumnya 120)
+uv run pytest -q tests/test_tiles.py
+20 passed, 1 warning in 5,93 dtk            (5 uji baru)
+
+cd frontend && npm run typecheck && npm test
+tsc --noEmit                                 (bersih)
+Test Files 22 passed (22)
+Tests      164 passed (164)                  (sebelumnya 154)
+```
+
+Bukti jalur HTTP (API unit systemd, setelah `systemctl --user restart geosafe-api`):
+
+```
+GET /tiles/events/0/0/0.mvt?year=2023    → 200, application/vnd.mapbox-vector-tile, 49.248 B, 0,92 dtk
+GET /tiles/events/1/0/1.mvt?year=2023    → 204 (tile laut, tanpa isi)
+GET /tiles/events/0/0/0.mvt?year=2019    → 422
+GET /openapi.json                        → 21 path (sebelumnya 20)
+```
+
+Bukti antarmuka di **produksi Vercel** (bundle `assets/index-BihDVISr.js` memuat `tiles/events`;
+Chrome CDP): tombol lapisan `Kejadian` diklik → legenda berjudul "Jumlah kejadian karhutla per
+wilayah", panel menulis "Peta ini memuat kejadian tercatat BNPB, bukan deteksi satelit", angka
+nasional 2026 = **1.110** (cocok dengan `select sum(value) … where region_code is null`, 1.110),
+dan peringatan angka berjalan. Log API mencatat **9 permintaan** `/tiles/events/…year=2026` dari
+peramban pada zoom 3 (7 di antaranya `200`, sisanya `204` untuk tile laut) — jadi lapisannya benar
+diminta, bukan hanya terpasang di kode.
+
+Temuan yang harus diingat:
+
+1. **Metrik `event_count` punya baris bulanan yang jumlahnya sama dengan baris tahunan.** 2023:
+   2.153 tahunan dan 2.153 bulanan. Hilangnya `month is null` tidak membuat angkanya "agak beda",
+   melainkan **dua kali lipat** — karena itu uji menyimpan kedua angka itu berdampingan.
+2. **`has_fact` tidak punya satu arti di seluruh aplikasi.** Titik panas: `0` = nol terukur,
+   tidak ada baris = belum dimuat. Kejadian: tidak ada baris = tidak ada kejadian tercatat.
+   Kerawanan: `has_score = 0` = skor belum ada. Ketiganya sekarang disebut di README, legenda,
+   dan uji masing-masing, bukan disamakan.
+3. **Menambah panggilan API di halaman memecahkan uji halaman itu.** `MapPage` kini memanggil
+   `/analysis/national_trend`, dan `App.test.tsx` (yang mem-*mock* modul `api/geosafe`) membuat
+   **10 uji gagal** dengan `Cannot read properties of undefined (reading 'then')` sampai mock itu
+   diberi nilai. Modul tiruan harus menyelesaikan setiap fungsi yang dipanggil halaman, bukan hanya
+   yang sudah dipakai sebelumnya.
+4. **Angka pembanding diambil dari endpoint tren, bukan dari penjumlahan tile.** Tile hanya memuat
+   wilayah di dalam kotak peta, jadi menjumlahkannya membuat angka nasional berubah setiap kali peta
+   digeser; `/analysis/national_trend` sudah membawa seri nasional yang sama dengan halaman `/tren`.
+
+Ikut disinkronkan: `README.md` (21 endpoint, 125/164 uji, baris iterasi 15, baris endpoint
+`/tiles/events`, arti `has_fact` per lapisan), `docs/MVP.md` (baris 15, `P3` tidak lagi tertunda,
+`P5` tetap menunggu keputusan), `frontend/README.md` (lapisan keempat), dan `AGENTS.md`
+(angka uji 125/164).
 
 ## Iterasi 14 — `feat/api-panel-kecamatan` (panel kecamatan `W3`)
 
