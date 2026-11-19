@@ -65,11 +65,12 @@ def test_tile_carries_has_fact_property() -> None:
     assert len(body) > 47_657
 
 
-def test_database_holds_regions_without_fact_rows() -> None:
-    """Menegaskan alasan LEFT JOIN: sebagian wilayah tidak punya baris tahun itu.
+def test_database_writes_explicit_zero_rows() -> None:
+    """Nol ditulis eksplisit, bukan diwakili "tidak ada baris".
 
-    Kalau suatu hari ETL menulis baris bernilai nol, uji ini akan gagal dan
-    keputusan `has_fact` perlu ditinjau ulang — itu memang tujuannya.
+    Sejak data dibangun ulang 2026-11-19 ETL menulis baris bernilai 0 untuk
+    wilayah yang tidak punya deteksi. Kalau suatu hari ETL berhenti menulis nol,
+    uji ini gagal dan arti properti `has_fact` perlu ditinjau ulang.
     """
     with psycopg.connect(database_url(), row_factory=dict_row) as conn:
         with conn.cursor() as cur:
@@ -77,17 +78,21 @@ def test_database_holds_regions_without_fact_rows() -> None:
             region_count = cur.fetchone()["region_count"]
             cur.execute(
                 """
-                select count(*) as fact_rows, count(distinct region_code) as regions
+                select count(*) as fact_rows,
+                       count(distinct region_code) as regions,
+                       count(*) filter (where value = 0) as zero_rows
                   from region_facts
                  where metric_code = 'hotspot_count' and year = 2020
-                   and month is null and confidence is null
+                   and month is null and confidence is null and series = 'main'
+                   and region_code is not null
                 """
             )
             fact_rows = cur.fetchone()
 
     assert region_count == 514
-    assert fact_rows["regions"] < region_count  # ada wilayah tanpa baris
-    assert fact_rows["fact_rows"] > fact_rows["regions"]  # sebagian wilayah punya main + fill
+    assert fact_rows["regions"] == region_count  # semua wilayah punya baris
+    assert fact_rows["zero_rows"] == 39  # 2020: 39 wilayah nol deteksi terukur
+    assert fact_rows["fact_rows"] == region_count
 
 
 def test_year_outside_range_is_rejected() -> None:
@@ -173,7 +178,7 @@ def test_kelas_confidence_kabupaten_kota_menjumlah_ke_angka_tanpa_penyaring() ->
     assert len(rows) == 7
     for row in rows:
         assert row["kelas_h"] + row["kelas_n"] + row["kelas_l"] == row["tanpa_kelas"]
-    assert rows[0]["tanpa_kelas"] == 91_348  # 2020
+    assert rows[0]["tanpa_kelas"] == 91_401  # 2020
 
 
 def test_penyaring_confidence_ditolak_di_tingkat_provinsi() -> None:

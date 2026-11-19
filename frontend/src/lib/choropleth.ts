@@ -23,7 +23,12 @@ export const HOTSPOT_CLASSES: HotspotClass[] = [
   { label: 'lebih dari 2.000', min: 2001, color: '#b30000' },
 ];
 
-/** Wilayah tanpa baris fakta pada tahun terpilih: abu-abu, bukan kelas rendah. */
+/** Wilayah tanpa baris fakta pada tahun terpilih: abu-abu, bukan kelas rendah.
+ *
+ * Sejak nol ditulis eksplisit (2026-11-19), wilayah berdeteksi nol sampai sebagai
+ * kelas `0`, dan abu-abu ini hanya untuk wilayah yang belum punya baris sama
+ * sekali — dua keadaan yang tidak boleh tampil sama.
+ */
 export const NO_FACT_COLOR = '#d8dee9';
 
 export const NO_FACT_LABEL = 'tanpa baris fakta (jangan dibaca sebagai 0)';

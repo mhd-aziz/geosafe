@@ -132,12 +132,13 @@ def test_provinces_endpoint_lists_every_province_with_its_bbox() -> None:
 def test_provinces_endpoint_reports_the_measured_class_counts() -> None:
     body = client.get("/api/v1/provinces").json()
 
-    # Angka 2026-11-17: 83.315 desa berkelas, 43.753 di antaranya tanpa deteksi.
+    # Angka setelah data dibangun ulang 2026-11-19: 83.315 desa berkelas,
+    # 47.563 di antaranya tanpa deteksi (NRT dikeluarkan dari seri tahunan).
     assert body["class_counts"] == {
-        "rendah": 8_881,
-        "sedang": 24_293,
-        "tinggi": 6_388,
-        "tidak_ada_deteksi": 43_753,
+        "rendah": 8_853,
+        "sedang": 21_329,
+        "tinggi": 5_570,
+        "tidak_ada_deteksi": 47_563,
     }
     assert sum(body["class_counts"].values()) == 83_315
     assert body["village_total"] == 83_530

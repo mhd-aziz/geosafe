@@ -1,8 +1,9 @@
 """Uji tren nasional dua seri (A1) terhadap basis data hidup.
 
-Angka yang diperiksa diambil dari basis data apa adanya: titik panas puncak 2023
-(253.127 deteksi), kejadian puncak 2023 (2.153 kejadian), dan seri nrt 2026
-(600.323) yang tidak sebanding dengan arsip.
+Angka yang diperiksa diambil dari basis data apa adanya setelah data dibangun
+ulang 2026-11-19: titik panas puncak 2023 (253.345 deteksi seri main), kejadian
+puncak 2023 (2.153 kejadian), dan tabel tahunan yang **tidak lagi memuat** seri
+nrt (NRT hanya dipakai fitur terkini, 621.100 baris dipisah).
 """
 
 from fastapi.testclient import TestClient
@@ -37,23 +38,26 @@ def test_trend_carries_real_2023_peak_numbers() -> None:
     hotspot_2023 = next(row for row in body["hotspot_by_year"] if row["year"] == 2023)
     events_2023 = next(row for row in body["event_by_year"] if row["year"] == 2023)
 
-    assert hotspot_2023["series"]["main"] == 253_127
-    assert hotspot_2023["archive_total"] == 253_127 + 2_876
+    assert hotspot_2023["series"]["main"] == 253_345
+    assert hotspot_2023["archive_total"] == 253_345 + 2_877
     assert events_2023["event_count"] == 2_153
     assert body["units"]["hotspot_count"] == "titik"
     assert body["units"]["event_count"] == "kejadian"
 
 
-def test_nrt_series_is_separate_from_archive_total() -> None:
+def test_annual_series_carries_no_nrt_rows() -> None:
+    """NRT tidak masuk tabel tahunan: 2026 = arsip main + fill saja."""
     body = _trend()
 
     row_2026 = next(row for row in body["hotspot_by_year"] if row["year"] == 2026)
-    assert row_2026["series"]["nrt"] == 600_323
-    assert row_2026["archive_total"] == 54_065 + 7_092  # nrt tidak ikut dihitung
-    assert row_2026["nrt"] == 600_323
+    assert row_2026["series"] == {"main": 54_084, "fill": 7_093}
+    assert row_2026["archive_total"] == 54_084 + 7_093
+    assert row_2026["nrt"] is None
+    assert all(row["nrt"] is None for row in body["hotspot_by_year"])
 
-    row_2025 = next(row for row in body["hotspot_by_year"] if row["year"] == 2025)
-    assert row_2025["nrt"] is None  # tahun tanpa baris nrt dikosongkan, bukan nol
+    notes = " ".join(body["notes"])
+    assert "tidak memuat seri nrt" in notes
+    assert "tidak boleh dijumlahkan dengan angka arsip" in notes
 
 
 def test_burned_area_stops_at_2025_and_is_labelled_context() -> None:
@@ -86,4 +90,4 @@ def test_notes_state_fill_series_covers_only_some_years() -> None:
 
     row_2020 = next(row for row in body["hotspot_by_year"] if row["year"] == 2020)
     assert "fill" not in row_2020["series"]  # 2020 hanya seri main
-    assert row_2020["archive_total"] == 91_348
+    assert row_2020["archive_total"] == 91_401

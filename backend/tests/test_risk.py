@@ -103,21 +103,22 @@ def test_sensitivity_is_computed_from_live_rows() -> None:
     assert body["regions_without_score"] == 0
     rows = {f"{row['scheme_a']}{row['scheme_b']}": row for row in body["sensitivity"]}
     assert set(rows) == {"ab", "ac", "bc"}
-    # Jumlah wilayah berpindah kelas sama dengan `risk_sensitivity.csv`
-    # (106 / 75 / 53). Kalau bobot atau kelas di basis data berubah, uji ini gagal
-    # dan dokumen keputusan perlu ditinjau ulang — itu memang tujuannya.
-    assert rows["ab"]["regions_class_changed"] == 106
-    assert rows["ac"]["regions_class_changed"] == 75
+    # Jumlah wilayah berpindah kelas sama dengan `risk_sensitivity.csv` setelah
+    # data dibangun ulang 2026-11-19 (112 / 87 / 53). Kalau bobot atau kelas di
+    # basis data berubah, uji ini gagal dan dokumen keputusan perlu ditinjau ulang
+    # — itu memang tujuannya.
+    assert rows["ab"]["regions_class_changed"] == 112
+    assert rows["ac"]["regions_class_changed"] == 87
     assert rows["bc"]["regions_class_changed"] == 53
-    assert rows["ab"]["pct_class_changed"] == 20.6
+    assert rows["ab"]["pct_class_changed"] == 21.8
     # Angka rho ditulis utuh, bukan dengan toleransi lebar: SQL memakai `rank()`
-    # (peringkat terendah untuk nilai kembar) sehingga A–B = 0,9252, sementara
-    # `risk_sensitivity.csv` menulis 0,9251 karena `bangun_kerawanan.py` memakai
+    # (peringkat terendah untuk nilai kembar) sehingga A–B = 0,9294, sementara
+    # `risk_sensitivity.csv` menulis 0,9293 karena `bangun_kerawanan.py` memakai
     # peringkat rata-rata. Toleransi lebih lebar dari 0,0001 akan meloloskan
     # kedua cara itu sekaligus, dan uji ini kehilangan gunanya.
-    assert rows["ab"]["spearman_rho"] == 0.9252
+    assert rows["ab"]["spearman_rho"] == 0.9294
     assert rows["ac"]["spearman_rho"] == 0.959
-    assert rows["bc"]["spearman_rho"] == 0.9823
+    assert rows["bc"]["spearman_rho"] == 0.9841
 
 
 def test_database_holds_risk_rows_for_every_region() -> None:
@@ -147,5 +148,6 @@ def test_database_holds_risk_rows_for_every_region() -> None:
 
     assert rows["risk_score_a"]["n"] == rows["risk_class_a"]["n"] == 514
     assert rows["risk_score_a"]["regions"] == 514
-    # Sebaran kelas skema A yang tercatat di dokumen data siap pakai.
-    assert classes == {"sedang": 239, "tinggi": 138, "rendah": 137}
+    # Sebaran kelas skema A yang tercatat di dokumen data siap pakai
+    # (dibangun ulang 2026-11-19: 140 / 225 / 149).
+    assert classes == {"sedang": 225, "rendah": 149, "tinggi": 140}
