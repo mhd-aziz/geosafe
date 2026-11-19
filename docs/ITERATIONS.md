@@ -45,6 +45,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 12i | Vercel (di luar repo) | Sisa Vercel dirapikan: proyek `omniroute-relay`/`geosafe-uploader` hilang (`404`/`410`), status `Vercel` menunjuk proyek `geosafe`, token unggah tidak dipakai lagi | — | `iter-12i-vercel-cleanup` |
 | 12j | Cloudflare R2 (di luar repo) | Basemap 216 MB pindah ke R2 (`geosafe-basemap` + domain `geosafe-tiles.zisaltech.site`); unggah REST 39,6 dtk; peta terbukti `206` dari R2 dengan **0** permintaan ke Blob | — | `iter-12j-basemap-r2` |
 | 12k | `feat/frontend-latest-bbox` | `truncated` di lapisan terkini punya jalan keluar: kendali kotak peta mengirim `bbox` hasil potongan batas Indonesia; `bash`/`pytest` tidak berubah | #30 | `iter-12k-latest-bbox` |
+| 12l | `chore/drop-homelab-frontend` | Hosting frontend di mesin ini dihapus: nginx dimatikan & di-disable, situs `:8080` hilang, CD hanya memuat ulang API, basemap dev dari R2 | PR | `iter-12l-vercel-only` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
 iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
@@ -53,6 +54,36 @@ iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k (2026-11-19). 
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 12l — `chore/drop-homelab-frontend`
+
+Frontend produksi sudah pindah ke Vercel (12e–12j), tetapi mesin ini masih menyajikan salinan
+kedua di `:8080` lewat nginx: hasil `npm run build`, proxy `/api` + `/tiles`, dan berkas basemap
+`/pmtiles/`. Dua salinan halaman berarti dua tempat yang bisa berbeda versi, dan CD membangun
+frontend di sini setiap push padahal yang dipakai pengguna adalah Vercel. Iterasi ini menghapus
+salinan itu.
+
+| Hal | Sebelum | Sesudah |
+|---|---|---|
+| nginx | `active`, situs `geosafe` di `/etc/nginx/sites-enabled/` | `inactive` + `disabled`; symlink situs dihapus; port 8080 kosong |
+| CD (`deploy.yml`) | `npm ci` + `npm run build`, `reload nginx`, uji asap `:8080` | hanya sinkron working copy, `uv sync --frozen`, `restart geosafe-api`, uji asap `/health` + panel Merauke di `:8000` |
+| Basemap dev | `/pmtiles/` dari nginx (`vite.config.ts` mem-proxy ke `:8080`) | langsung dari Cloudflare R2 (`BASEMAP_URL` bawaan); proxy `/pmtiles` dibuang |
+| Berkas lama | — | `deploy/nginx/geosafe.conf` tetap di disk + salinan `~/geosafe-nginx-geosafe.conf.bak-20261119` |
+
+Bukti di mesin ini setelah perubahan: `systemctl is-active nginx` → `inactive`; `ss -ltnp | grep 8080`
+kosong; API tetap `200` di `http://127.0.0.1:8000/health`.
+
+Temuan:
+
+1. **`npm run dev` ternyata tidak pernah butuh nginx untuk `/api` maupun `/tiles`** — Vite
+   mem-proxy keduanya langsung ke `8000`; nginx hanya dipakai untuk `/pmtiles`. Karena basemap
+   sudah pindah ke R2 (12j), satu-satunya alasan nginx hidup hilang.
+2. **CD lama akan gagal begitu nginx dimatikan**, dan kegagalan itu tidak kentara: `sudo -n
+   systemctl reload nginx` pada unit yang `disabled` tetap bisa sukses me-restart unit, lalu uji
+   asap `:8080` yang gagal. Workflow diubah **dalam commit yang sama** dengan pematian nginx.
+3. **Alamat basemap sekarang ada di kode sebagai bawaan** (`src/lib/map-style.ts`) karena tidak ada
+   lagi server lokal yang menyajikannya. `VITE_BASEMAP_URL` tetap bisa menimpanya; ini berbeda dari
+   `VITE_API_BASE` yang tetap tidak boleh ditulis di kode (API-nya bergantung lingkungan).
 
 ## Iterasi 12k — `feat/frontend-latest-bbox` (PR #30)
 

@@ -28,7 +28,7 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 |---|---|
 | Backend (`backend/`) | berjalan — 16 endpoint, `uv run pytest` 96 passed, koneksi lewat kolam kecil (`psycopg_pool`), CORS hanya untuk origin pratinjau Vercel |
 | Frontend (`frontend/`) | berjalan — 3 halaman (peta + lapisan titik terkini + lapisan kerawanan kabupaten/kota + lapisan kerawanan desa · tren · sumber data), basemap PMTiles z12, panel `W2` memuat skor kerawanan, halaman tren tanpa kolom `nrt`, kendali "Batasi ke area tampak" mempersempit lapisan terkini lewat `bbox` saat muatan `truncated`, `npm test` 125 passed |
-| Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna, nginx menyajikan halaman, proxy API, dan basemap PMTiles z12 (216 MB) di `127.0.0.1:8080`; pratinjau frontend di Vercel memanggil API publik lewat Cloudflare Tunnel, basemap dari Cloudflare R2 (`geosafe-tiles.zisaltech.site`) |
+| Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna di `127.0.0.1:8000` (nginx dimatikan & di-disable 2026-11-19); frontend produksi dilayani **Vercel**, memanggil API publik lewat Cloudflare Tunnel, basemap dari Cloudflare R2 (`geosafe-tiles.zisaltech.site`) |
 | Iterasi selesai | **12k** (kendali kotak peta untuk lapisan terkini; sebelumnya 12j basemap pindah ke Cloudflare R2, 12i sisa Vercel dirapikan, 12h basemap di Vercel Blob, 12g basemap lewat `VITE_BASEMAP_URL`, 12f pratinjau Vercel hidup, 12e CORS + Cloudflare Tunnel, 12d CD otomatis di mesin ini, 12c CI GitHub Actions, 12b sisa seri NRT dibersihkan, 12a data 2026-11-19 masuk aplikasi + skor kerawanan di panel `W2`, 11e lapisan kelas kerawanan desa, 11d kerawanan desa di API, 11c `P4` di antarmuka, 11b `P4` di API, 11a basis data pindah ke Aiven, 10b/10a `P2`+`W1`, 09c basemap, 09b nginx, 09a unit systemd, 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
@@ -107,15 +107,13 @@ uv run uvicorn app.main:app --reload    # http://127.0.0.1:8000
 
 Cara pakai: uvicorn dapat dinyalakan manual seperti di atas, atau (di homelab) lewat
 unit systemd pengguna `geosafe-api.service` — lihat [`docs/ITERATIONS.md`](docs/ITERATIONS.md)
-penyisipan 09a. Halaman hasil build disajikan nginx di `http://127.0.0.1:8080`
-(penyisipan 09b): `/` peta, `/tren` dan `/sumber` diarahkan ke `index.html`, `/api`
-serta `/tiles` diteruskan ke API di port 8000, dan `/pmtiles/` menyajikan basemap
-216 MB yang tersimpan di luar repo (penyisipan 09c).
+penyisipan 09a. **Halaman tidak lagi disajikan mesin ini**: nginx yang dulu menyajikan
+hasil build di `http://127.0.0.1:8080` (penyisipan 09b) dimatikan 2026-11-19, dan frontend
+kini hidup di Vercel sambil memanggil API lewat Cloudflare Tunnel. Untuk pengembangan
+lokal cukup `npm run dev` — Vite mem-proxy `/api` dan `/tiles` ke port 8000, basemap
+ditarik dari Cloudflare R2.
 
 Memuat kode backend yang baru: `systemctl --user restart geosafe-api`.
-Memuat konfigurasi nginx yang baru: `npm run build` di `frontend/`, lalu
-`sudo systemctl reload nginx` (permintaan beberapa saat setelah reload masih
-dilayani proses lama — periksa ulang sebelum menyimpulkan).
 
 Dokumentasi API hidup sendiri di `/docs` dan `/openapi.json` — dibuat FastAPI
 dari kode, jadi tidak ada berkas daftar endpoint yang bisa tertinggal.

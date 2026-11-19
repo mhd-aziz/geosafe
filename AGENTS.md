@@ -22,13 +22,16 @@ npm ci                                   # sekali, dari package-lock.json
 npm test                                 # 125 passed (16 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
-                                         #   nginx menyajikan dist/ di 127.0.0.1:8080
-npm run dev                              # 127.0.0.1:5173, proxy /api + /tiles ke 8000
+                                         #   hanya untuk diperiksa; halaman disajikan Vercel
+npm run dev                              # 127.0.0.1:5173, proxy /api + /tiles ke 8000,
+                                         #   basemap ditarik dari Cloudflare R2
 ```
 
-Kedua layanan sudah jalan: `systemctl --user restart geosafe-api` (kode baru),
-`sudo systemctl reload nginx` (setelah build), `systemctl restart nginx`. Situsnya
-`/etc/nginx/sites-enabled/geosafe` → `deploy/nginx/geosafe.conf`.
+Layanan di mesin ini tinggal **API**: `systemctl --user restart geosafe-api` (kode baru).
+nginx **sudah dimatikan dan di-disable** 2026-11-19 (port 8080 kosong, situs
+`/etc/nginx/sites-enabled/geosafe` dihapus) karena frontend dilayani Vercel; berkas
+lamanya tetap di `deploy/nginx/geosafe.conf` dan salinannya
+`~/geosafe-nginx-geosafe.conf.bak-20261119` bila suatu saat perlu dihidupkan lagi.
 
 CI ada di GitHub Actions (`.github/workflows/ci.yml`, sejak 2026-11-19): setiap push dan PR
 menjalankan `frontend` (typecheck · `npm test` · build) dan `backend` (`uv sync --frozen` →
@@ -45,12 +48,15 @@ CD ada di `.github/workflows/deploy.yml` dan berjalan **hanya pada push ke `main
 `geosafe-runner.service`) menyinkronkan working copy (`git fetch` + `merge --ff-only origin/main` —
 **tidak** `reset --hard`, supaya cabang lain dan pekerjaan yang belum di-commit tidak tertimpa;
 deploy gagal dengan pesan jelas kalau working copy tidak di `main` atau kotor), menjalankan
-`uv sync --frozen`, `npm ci && npm run build`, `systemctl --user restart geosafe-api`,
-`sudo systemctl reload nginx`, lalu uji asap `:8080` + `/health` + panel Merauke. Runner ini
+`uv sync --frozen`, `systemctl --user restart geosafe-api`, lalu uji asap `/health` + panel
+Merauke **langsung di port 8000** — frontend tidak lagi dibangun di sini sejak 2026-11-19
+(halaman dilayani Vercel, jadi `npm ci`/`npm run build` dan `reload nginx` sudah dibuang dari
+workflow). Runner ini
 mengeksekusi kode di mesin yang menyimpan layanan, karena itu workflow-nya **tidak pernah** memakai
 pemicu `pull_request`; jangan menambahkannya.
 
-Pratinjau di Vercel memakai **frontend saja**; API tetap di mesin ini dan dijangkau lewat Cloudflare
+Sejak 2026-11-19 **seluruh frontend hidup di Vercel** (produksi dari `main`, pratinjau per
+cabang); mesin ini hanya menjalankan API, yang dijangkau lewat Cloudflare
 Tunnel `geosafe-api.zisaltech.site` → `127.0.0.1:8000` (`/etc/cloudflared/config-geosafe-api.yml`,
 unit sistem `cloudflared-geosafe-api.service`). Karena origin pratinjau berbeda domain, `app/main.py`
 memasang `CORSMiddleware`: origin dari `GEOSAFE_ALLOWED_ORIGINS` (dipisah koma, bawaan dua alamat
@@ -188,20 +194,24 @@ dokumen boleh langsung ke `main`.
    psycopg menolak DSN berawalan kutip — 2026-11-17 perintah tanpa `tr` menghasilkan **52 gagal,
    17 lulus** dari 69 uji yang ada saat itu (suite kini 80 uji). Setelah dijalankan, periksa dua hal:
    panjang nilainya (berkutip = 2 karakter lebih panjang) dan `pytest` hijau.
-9. nginx harus memetakan `.mjs` ke `text/javascript`; tanpa itu worker MapLibre ditolak Chrome dan
-   **peta kosong tanpa galat di antarmuka** (`curl` tetap 200). `reload nginx` tidak seketika, dan
-   halaman yang dimuat ulang bisa memakai salinan lama karena `immutable` — uji lewat origin lain
-   sebelum menyimpulkan.
+9. ~~nginx harus memetakan `.mjs` ke `text/javascript`~~ — **tidak berlaku lagi di mesin ini**
+   (nginx dimatikan 2026-11-19, halaman di Vercel yang sudah mengirim tipe MIME benar). Kalau nginx
+   suatu saat dihidupkan lagi, aturan lamanya tetap benar: tanpa pemetaan `.mjs`, worker MapLibre
+   ditolak Chrome dan **peta kosong tanpa galat di antarmuka** (`curl` tetap 200), dan `reload nginx`
+   tidak seketika sementara halaman yang dimuat ulang bisa memakai salinan lama karena `immutable`.
 10. `deploy/` tidak terlacak git dan hanya ada di disk mesin ini; `git rm --cached` + `git switch` pernah
     menghapus berkasnya (unit systemd selamat hanya karena sudah termuat di memori). Salin `deploy/` ke
     luar repo sebelum berpindah cabang; pulihkan dengan `git show <commit-sebelum-merge>:<path>`.
 11. `gh` di sesi Hermes bisa menolak "not logged into any GitHub hosts" karena `XDG_CONFIG_HOME`
     menunjuk `~/.hermes/bot-desktop/xdg` — pakai `GH_CONFIG_DIR="$HOME/.config/gh"`.
 12. Basemap 216 MB ada di `../planning-GeoSafe/data/basemap/indonesia.pmtiles` (di luar repo) dan
-    dilayani nginx pada `/pmtiles/`; `npm run dev` meneruskan `/pmtiles` ke nginx, jadi nginx harus
-    hidup. Kalau peta kosong: `curl -r 0-99 -D- http://127.0.0.1:8080/pmtiles/indonesia.pmtiles`
-    harus menjawab `206` + `Content-Range`. Tanpa internet nama tempat hilang (font dan sprite
-    diambil dari `protomaps.github.io/basemaps-assets`), geometri tetap tergambar.
+    **disajikan dari Cloudflare R2** `geosafe-tiles.zisaltech.site` sejak 12j; mesin ini tidak lagi
+    menyajikan `/pmtiles/` (nginx mati 2026-11-19), jadi `npm run dev` menarik basemap langsung dari
+    R2 lewat bawaan `BASEMAP_URL` di `src/lib/map-style.ts`. Kalau peta kosong:
+    `curl -r 0-99 -D- https://geosafe-tiles.zisaltech.site/indonesia.pmtiles` harus menjawab `206` +
+    `Content-Range`. Berkas lokal tetap bisa dipakai lewat `VITE_BASEMAP_URL`. Tanpa internet nama
+    tempat hilang (font dan sprite diambil dari `protomaps.github.io/basemaps-assets`), geometri
+    tetap tergambar.
 13. Koordinat tile yang sah hanya `0..2^z-1`; di luar itu `ST_TileEnvelope` melempar
     `Invalid tile x value` dan permintaan salah alamat berakhir `500`. Setiap endpoint tile baru
     wajib memanggil `check_tile_bounds(z, x, y)` dari `app/tiles.py` (membalas `422`). Aturan
