@@ -7,9 +7,9 @@
 export type MapLevel = 'regency' | 'province';
 
 /** Lapisan tematik yang bisa digambar di peta: jumlah titik panas, jumlah
- *  kejadian tercatat BNPB, kerawanan kabupaten/kota, atau kelas kerawanan
- *  desa/kelurahan. */
-export type MapLayer = 'hotspot' | 'events' | 'risk' | 'risk_village';
+ *  kejadian tercatat BNPB (choropleth), titik kejadian, kerawanan kabupaten/kota,
+ *  atau kelas kerawanan desa/kelurahan. */
+export type MapLayer = 'hotspot' | 'events' | 'event_points' | 'risk' | 'risk_village';
 
 /** Skema bobot skor kerawanan (`P4`); nilainya ditentukan API. */
 export type RiskSchemeCode = 'a' | 'b' | 'c';
@@ -419,5 +419,37 @@ export interface VillagePanelData {
   event_by_year: EventSeriesRow[];
   risk_class_desa: string | null;
   hotspot_per_1000_km2: number | null;
+  notes: string[];
+}
+
+/** Ketelitian koordinat kejadian (`SRS-F-41`): desa, pusat kecamatan, pusat kabupaten/kota. */
+export type CoordLevel = 'village' | 'district' | 'region';
+
+/** Satu kejadian karhutla berkoordinat (`P5`, `SRS-F-40`…`43`). */
+export interface EventPoint {
+  point_id: string;
+  event_date: string | null;
+  year: number;
+  coord_level: CoordLevel | null;
+  longitude: number;
+  latitude: number;
+  province_code: string | null;
+  province_name: string | null;
+  region_code: string | null;
+  region_name: string | null;
+  district_name: string | null;
+  village_name: string | null;
+  deaths: number | null;
+  injured: number | null;
+  houses_damaged: number | null;
+  documentation_url: string | null;
+}
+
+/** `GET /api/v1/events/points?year=` — titik kejadian satu tahun (`P5`). */
+export interface EventPointsResponse {
+  year: number;
+  count: number;
+  coord_level_counts: Record<string, number>;
+  points: EventPoint[];
   notes: string[];
 }

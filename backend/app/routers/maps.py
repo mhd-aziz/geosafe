@@ -24,7 +24,7 @@ Sejak 13b tile ini juga membawa `hotspot_per_1000_km2` untuk tahun yang dipilih
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from psycopg.rows import dict_row
-from typing import Literal
+from typing import Any, Literal
 
 from app.db import get_connection
 from app.tiles import check_tile_bounds, render_tile
@@ -35,6 +35,11 @@ router = APIRouter(prefix="/tiles", tags=["P1 peta titik panas"])
 # diwarnai adalah **kejadian tercatat BNPB**, bukan deteksi satelit. Tag dipisah
 # supaya `/docs` menunjuk kode fiturnya.
 event_router = APIRouter(prefix="/tiles", tags=["P3 peta kejadian"])
+
+# `P5` bukan tile: 6.390 kejadian berkoordinat dikirim sebagai satu daftar titik
+# per tahun (`SRS-F-40`…`44`). Berkasnya tetap di sini karena `maps.py` memegang
+# P1, P3, dan P5.
+points_router = APIRouter(prefix="/api/v1", tags=["P5 peta titik kejadian"])
 
 # Geometri disimpan pada SRID 4326; tile dihitung pada 3857. Amplop tile
 # diproyeksikan ke 4326 untuk WHERE (agar indeks GiST `ix_region_geom` tetap
@@ -274,3 +279,137 @@ def event_tile(
         row = cur.fetchone()
 
     return render_tile(row["tile"] if row else None)
+
+
+# --- P5 peta titik kejadian ------------------------------------------------
+#
+# Satu permintaan = satu tahun (`SRS-F-43`), dan balasannya daftar titik beserta
+# keterangan yang dibutuhkan panel rincian (`SRS-F-42`). Ukurannya aman: tahun
+# terbesar (2023) berisi 2.153 kejadian, bukan ratusan ribu.
+#
+# `coord_level` menjelaskan **ketelitian koordinat** (`SRS-F-41`), dan angka
+# 2026-11-19 menunjukkan kenapa hal itu harus dinyatakan, bukan disembunyikan:
+#
+# | coord_level | kejadian | koordinat unik | artinya |
+# |---|---|---|---|
+# | `village` | 2.086 | 1.519 | koordinat desa/kelurahan, paling teliti |
+# | `district` | 1.705 | 806 | titik pusat kecamatan, bukan lokasi persis |
+# | `region` | 2.599 | 262 | titik pusat kabupaten/kota, paling kasar |
+#
+# Ribuan kejadian berbagi satu koordinat pusat wilayah; peta yang menggambar
+# semuanya sebagai titik tunggal tanpa menyebut tingkat ketelitiannya akan
+# menyatakan presisi yang datanya tidak punya.
+QUERY_EVENT_POINTS = """
+select coalesce(e.event_code, 'EVT-' || e.event_id) as point_id,
+       e.event_id,
+       e.event_date,
+       e.event_year,
+       e.coord_level,
+       e.longitude,
+       e.latitude,
+       r.region_code,
+       r.region_name,
+       p.province_code,
+       p.province_name,
+       coalesce(d.district_name, e.district_name_raw) as district_name,
+       coalesce(v.village_name, e.village_name_raw) as village_name,
+       e.deaths,
+       e.injured,
+       e.houses_damaged,
+       e.documentation_url
+  from disaster_events e
+  left join regions r on r.region_code = e.region_code
+  left join provinces p on p.province_code = r.province_code
+  left join districts d on d.district_code = e.district_code
+  left join villages v on v.village_code = e.village_code
+ where e.disaster_type_code = 'KARHUTLA'
+   and e.event_year = %(year)s
+ order by e.event_date, e.event_id
+"""
+
+# Kejadian tanpa kode identitas BNPB. `SRS-D-06` menyebut 1.648 baris pada data
+# lama; data 2026-11-19 berisi 1.655, dan semuanya tetap mendapat `point_id`
+# cadangan berbentuk `EVT-<event_id>` supaya kunci uniknya tidak hilang.
+EVENTS_WITHOUT_CODE = 1_655
+
+COORD_LEVEL_MEANING: dict[str, str] = {
+    "village": "koordinat desa/kelurahan (paling teliti)",
+    "district": "titik pusat kecamatan, bukan lokasi persis kejadian",
+    "region": "titik pusat kabupaten/kota, paling kasar",
+}
+
+
+def _points_notes(year: int, points: list[dict[str, Any]]) -> list[str]:
+    """Batasan data `P5`; ketelitian koordinat wajib dinyatakan (`SRS-F-41`)."""
+    per_level: dict[str, int] = {}
+    for point in points:
+        level = point["coord_level"] or "tidak diketahui"
+        per_level[level] = per_level.get(level, 0) + 1
+
+    rincian = "; ".join(
+        f"{level} {count} kejadian ({COORD_LEVEL_MEANING.get(level, 'tingkat tidak dikenal')})"
+        for level, count in sorted(per_level.items(), key=lambda item: -item[1])
+    )
+    notes = [
+        "titik pada peta ini adalah kejadian tercatat BNPB, bukan deteksi satelit; "
+        "satu titik mewakili satu kejadian, dan beberapa kejadian bisa berbagi satu koordinat",
+        f"ketelitian koordinat {year}: {rincian}",
+        "titik pusat kecamatan dan kabupaten/kota dipakai karena kejadiannya tidak punya "
+        "koordinat lokasi, jadi posisinya menunjukkan wilayah, bukan tempat kejadian persis",
+        f"{EVENTS_WITHOUT_CODE} kejadian pada 2020–2026 tidak punya kode identitas BNPB; "
+        "kuncinya diberi cadangan `EVT-<event_id>` supaya tetap unik",
+        "korban dan kerusakan hampir selalu kosong pada sumbernya: angka 0 berarti "
+        "dilaporkan nol, sedangkan kosong berarti tidak dilaporkan",
+    ]
+    if year == 2026:
+        notes.append("angka 2026 adalah angka berjalan sampai data terakhir, bukan setahun penuh")
+    return notes
+
+
+@points_router.get("/events/points")
+def event_points(
+    year: int = Query(ge=2020, le=2026, description="Tahun kejadian tercatat BNPB"),
+    conn: psycopg.Connection = Depends(get_connection),
+) -> dict[str, Any]:
+    """Titik kejadian karhutla satu tahun beserta rinciannya (`P5`).
+
+    Rincian dibawa sekalian supaya klik satu titik tidak perlu permintaan kedua
+    (`SRS-F-42`). Panel wilayah tetap dipisah: angkanya dibaca dari endpoint panel
+    yang sudah ada, bukan dihitung ulang di sini (`SRS-F-44`).
+    """
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(QUERY_EVENT_POINTS, {"year": year})
+        rows = cur.fetchall()
+
+    points = [
+        {
+            "point_id": row["point_id"],
+            "event_date": row["event_date"].isoformat() if row["event_date"] else None,
+            "year": row["event_year"],
+            "coord_level": row["coord_level"],
+            "longitude": row["longitude"],
+            "latitude": row["latitude"],
+            "province_code": row["province_code"],
+            "province_name": row["province_name"],
+            "region_code": row["region_code"],
+            "region_name": row["region_name"],
+            "district_name": row["district_name"],
+            "village_name": row["village_name"],
+            "deaths": row["deaths"],
+            "injured": row["injured"],
+            "houses_damaged": row["houses_damaged"],
+            "documentation_url": row["documentation_url"],
+        }
+        for row in rows
+    ]
+
+    return {
+        "year": year,
+        "count": len(points),
+        "coord_level_counts": {
+            level: sum(1 for point in points if point["coord_level"] == level)
+            for level in COORD_LEVEL_MEANING
+        },
+        "points": points,
+        "notes": _points_notes(year, points),
+    }

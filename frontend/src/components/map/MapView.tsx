@@ -16,11 +16,19 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
 import { fillColorExpression } from '../../lib/choropleth';
+import { pointColorExpression, pointRadiusExpression, pointReadoutText, pointsToGeoJson } from '../../lib/event-points';
 import { eventFillColorExpression } from '../../lib/events';
-import { latestCircleColorExpression, pointsToGeoJson } from '../../lib/latest-layer';
+import { latestCircleColorExpression, pointsToGeoJson as latestPointsToGeoJson } from '../../lib/latest-layer';
 import { basemapStyle } from '../../lib/map-style';
 import { riskFillColorExpression, villageRiskFillColorExpression } from '../../lib/risk';
-import type { LatestPoint, MapLayer, MapLevel, RiskSchemeCode, SearchLevel } from '../../types/geosafe';
+import type {
+  EventPoint,
+  LatestPoint,
+  MapLayer,
+  MapLevel,
+  RiskSchemeCode,
+  SearchLevel,
+} from '../../types/geosafe';
 import { THEMATIC_IDS, VILLAGE_MIN_ZOOM, readoutText, thematicSpec } from './thematic-layer';
 
 setWorkerUrl(`${maplibreWorkerUrl}?v=mjs-mime`);
@@ -34,9 +42,14 @@ addProtocol('pmtiles', new Protocol().tile);
 
 const LATEST_SOURCE_ID = 'latest-hotspot';
 const LATEST_LAYER_ID = 'latest-hotspot-points';
+const EVENT_POINT_SOURCE_ID = 'event-points';
+const EVENT_POINT_LAYER_ID = 'event-points-circles';
+
+/** Lapisan yang digambar sebagai poligon; lapisan titik kejadian (`P5`) punya sumber sendiri. */
+type PolygonLayer = Exclude<MapLayer, 'event_points'>;
 
 /** Layer poligon yang sedang aktif; dipakai klik, kursor, dan bacaan angka. */
-const ACTIVE_FILL_LAYER: Record<MapLayer, string> = {
+const ACTIVE_FILL_LAYER: Record<PolygonLayer, string> = {
   hotspot: 'hotspot-fill',
   events: 'events-fill',
   risk: 'risk-fill',
@@ -44,7 +57,7 @@ const ACTIVE_FILL_LAYER: Record<MapLayer, string> = {
 };
 
 /** Warna kelas per lapisan; peta hanya mewarnai, angkanya dibaca di bacaan kursor. */
-const FILL_COLOR_EXPRESSION: Record<MapLayer, () => readonly unknown[]> = {
+const FILL_COLOR_EXPRESSION: Record<PolygonLayer, () => readonly unknown[]> = {
   hotspot: fillColorExpression,
   events: eventFillColorExpression,
   risk: riskFillColorExpression,
@@ -72,7 +85,11 @@ export interface MapViewProps {
   focusBounds: [number, number, number, number] | null;
   /** Titik panas terkini (`P2`); `null` = belum ada/`truncated`, tidak digambar. */
   latestPoints: LatestPoint[] | null;
+  /** Titik kejadian karhutla tahun terpilih (`P5`); `null` = belum dimuat/tidak aktif. */
+  eventPoints?: EventPoint[] | null;
   onSelectRegion: (region: { code: string; name: string; level: SearchLevel }) => void;
+  /** Klik satu titik kejadian membuka rinciannya (`SRS-F-42`). */
+  onSelectEventPoint?: (point: EventPoint) => void;
   /** Kotak peta yang sedang tampil: dikirim hanya saat pengguna memintanya jadi `bbox`. */
   onViewportChange?: (bounds: [number, number, number, number]) => void;
 }
@@ -94,7 +111,9 @@ export function MapView({
   provinceCode,
   focusBounds,
   latestPoints,
+  eventPoints = null,
   onSelectRegion,
+  onSelectEventPoint,
   onViewportChange,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -109,8 +128,24 @@ export function MapView({
   const [readout, setReadout] = useState<{ x: number; y: number; text: string } | null>(null);
   // Handler peta tidak dibuat ulang setiap render, jadi nilai terbaru dibaca
   // lewat ref: kalau tidak, klik selalu memakai tingkat wilayah/lapisan yang lama.
-  const latest = useRef({ layer, level, year, onSelectRegion, onViewportChange });
-  latest.current = { layer, level, year, onSelectRegion, onViewportChange };
+  const latest = useRef({
+    layer,
+    level,
+    year,
+    eventPoints,
+    onSelectRegion,
+    onSelectEventPoint,
+    onViewportChange,
+  });
+  latest.current = {
+    layer,
+    level,
+    year,
+    eventPoints,
+    onSelectRegion,
+    onSelectEventPoint,
+    onViewportChange,
+  };
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -156,6 +191,24 @@ export function MapView({
 
     map.on('click', (event) => {
       const currentLayer = latest.current.layer;
+      // Lapisan titik kejadian (`P5`): klik membuka rincian kejadiannya
+      // (`SRS-F-42`). Titiknya GeoJSON, jadi dicari lewat properti `point_id`.
+      if (currentLayer === 'event_points') {
+        if (!map.getLayer(EVENT_POINT_LAYER_ID)) {
+          return;
+        }
+        const [feature] = map.queryRenderedFeatures(event.point, {
+          layers: [EVENT_POINT_LAYER_ID],
+        });
+        const pointId = feature?.properties?.point_id;
+        const point = latest.current.eventPoints?.find(
+          (candidate) => candidate.point_id === String(pointId),
+        );
+        if (point && latest.current.onSelectEventPoint) {
+          latest.current.onSelectEventPoint(point);
+        }
+        return;
+      }
       // Lapisan desa: klik membuka panel desa (`W4`). Nama desa dan kelasnya juga
       // terbaca di bacaan kursor, tetapi panelnya butuh kode desa dari properti
       // tile — kabupaten/kota induknya tidak dipakai karena itu wilayah berbeda.
@@ -198,7 +251,27 @@ export function MapView({
 
     map.on('mousemove', (event) => {
       const current = latest.current;
-      const fillLayer = ACTIVE_FILL_LAYER[current.layer];
+      // Lapisan titik kejadian: bacaan tanggal + wilayah + ketelitian koordinat.
+      if (current.layer === 'event_points') {
+        if (!map.getLayer(EVENT_POINT_LAYER_ID)) {
+          return;
+        }
+        const [pointFeature] = map.queryRenderedFeatures(event.point, {
+          layers: [EVENT_POINT_LAYER_ID],
+        });
+        map.getCanvas().style.cursor = pointFeature ? 'pointer' : '';
+        if (!pointFeature?.properties) {
+          setReadout(null);
+          return;
+        }
+        setReadout({
+          x: event.point.x,
+          y: event.point.y,
+          text: pointReadoutText(pointFeature.properties as Record<string, unknown>),
+        });
+        return;
+      }
+      const fillLayer = ACTIVE_FILL_LAYER[current.layer as PolygonLayer];
       if (!map.getLayer(fillLayer)) {
         return;
       }
@@ -245,6 +318,12 @@ export function MapView({
       if (map.getSource(ids.sourceId)) {
         map.removeSource(ids.sourceId);
       }
+    }
+
+    // Lapisan titik kejadian tidak memakai tile: sumbernya GeoJSON, dipasang di
+    // efeknya sendiri di bawah.
+    if (layer === 'event_points') {
+      return;
     }
 
     // Lapisan desa tanpa provinsi terpilih: tidak ada tile yang sah untuk
@@ -317,7 +396,7 @@ export function MapView({
 
     map.addSource(LATEST_SOURCE_ID, {
       type: 'geojson',
-      data: pointsToGeoJson(latestPoints),
+      data: latestPointsToGeoJson(latestPoints),
     });
     map.addLayer({
       id: LATEST_LAYER_ID,
@@ -334,7 +413,52 @@ export function MapView({
     });
   }, [ready, latestPoints]);
 
-  // Zoom minimum peta harus ikut lapisan aktif. MapLibre mengembalikan **nol
+  // Lapisan titik kejadian (`P5`): GeoJSON, bukan tile — 2.153 kejadian pada tahun
+  // terbesar masih wajar dikirim sekali. Warna dan jari-jari mengikuti ketelitian
+  // koordinat (`SRS-F-41`), dan sumbernya dibuang saat lapisan berganti supaya
+  // tidak ada titik yatim di atas choropleth lain.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) {
+      return;
+    }
+
+    if (map.getLayer(EVENT_POINT_LAYER_ID)) {
+      map.removeLayer(EVENT_POINT_LAYER_ID);
+    }
+    if (map.getSource(EVENT_POINT_SOURCE_ID)) {
+      map.removeSource(EVENT_POINT_SOURCE_ID);
+    }
+    if (layer !== 'event_points' || !eventPoints || eventPoints.length === 0) {
+      return;
+    }
+
+    // Di bawah titik terkini bila lapisan itu ada: `P5` dan `P2` tidak pernah
+    // dianggap satu seri, tetapi titik terkini tetap harus terbaca di atasnya.
+    const beforeId = map.getLayer(LATEST_LAYER_ID) ? LATEST_LAYER_ID : undefined;
+
+    map.addSource(EVENT_POINT_SOURCE_ID, {
+      type: 'geojson',
+      data: pointsToGeoJson(eventPoints),
+    });
+    map.addLayer(
+      {
+        id: EVENT_POINT_LAYER_ID,
+        type: 'circle',
+        source: EVENT_POINT_SOURCE_ID,
+        paint: {
+          'circle-color': pointColorExpression() as never,
+          'circle-radius': pointRadiusExpression() as never,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 0.5,
+          'circle-opacity': 0.85,
+        },
+      },
+      beforeId,
+    );
+  }, [ready, layer, eventPoints]);
+
+  // Zoom minimum peta harus ikut lapisan aktif. MapLibre mengembalikan **nol**
   // tile** untuk sumber yang `minzoom`-nya lebih besar daripada zoom peta yang
   // dibulatkan ke bawah (`coveringTiles` berhenti sebelum meminta apa pun), jadi
   // sumber lapisan desa (minzoom 8) tidak akan pernah terisi selama pengguna

@@ -92,8 +92,8 @@ export function thematicSpec(
     };
   }
 
-  // Lapisan kejadian (`P3`) hanya ada di tingkat kabupaten/kota, dan tahunnya
-  // ikut di URL seperti lapisan titik panas.
+  // Lapisan kejadian (`P3`) dan titik kejadian (`P5`) hanya ada di tingkat
+  // kabupaten/kota, dan tahunnya ikut di URL.
   if (layer === 'events') {
     return {
       ...EVENTS_IDS,
@@ -101,6 +101,12 @@ export function thematicSpec(
       sourceLayer: eventTileSourceLayer(),
       minzoom: 0,
     };
+  }
+
+  // Titik kejadian (`P5`) bukan tile: sumbernya GeoJSON yang dipasang MapView
+  // sendiri, jadi tidak ada spesifikasi sumber vektor di sini.
+  if (layer === 'event_points') {
+    return null;
   }
 
   return {
