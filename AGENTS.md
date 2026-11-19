@@ -67,13 +67,17 @@ alasan. **Repo ini juga tertaut ke proyek Vercel lain `omniroute-relay`** yang b
 token MCP (API membalas 404 walau check-nya muncul di PR); melepas tautan itu harus lewat dasbor
 Vercel: proyek `omniroute-relay` → Settings → Git → Disconnect.
 
-Basemap PMTiles (216 MB) tidak ikut ke Vercel, jadi alamatnya diberikan lewat `VITE_BASEMAP_URL`
-(`pmtiles://https://geosafe-tiles.zisaltech.site/pmtiles/indonesia.pmtiles`). Host
-`geosafe-tiles.zisaltech.site` adalah ingress kedua pada tunnel yang sama → nginx `127.0.0.1:8080`;
-blok `/pmtiles/indonesia.pmtiles` di nginx mengirim `206`, `Content-Range`, dan
-`Access-Control-Expose-Headers` (tanpa header terakhir klien PMTiles berhenti setelah rentang pertama).
-**Kalau basemap gagal dimuat, seluruh peta kosong** — bukan hanya latar: layer tematik dipasang setelah
-gaya selesai dimuat, jadi kegagalan sumber basemap menunda semuanya.
+Basemap PMTiles (216 MB) **tidak** ikut ke Vercel sebagai berkas repo; berkasnya diunggah ke **Vercel
+Blob** (store `geosafe-basemap-files`, publik, region `sin1`) dan alamatnya diberikan lewat
+`VITE_BASEMAP_URL` (`pmtiles://https://nwn0yxwn6uggklp6.public.blob.vercel-storage.com/indonesia.pmtiles`).
+Unggahannya 206,1 MB dalam 43,7 dtk lewat token unggah sisi-klien (`@vercel/blob/client`), bukan lewat
+badan fungsi: fungsi Vercel membatasi badan permintaan beberapa MB dan percobaan pertama berakhir
+`terminated`. **Server homelab tidak lagi melayani basemap ke internet**: host
+`geosafe-tiles.zisaltech.site` sudah dicabut dari ingress tunnel dan record CNAME-nya dihapus; nginx
+tetap menyajikan `/pmtiles/indonesia.pmtiles` untuk `npm run dev` lokal. Tunnel yang tersisa hanya
+`geosafe-api.zisaltech.site` → `127.0.0.1:8000`. **Kalau basemap gagal dimuat, seluruh peta kosong** —
+bukan hanya latar: layer tematik dipasang setelah gaya selesai dimuat, jadi kegagalan sumber basemap
+menunda semuanya.
 
 **Jangan menyimpulkan "peta kosong" dari tab latar belakang.** Chrome menahan `requestAnimationFrame`
 di tab yang tidak aktif, sehingga MapLibre tidak pernah menggambar: `isStyleLoaded()` selamanya

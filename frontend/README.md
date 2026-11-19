@@ -33,13 +33,16 @@ Cloudflare Tunnel dan hanya mengizinkan origin `https://geosafe*.vercel.app`
 (CORS, lihat `backend/app/config.py`). `vercel.json` di folder ini mengatur build
 Vite + SPA fallback.
 
-Basemap PMTiles (216 MB) **tidak** ikut ke Vercel. Tanpa berkas itu gaya peta gagal
-memuat sumbernya dan **seluruh peta kosong** (poligon choropleth ikut hilang karena
-layer tematik baru dipasang setelah gaya selesai dimuat). Karena itu alamat basemap
-juga bisa diarahkan lewat **`VITE_BASEMAP_URL`**, contoh:
-`VITE_BASEMAP_URL=pmtiles://https://geosafe-tiles.zisaltech.site/pmtiles/indonesia.pmtiles`
-(tunnel ke nginx `:8080`, yang menyajikan berkasnya dengan `206` + CORS). Tanpa
-variabel itu, bawaannya tetap `/pmtiles/indonesia.pmtiles` untuk pemakaian lokal.
+Basemap PMTiles (216 MB) **tidak** ikut ke Vercel sebagai berkas repo, melainkan diunggah ke
+**Vercel Blob** dan alamatnya diisi lewat **`VITE_BASEMAP_URL`**, contoh:
+
+```
+VITE_BASEMAP_URL=pmtiles://https://<store>.public.blob.vercel-storage.com/indonesia.pmtiles
+```
+
+Tanpa variabel itu, bawaannya tetap `/pmtiles/indonesia.pmtiles` (nginx lokal, untuk `npm run dev`).
+Kalau basemap gagal dimuat, **seluruh peta kosong** — bukan hanya latar — karena layer tematik dipasang
+setelah gaya selesai dimuat.
 
 Perintah lain:
 

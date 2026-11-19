@@ -40,6 +40,8 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 12d | `ci/deploy-self-hosted` | CD: runner self-hosted di mesin ini (label `geosafe`, unit pengguna `geosafe-runner.service`), `deploy.yml` pada push ke `main` — sinkron working copy, build, restart API, reload nginx, uji asap `:8080` | #26 · #27 | `iter-12d-deploy-self-hosted` |
 | 12e | `feat/cors-vercel-preview` | API publik lewat Cloudflare Tunnel `geosafe-api.zisaltech.site` + `CORSMiddleware` (origin `geosafe*.vercel.app`, hanya `GET`) agar frontend bisa dipratinjau di Vercel; `frontend/vercel.json` | #28 | `iter-12e-vercel-preview` |
 | 12f | Vercel (di luar repo) | Proyek `geosafe` di Vercel: Root Directory `frontend`, Vite, `VITE_API_BASE=https://geosafe-api.zisaltech.site`, protection dimatikan; deploy produksi `READY` dan `CORS` terbukti untuk origin Vercel asli | — | `iter-12f-vercel-preview-live` |
+| 12g | `fix/vercel-basemap` | Basemap bisa diarahkan lewat `VITE_BASEMAP_URL`; nginx mengirim CORS untuk berkas PMTiles; tanpa basemap seluruh peta kosong | #29 | `iter-12g-vercel-basemap` |
+| 12h | Vercel (di luar repo) | Basemap 216 MB pindah ke Vercel Blob (`geosafe-basemap-files`, unggah 206,1 MB / 43,7 dtk lewat token sisi-klien); host `geosafe-tiles` dicabut dari tunnel + CNAME-nya dihapus | — | `iter-12h-basemap-blob` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -47,6 +49,46 @@ Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c,
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 12h — basemap pindah ke Vercel Blob (di luar repo)
+
+Basemap 216 MB tidak lagi dilayani mesin ini ke internet; berkasnya sekarang di Vercel Blob.
+
+| Hal | Nilai |
+|---|---|
+| Store | `geosafe-basemap-files` (`store_NWn0yxwn6uGGKlp6`), publik, region `sin1` |
+| URL | `https://nwn0yxwn6uggklp6.public.blob.vercel-storage.com/indonesia.pmtiles` |
+| Unggahan | 206,1 MB dalam **43,7 dtk** dari mesin ini lewat token sisi-klien `@vercel/blob/client` |
+| Sajian | `206 Partial Content` · `content-range: bytes 0-99/216138172` · `access-control-allow-origin: *` |
+| Env proyek | `VITE_BASEMAP_URL=pmtiles://https://nwn0yxwn6uggklp6.public.blob.vercel-storage.com/indonesia.pmtiles` |
+| Tunnel | `geosafe-tiles.zisaltech.site` dicabut dari ingress **dan** CNAME-nya dihapus; sisa tunnel hanya `geosafe-api` |
+| Lokal | nginx tetap menyajikan `/pmtiles/indonesia.pmtiles` untuk `npm run dev` |
+
+Bukti: deploy produksi `dpl_7aitLqA9WdtdnQ917ybDF1NR8Afn` (`READY`), bundel memuat host Blob **1×**,
+peramban melakukan **6 permintaan rentang `206`** ke Blob, dan tangkapan layar area peta punya **5.718
+warna unik** (laut `#80deea`, darat `#c4e7d2`) — sama dengan versi lokal yang sehat.
+
+Temuan:
+
+1. **Fungsi Vercel tidak bisa dipakai memindahkan berkas 216 MB.** Percobaan 1: fungsi menarik dari
+   tunnel lalu menulis ke Blob → Cloudflare membalas `403` untuk egress datacenter (UA browser tidak
+   menolong). Percobaan 2: `terminated` setelah 7 dtk. Jalur yang berhasil: **token unggah sisi-klien**,
+   berkas dikirim langsung dari mesin ini ke Blob tanpa melewati badan fungsi.
+2. **Token rahasia tidak perlu berpindah mesin.** Token store dibuat di dalam Vercel (env proyek
+   sementara), dan yang dipakai di mesin ini hanya token unggah berdurasi pendek dari rute
+   `/api/token`; rute itu sudah dinonaktifkan (`404`) setelah unggahan selesai.
+3. **Jangan menilai kesiapan berkas dari status HTTP saja.** SPA rewrite Vercel menjawab path
+   `.pmtiles` yang tidak ada dengan `index.html` berkode `206`, sehingga "apakah URL hidup" lolos
+   padahal klien gagal mengurai. Yang menentukan: `content-type` dan `content-range`.
+
+## Iterasi 12g — `fix/vercel-basemap` (PR #29)
+
+Basemap di pratinjau Vercel berakhir kosong karena `BASEMAP_URL` masih relatif ke origin (`/pmtiles/...`):
+berkasnya tidak ada di Vercel, dan karena layer tematik dipasang setelah gaya selesai dimuat, seluruh
+peta ikut hilang — bukan hanya latar. Perbaikan: `BASEMAP_URL` dibaca dari `VITE_BASEMAP_URL` (bawaan
+tetap jalur lokal), dan blok `/pmtiles/indonesia.pmtiles` di nginx mengirim CORS +
+`Access-Control-Expose-Headers`. Verifikasi: `206` + `content-range` dari host publik, bundel memuat
+host basemap 1×, area peta 5.718 warna unik.
 
 ## Iterasi 12f — pratinjau frontend di Vercel (di luar repo)
 
