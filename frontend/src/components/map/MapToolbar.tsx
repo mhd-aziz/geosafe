@@ -56,7 +56,8 @@ export function MapToolbar({
   // kerawanan adalah ringkasan satu periode pada tingkat tetap.
   const hotspotActive = layer === 'hotspot';
   const eventsActive = layer === 'events';
-  const yearlyActive = hotspotActive || eventsActive;
+  const pointsActive = layer === 'event_points';
+  const yearlyActive = hotspotActive || eventsActive || pointsActive;
   const riskActive = layer === 'risk';
   const villageActive = layer === 'risk_village';
   const schemeOptions = riskSchemes.data?.schemes ?? FALLBACK_SCHEMES;
@@ -75,6 +76,11 @@ export function MapToolbar({
             value: 'events',
             label: 'Kejadian',
             title: 'Jumlah kejadian karhutla tercatat BNPB per tahun, tingkat kabupaten/kota (P3)',
+          },
+          {
+            value: 'event_points',
+            label: 'Titik kejadian',
+            title: 'Titik tiap kejadian tercatat BNPB, dibedakan menurut ketelitian koordinat (P5)',
           },
           {
             value: 'risk',
@@ -125,7 +131,9 @@ export function MapToolbar({
                 ? undefined
                 : eventsActive
                   ? 'Kejadian dipetakan per kabupaten/kota (SRS-F-28)'
-                  : 'Skor kerawanan hanya dihitung untuk kabupaten/kota (SRS-F-37)',
+                  : pointsActive
+                    ? 'Titik kejadian tidak punya tingkat provinsi (SRS-F-40)'
+                    : 'Skor kerawanan hanya dihitung untuk kabupaten/kota (SRS-F-37)',
             },
           ]}
         />
@@ -137,6 +145,15 @@ export function MapToolbar({
           Peta ini memuat <strong>kejadian tercatat BNPB</strong>, bukan deteksi satelit. Tingkat
           wilayah dikunci ke kabupaten/kota (`SRS-F-28`), dan abu-abu berarti tidak ada kejadian
           tercatat pada tahun terpilih.
+        </p>
+      ) : null}
+
+      {pointsActive ? (
+        // `SRS-F-41`: arti tingkat ketelitian koordinat wajib dinyatakan.
+        <p className="text-[11px] leading-snug text-slate-600">
+          Setiap titik adalah satu <strong>kejadian tercatat BNPB</strong>. Warna dan ukuran titik
+          menunjukkan ketelitian koordinatnya: biru = desa/kelurahan (paling teliti), cokelat = titik
+          pusat kecamatan, merah tua = titik pusat kabupaten/kota. Klik satu titik untuk rinciannya.
         </p>
       ) : null}
 

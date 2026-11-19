@@ -6,19 +6,23 @@ import { LatestControl } from '../components/map/LatestControl';
 import { MapToolbar } from '../components/map/MapToolbar';
 import { MapView } from '../components/map/MapView';
 import { DistrictDetailPanel } from '../components/panel/DistrictDetailPanel';
+import { EventDetailPanel } from '../components/panel/EventDetailPanel';
 import { EventPanel } from '../components/panel/EventPanel';
+import { EventPointsPanel } from '../components/panel/EventPointsPanel';
 import { LatestPanel } from '../components/panel/LatestPanel';
 import { RegionPanel } from '../components/panel/RegionPanel';
 import { RiskPanel } from '../components/panel/RiskPanel';
 import { VillageDetailPanel } from '../components/panel/VillageDetailPanel';
 import { VillagePanel } from '../components/panel/VillagePanel';
 import { SearchBox } from '../components/search/SearchBox';
+import { useEventPoints } from '../hooks/useEventPoints';
 import { useLatestHotspots } from '../hooks/useLatestHotspots';
 import { useRemoteData } from '../hooks/useRemoteData';
 import { DEFAULT_YEAR } from '../lib/constants';
 import { bboxParam } from '../lib/format';
 import { DEFAULT_RISK_SCHEME } from '../lib/risk';
 import type {
+  EventPoint,
   LatestWindow,
   MapLayer,
   MapLevel,
@@ -58,6 +62,9 @@ export function MapPage() {
   // ada tile yang sah untuk diminta.
   const [provinceCode, setProvinceCode] = useState<string | null>(null);
   const [selected, setSelected] = useState<SelectedRegion | null>(null);
+  // Titik kejadian yang diklik (`P5`, `SRS-F-42`): rinciannya dipisah dari panel
+  // wilayah karena satu titik bukan satu wilayah.
+  const [selectedPoint, setSelectedPoint] = useState<EventPoint | null>(null);
   const [focusBounds, setFocusBounds] = useState<Bounds | null>(null);
   const [latestWindow, setLatestWindow] = useState<LatestWindow>(72);
   // Kotak peta yang terakhir tampil dan kotak yang sedang dipakai sebagai `bbox`
@@ -75,6 +82,9 @@ export function MapPage() {
   const trend = useRemoteData(fetchNationalTrend, []);
   // Daftar provinsi + sebaran kelas desa: dipakai kendali lapisan desa dan panelnya.
   const villageProvinces = useRemoteData(fetchVillageProvinces, []);
+  // Titik kejadian (`P5`) hanya diminta saat lapisannya aktif, dan selalu untuk
+  // tahun yang sedang dipilih.
+  const eventPoints = useEventPoints(year, layer === 'event_points');
   // Data hanya dipakai bila berasal dari jendela yang sedang dipilih: saat pengguna
   // berganti jendela, angka jendela lama tidak boleh tetap tampil di sebelah tombol
   // jendela baru, dan bila tarikan jendela baru gagal hal itu disebut apa adanya.
@@ -85,8 +95,12 @@ export function MapPage() {
 
   const handleLayerChange = useCallback((next: MapLayer) => {
     setLayer(next);
-    // Kerawanan kabupaten/kota tidak punya tingkat provinsi, jadi pilihannya ikut
-    // dikembalikan ke kabupaten/kota supaya tidak ada keadaan "lapisan kerawanan +
+    // Rincian titik kejadian tidak berlaku setelah lapisannya ditinggalkan.
+    if (next !== 'event_points') {
+      setSelectedPoint(null);
+    }
+    // Kerawanan dan kejadian tidak punya tingkat provinsi, jadi pilihannya ikut
+    // dikembalikan ke kabupaten/kota supaya tidak ada keadaan "lapisan ini +
     // tingkat provinsi".
     if (next !== 'hotspot') {
       setLevel('regency');
@@ -154,7 +168,9 @@ export function MapPage() {
               ? 'Peta kelas kerawanan kabupaten/kota'
               : layer === 'events'
                 ? 'Peta jumlah kejadian karhutla tercatat BNPB'
-                : 'Peta sebaran titik panas'
+                : layer === 'event_points'
+                  ? 'Peta titik kejadian karhutla tercatat BNPB'
+                  : 'Peta sebaran titik panas'
         }
         className="relative h-[58vh] min-h-[340px] shrink-0 sm:h-[56vh] sm:min-h-[380px] lg:h-auto lg:min-h-0 lg:flex-1"
       >
@@ -166,7 +182,9 @@ export function MapPage() {
           provinceCode={provinceCode}
           focusBounds={focusBounds}
           latestPoints={latest.data?.points ?? null}
+          eventPoints={layer === 'event_points' ? (eventPoints.data?.points ?? null) : null}
           onSelectRegion={handleSelectFromMap}
+          onSelectEventPoint={setSelectedPoint}
           onViewportChange={setViewport}
         />
         {/* Kendali mengapung: di layar kecil daftar ini bisa digulir dan tingginya
@@ -232,6 +250,10 @@ export function MapPage() {
           <div className={CARD}>
             <EventPanel trend={trend} year={year} />
           </div>
+        ) : layer === 'event_points' ? (
+          <div className={CARD}>
+            <EventPointsPanel state={eventPoints} year={year} />
+          </div>
         ) : layer === 'risk_village' ? (
           <div className={CARD}>
             <VillagePanel state={villageProvinces} provinceCode={provinceCode} />
@@ -246,7 +268,20 @@ export function MapPage() {
           </div>
         )}
 
-        {selected ? (
+        {selectedPoint ? (
+          // `SRS-F-42`: rincian satu kejadian. Tombol di dalamnya membuka panel
+          // kabupaten/kota wilayahnya untuk angka wilayah (`SRS-F-44`).
+          <div className={CARD}>
+            <EventDetailPanel
+              point={selectedPoint}
+              onClose={() => setSelectedPoint(null)}
+              onOpenRegion={(regionCode, regionName) => {
+                setSelectedPoint(null);
+                handleSelectFromMap({ code: regionCode, name: regionName, level: 'regency' });
+              }}
+            />
+          </div>
+        ) : selected ? (
           selected.level === 'regency' ? (
             <div className={CARD}>
               <RegionPanel regionCode={selected.code} onClose={closePanel} />

@@ -5,6 +5,7 @@ import type {
   CompositionData,
   CompositionMetric,
   DistrictPanelData,
+  EventPointsResponse,
   DownloadsResponse,
   LatestResponse,
   LatestSummary,
@@ -159,4 +160,13 @@ export function fetchLatestSummary(
 function latestQuery(windowHours: LatestWindow, bbox: string | null): string {
   const query = `?window=${windowHours}`;
   return bbox === null ? query : `${query}&bbox=${bbox}`;
+}
+
+/** Titik kejadian karhutla satu tahun (`P5`, `SRS-F-40`…`43`).
+ *
+ * Balasannya memuat rincian tiap titik sekaligus, supaya klik satu titik tidak
+ * menambah permintaan. Tahun terbesar (2023) berisi 2.153 kejadian.
+ */
+export function fetchEventPoints(year: number): Promise<EventPointsResponse> {
+  return fetchJson<EventPointsResponse>(`/api/v1/events/points?year=${year}`);
 }

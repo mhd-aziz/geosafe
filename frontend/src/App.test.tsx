@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   fetchDownloads,
+  fetchEventPoints,
   fetchLatest,
   fetchLatestSummary,
   fetchNationalTrend,
@@ -27,6 +28,7 @@ vi.mock('./api/geosafe', () => ({
   fetchPointCoverage: vi.fn(),
   fetchDownloads: vi.fn(),
   fetchNationalTrend: vi.fn(),
+  fetchEventPoints: vi.fn(),
   fetchLatest: vi.fn(),
   fetchLatestSummary: vi.fn(),
   fetchRiskSchemes: vi.fn(),
@@ -45,6 +47,18 @@ const fetchLatestSummaryMock = vi.mocked(fetchLatestSummary);
 const fetchRiskSchemesMock = vi.mocked(fetchRiskSchemes);
 const fetchVillageProvincesMock = vi.mocked(fetchVillageProvinces);
 const fetchNationalTrendMock = vi.mocked(fetchNationalTrend);
+const fetchEventPointsMock = vi.mocked(fetchEventPoints);
+
+/** Lapisan titik kejadian (`P5`) meminta daftar titik satu tahun saat aktif. */
+function mockEventPoints() {
+  fetchEventPointsMock.mockResolvedValue({
+    year: 2026,
+    count: 1110,
+    coord_level_counts: { village: 200, district: 300, region: 610 },
+    points: [],
+    notes: ['titik pada peta ini adalah kejadian tercatat BNPB, bukan deteksi satelit'],
+  });
+}
 
 /** Halaman peta memakai seri nasional sebagai pembanding lapisan kejadian. */
 function mockNationalTrend() {
@@ -196,6 +210,7 @@ beforeEach(() => {
   mockRiskSchemes();
   mockVillageProvinces();
   mockNationalTrend();
+  mockEventPoints();
 });
 
 function renderApp(path = '/') {
@@ -322,6 +337,23 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Provinsi' }).hasAttribute('disabled')).toBe(true);
     // Tahun tetap berlaku di lapisan ini (`SRS-F-29`), tidak dinonaktifkan.
     expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(false);
+  });
+
+  it('memuat lapisan titik kejadian beserta sebaran ketelitian koordinatnya', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Titik kejadian' }));
+
+    // `SRS-F-41`: sebaran ketelitian koordinat wajib terbaca, bukan hanya peta.
+    expect(await screen.findByText('Titik kejadian 2026')).toBeTruthy();
+    expect(screen.getByText('1.110')).toBeTruthy();
+    expect(screen.getByText(/Desa\/kelurahan \(teliti\): 200/)).toBeTruthy();
+    // Legenda lapisan titik, bukan legenda titik panas.
+    expect(screen.getByText('Titik kejadian menurut ketelitian koordinat')).toBeTruthy();
+    // Tahun tetap berlaku (`SRS-F-43`), tingkat provinsi tidak (`SRS-F-40`).
+    expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Provinsi' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('memuat lapisan kerawanan beserta skema dan uji sensitivitasnya', async () => {

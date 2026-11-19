@@ -1,6 +1,7 @@
 import { legendEntries } from '../../lib/choropleth';
 import { MAP_SERIES } from '../../lib/constants';
 import { eventLegendEntries } from '../../lib/events';
+import { COORD_LEVEL_ORDER, COORD_LEVEL_STYLES } from '../../lib/event-points';
 import { riskLegendEntries, villageLegendEntries } from '../../lib/risk';
 import type { MapLayer } from '../../types/geosafe';
 
@@ -36,13 +37,19 @@ export function Legend({
   const riskActive = layer === 'risk';
   const villageActive = layer === 'risk_village';
   const eventsActive = layer === 'events';
+  const pointsActive = layer === 'event_points';
   const entries = villageActive
     ? villageLegendEntries(villageClassCounts)
     : riskActive
       ? riskLegendEntries()
       : eventsActive
         ? eventLegendEntries()
-        : legendEntries();
+        : pointsActive
+          ? COORD_LEVEL_ORDER.map((level) => ({
+              label: COORD_LEVEL_STYLES[level].label,
+              color: COORD_LEVEL_STYLES[level].color,
+            }))
+          : legendEntries();
 
   return (
     <div className="w-full rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur-sm sm:max-w-xs">
@@ -53,7 +60,9 @@ export function Legend({
             ? 'Kelas kerawanan kabupaten/kota'
             : eventsActive
               ? 'Jumlah kejadian karhutla per wilayah'
-              : 'Jumlah titik panas per wilayah'}
+              : pointsActive
+                ? 'Titik kejadian menurut ketelitian koordinat'
+                : 'Jumlah titik panas per wilayah'}
       </h2>
       <p className="mt-0.5 text-[11px] text-slate-600">
         {villageActive ? (
@@ -65,6 +74,8 @@ export function Legend({
           </>
         ) : eventsActive ? (
           <>kejadian tercatat BNPB, bukan deteksi satelit · tingkat kabupaten/kota</>
+        ) : pointsActive ? (
+          <>kejadian tercatat BNPB · satu titik = satu kejadian</>
         ) : (
           <>
             seri <code>{MAP_SERIES}</code> (arsip), tahun terpilih
@@ -95,6 +106,8 @@ export function Legend({
           'Abu-abu berarti skor wilayah itu belum ada, bukan kerawanan rendah. Skor hanya dihitung untuk kabupaten/kota karena hanya tingkat itu yang punya seluruh indikator.'
         ) : eventsActive ? (
           'Abu-abu berarti tidak ada kejadian tercatat di wilayah itu pada tahun terpilih — BNPB mencatat kejadian yang terjadi, jadi angka nol tidak perlu ditulis.'
+        ) : pointsActive ? (
+          'Titik pusat kecamatan dan kabupaten/kota hanya menunjukkan wilayah kejadian, bukan lokasi persisnya: banyak kejadian berbagi satu koordinat pusat, dan titiknya digambar lebih besar supaya itu terlihat.'
         ) : (
           'Abu-abu berarti wilayah itu belum punya baris fakta pada tahun terpilih, jadi angkanya tidak boleh dibaca sebagai nol tanpa membaca catatan panel.'
         )}

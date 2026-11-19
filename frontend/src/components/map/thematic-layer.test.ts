@@ -180,3 +180,9 @@ describe('lapisan kejadian (P3)', () => {
     ).toBe('Contoh · tidak ada kejadian tercatat 2023');
   });
 });
+
+describe('lapisan titik kejadian (P5)', () => {
+  it('tidak memakai tile: sumbernya GeoJSON yang dipasang MapView sendiri', () => {
+    expect(thematicSpec('event_points', 'regency', 2023, 'a')).toBeNull();
+  });
+});
