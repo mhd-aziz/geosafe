@@ -24,22 +24,23 @@ function mockAll() {
         source_name: 'Titik panas VIIRS/MODIS (arsip + NRT)',
         institution: 'NASA FIRMS',
         source_url: 'https://firms.modaps.eosdis.nasa.gov/',
-        accessed_on: '2026-11-16',
-        data_until: '2026-11-12',
-        row_count: 1452263,
+        accessed_on: '2026-11-18',
+        data_until: '2026-07-31',
+        row_count: 918319,
       },
     ],
   });
   fetchCoverageMock.mockResolvedValue({
     year: null,
     totals: {
-      point_count: 1452263,
-      placed_count: 1345463,
-      outside_count: 106800,
-      outside_share_percent: 7.35,
+      point_count: 918319,
+      placed_count: 746272,
+      outside_count: 172047,
+      outside_share_percent: 18.73,
+      series: { main: 889240, fill: 29079 },
     },
     by_year: [
-      { year: 2023, point_count: 273291, placed_count: 255520, outside_count: 17771, series: {} },
+      { year: 2023, point_count: 291971, placed_count: 255748, outside_count: 36223, series: {} },
     ],
     notes: ['penempatan dihitung terhadap geometri wilayah yang terpasang di basis data ini'],
   });
@@ -58,17 +59,26 @@ describe('SourcesPage', () => {
 
     expect(await screen.findByText('Titik panas VIIRS/MODIS (arsip + NRT)')).toBeTruthy();
     expect(screen.getByText('NASA FIRMS')).toBeTruthy();
-    expect(screen.getByText('2026-11-16')).toBeTruthy();
-    expect(screen.getByText('1.452.263')).toBeTruthy();
+    expect(screen.getByText('2026-11-18')).toBeTruthy();
+    expect(screen.getByText('918.319')).toBeTruthy();
   });
 
   it('menyatakan jumlah titik panas di luar poligon wilayah', async () => {
     mockAll();
     render(<SourcesPage />);
 
-    expect(await screen.findByText(/106.800 dari 1.452.263 titik panas/)).toBeTruthy();
-    expect(screen.getByText(/7,35 %/)).toBeTruthy();
+    expect(await screen.findByText(/172.047 dari 918.319 titik panas/)).toBeTruthy();
+    expect(screen.getByText(/18,73 %/)).toBeTruthy();
     expect(screen.getByText(/tidak dihapus dan tidak dihitung nol/)).toBeTruthy();
+  });
+
+  it('memisahkan seri arsip dari seri nrt yang tidak dimuat', async () => {
+    mockAll();
+    render(<SourcesPage />);
+
+    expect(await screen.findByText(/889.240 titik seri/)).toBeTruthy();
+    expect(screen.getByText(/29.079 titik seri/)).toBeTruthy();
+    expect(screen.getByText(/hanya dipakai lapisan terkini/)).toBeTruthy();
   });
 
   it('menampilkan tujuh celah data permanen', async () => {

@@ -129,6 +129,8 @@ export interface PointCoverage {
     placed_count: number;
     outside_count: number;
     outside_share_percent: number | null;
+    /** Rincian per seri, mis. `{main, fill}`; `nrt` tidak dimuat ke tabel ini. */
+    series: Record<string, number>;
   };
   by_year: PointCoverageYear[];
   notes: string[];

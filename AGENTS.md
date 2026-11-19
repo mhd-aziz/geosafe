@@ -13,13 +13,13 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 92 passed, 30-115 dtk (Aiven); butuh basis data hidup
+uv run pytest -q                         # 93 passed, 30-115 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
 cd frontend
 npm ci                                   # sekali, dari package-lock.json
-npm test                                 # 112 passed (16 berkas, Vitest + jsdom), tanpa DB
+npm test                                 # 113 passed (16 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
                                          #   nginx menyajikan dist/ di 127.0.0.1:8080

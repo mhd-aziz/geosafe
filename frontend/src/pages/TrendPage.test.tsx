@@ -19,27 +19,28 @@ beforeEach(() => {
         source_name: 'Titik panas VIIRS/MODIS (arsip + NRT)',
         institution: 'NASA FIRMS',
         source_url: 'https://firms.modaps.eosdis.nasa.gov/',
-        accessed_on: '2026-11-16',
-        data_until: '2026-11-12',
-        row_count: 1452263,
+        accessed_on: '2026-11-18',
+        data_until: '2026-07-31',
+        row_count: 918319,
       },
     ],
   });
 });
 
-/** Angka nyata dari basis data: arsip dan nrt dikirim terpisah. */
+/** Angka nyata dari basis data setelah bangun ulang 2026-11-19: tabel tahunan
+ * tidak memuat seri `nrt` (`nrt` selalu `null`). */
 const TREND: TrendData = {
   scope: 'national',
   years: [2020, 2021, 2022, 2023, 2024, 2025, 2026],
   hotspot_by_year: [
-    { year: 2020, series: { main: 91348 }, archive_total: 91348, nrt: null },
-    { year: 2023, series: { main: 253127, fill: 2876 }, archive_total: 256003, nrt: null },
-    { year: 2026, series: { main: 54065, fill: 7092, nrt: 600323 }, archive_total: 61157, nrt: 600323 },
+    { year: 2020, series: { main: 91401 }, archive_total: 91401, nrt: null },
+    { year: 2023, series: { main: 253345, fill: 2877 }, archive_total: 256222, nrt: null },
+    { year: 2026, series: { main: 54084, fill: 7093 }, archive_total: 61177, nrt: null },
   ],
   event_by_year: [
     { year: 2020, event_count: 618 },
     { year: 2023, event_count: 2153 },
-    { year: 2026, event_count: 1103 },
+    { year: 2026, event_count: 1110 },
   ],
   burned_area_by_year: [
     { year: 2020, burned_area_ha: 170481.94 },
@@ -67,12 +68,15 @@ describe('TrendPage', () => {
     expect(screen.getByText(/Kejadian karhutla \(BNPB\), sumbu kanan/)).toBeTruthy();
   });
 
-  it('menyebut seri nrt terpisah beserta angkanya, bukan menyembunyikannya', async () => {
+  it('tidak lagi menampilkan kolom nrt karena tabel tahunan tidak memuatnya', async () => {
     fetchTrendMock.mockResolvedValue(TREND);
     render(<TrendPage />);
 
-    expect(await screen.findByText(/Seri nrt 2026: 600.323 titik/)).toBeTruthy();
-    expect(screen.getByText(/tidak dijumlahkan ke garis arsip/)).toBeTruthy();
+    const tabel = await screen.findByRole('table');
+    expect(within(tabel).queryByText('nrt')).toBeNull();
+    expect(within(tabel).queryByText(/600\.323/)).toBeNull();
+    // keterangan menyebut di mana NRT hidup sekarang, bukan menyembunyikannya
+    expect(screen.getByText(/hanya hidup di lapisan titik panas terkini/)).toBeTruthy();
   });
 
   it('menampilkan angka per tahun apa adanya', async () => {
@@ -81,11 +85,10 @@ describe('TrendPage', () => {
 
     // dibatasi ke tabel: angka yang sama muncul juga sebagai label sumbu grafik
     const tabel = within(await screen.findByRole('table'));
-    expect(tabel.getByText('253.127')).toBeTruthy(); // main 2023
-    expect(tabel.getByText('2.876')).toBeTruthy(); // fill 2023
-    expect(tabel.getByText('256.003')).toBeTruthy(); // arsip 2023 (main + fill)
+    expect(tabel.getByText('253.345')).toBeTruthy(); // main 2023
+    expect(tabel.getByText('2.877')).toBeTruthy(); // fill 2023
+    expect(tabel.getByText('256.222')).toBeTruthy(); // arsip 2023 (main + fill)
     expect(tabel.getByText('2.153')).toBeTruthy(); // kejadian 2023
-    expect(tabel.getByText('600.323')).toBeTruthy(); // nrt 2026
   });
 
   it('menyebut luas terbakar sebagai konteks yang berhenti di 2025', async () => {
@@ -110,7 +113,7 @@ describe('TrendPage', () => {
     render(<TrendPage />);
 
     expect(
-      await screen.findByText(/Tahun 2026 belum penuh: data titik panas berhenti pada 2026-11-12/),
+      await screen.findByText(/Tahun 2026 belum penuh: data titik panas berhenti pada 2026-07-31/),
     ).toBeTruthy();
   });
 
