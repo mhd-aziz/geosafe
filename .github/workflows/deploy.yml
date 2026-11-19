@@ -1,0 +1,74 @@
+name: Deploy
+
+# CD untuk mesin ini saja: nginx menyajikan `<APP_DIR>/frontend/dist` dan unit
+# systemd pengguna menjalankan API dari `<APP_DIR>/backend`. Berkas `deploy/`
+# sengaja tidak masuk git (lihat AGENTS.md), jadi jalur mesin ditulis di sini.
+#
+# Hanya berjalan pada push ke `main` (tidak pernah pada pull_request): repo ini
+# publik dan runner ini self-hosted, jadi kode dari fork tidak boleh dieksekusi
+# di mesin yang menyimpan layanan.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  APP_DIR: /media/bazyngan/DATA/Documents/mata kuliah sistem informasi geografis/project-GeoSafe
+  # `uv` tidak ada di PATH runner (unit tidak mewarisi PATH sesi pengguna).
+  UV_BIN: /home/bazyngan/.hermes/bin/uv
+
+jobs:
+  deploy:
+    name: deploy ke mesin ini (nginx :8080 + geosafe-api)
+    runs-on: [self-hosted, geosafe]
+    steps:
+      - name: Sinkronkan working copy ke origin/main
+        run: |
+          git -C "$APP_DIR" fetch --prune origin main
+          git -C "$APP_DIR" reset --hard origin/main
+          git -C "$APP_DIR" log --oneline -1
+
+      - name: Pasang dependensi backend (terkunci)
+        run: |
+          if [ -x "$UV_BIN" ]; then
+            cd "$APP_DIR/backend" && "$UV_BIN" sync --frozen
+          else
+            echo "::warning::uv tidak ditemukan di $UV_BIN; dependensi backend dilewati"
+          fi
+
+      - name: Bangun frontend
+        run: |
+          cd "$APP_DIR/frontend"
+          npm ci
+          npm run build
+
+      - name: Muat ulang layanan
+        run: |
+          systemctl --user restart geosafe-api
+          systemctl --user is-active --quiet geosafe-api
+          sudo -n systemctl reload nginx
+
+      - name: Uji asap lewat nginx
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)
+          test "$code" = "200" || { echo "halaman :8080 menjawab $code"; exit 1; }
+          health=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health)
+          test "$health" = "200" || { echo "/health menjawab $health"; exit 1; }
+          panel=$(curl -s http://127.0.0.1:8080/api/v1/panel/kabupaten_kota/9301)
+          echo "$panel" | grep -q '"risk_score_a"' || { echo "panel tidak memuat skor kerawanan"; exit 1; }
+          {
+            echo "### Deploy selesai"
+            echo "- commit: \`$(git -C "$APP_DIR" log --oneline -1)\`"
+            echo "- halaman :8080 → $code"
+            echo "- /health → $health"
+            echo "- panel Merauke memuat \`risk_score_a\`"
+          } >> "$GITHUB_STEP_SUMMARY"
