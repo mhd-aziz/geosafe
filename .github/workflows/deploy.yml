@@ -71,10 +71,18 @@ jobs:
       - name: Uji asap lewat nginx
         run: |
           set -euo pipefail
+          # API butuh waktu beberapa detik setelah restart (uvicorn + kolam koneksi
+          # TLS ke Aiven); run pertama 2026-11-19 gagal karena /health masih 502.
+          health=""
+          for _ in $(seq 1 30); do
+            health=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health || true)
+            [ "$health" = "200" ] && break
+            sleep 1
+          done
+          test "$health" = "200" || { echo "/health menjawab $health setelah 30 dtk"; systemctl --user status geosafe-api --no-pager | tail -20; exit 1; }
+
           code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)
           test "$code" = "200" || { echo "halaman :8080 menjawab $code"; exit 1; }
-          health=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health)
-          test "$health" = "200" || { echo "/health menjawab $health"; exit 1; }
           panel=$(curl -s http://127.0.0.1:8080/api/v1/panel/kabupaten_kota/9301)
           echo "$panel" | grep -q '"risk_score_a"' || { echo "panel tidak memuat skor kerawanan"; exit 1; }
           {
