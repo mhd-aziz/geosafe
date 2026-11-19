@@ -85,15 +85,15 @@ frontend/
     │   ├── analysis/           TrendChart · BurnedAreaChart (SVG, tanpa pustaka grafik)
     │   └── common/             DataNotes
     ├── hooks/                  useDebouncedValue · useRegionSearch · useRegionPanel ·
-    │                           useLatestHotspots (lapisan terkini) · useSourceSummary ·
-    │                           useRemoteData (baca-saja halaman)
-    ├── lib/                    constants · format · choropleth · events · latest-layer · map-style ·
-    │                           risk · transparency-content
+    │                           useLatestHotspots (lapisan terkini) · useEventPoints (titik kejadian) ·
+    │                           useSourceSummary · useRemoteData (baca-saja halaman)
+    ├── lib/                    constants · format · choropleth · events · event-points · latest-layer ·
+    │                           map-style · risk · transparency-content
     ├── types/geosafe.ts        bentuk balasan API (nama medan = nama kolom DB)
     └── test/setup.ts           pembersihan DOM antar uji
 ```
 
-Halaman: `/` peta (P1 + P3 lapisan kejadian + C1 + W2 + P2/W1 lapisan terkini + W3 panel kecamatan + W4 panel desa) · `/tren` grafik nasional
+Halaman: `/` peta (P1 + P3 lapisan kejadian + P5 titik kejadian + C1 + W2 + P2/W1 lapisan terkini + W3 panel kecamatan + W4 panel desa) · `/tren` grafik nasional
 (A1) · `/analisis` komposisi wilayah (A2) + peringkat kabupaten/kota (A3) · `/sumber` Sumber &
 Batas Data (T1). Uji diletakkan bersebelahan dengan berkas yang diuji
 (`*.test.ts(x)`), supaya perubahan komponen dan ujinya terlihat dalam satu
@@ -185,6 +185,20 @@ artinya berbeda dari lapisan titik panas, sehingga tidak boleh berbagi skala.
 | tingkat wilayah dikunci ke kabupaten/kota | kejadian dipetakan pada tingkat itu (`SRS-F-28`); baris provinsi dan nasional hanya jadi pembanding |
 | angka nasional dibaca dari `/api/v1/analysis/national_trend` | tile hanya memuat wilayah di dalam kotak peta, jadi menjumlahkan tile akan membuat angka nasional berubah setiap kali peta digeser (`SRS-F-31`) |
 | tahun 2026 ditandai angka berjalan | data kejadian 2026 belum lengkap sampai akhir tahun (`SRS-AS-06`) |
+
+## Lapisan titik kejadian (`P5`, `SRS-F-40`…`44`)
+
+Lapisan kelima menggambar **satu titik per kejadian tercatat BNPB**, bukan poligon. Sumbernya GeoJSON
+dari `/api/v1/events/points?year=`, dimuat hanya saat lapisannya aktif; tahun terbesar (2.153 titik,
+rincian penuh) berukuran 841 KB dan 0,76 dtk, jadi tile titik belum perlu.
+
+| Hal | Alasan |
+|---|---|
+| warna **dan** ukuran titik mengikuti `coord_level` | 2.599 kejadian hanya punya titik pusat kabupaten/kota (262 koordinat unik); tanpa pembedaan itu peta terbaca lebih presisi daripada datanya (`SRS-F-41`) |
+| legenda dan kartu samping menyebut jumlah per tingkat | angka itu yang menjelaskan kenapa banyak titik bertumpuk di satu tempat |
+| klik titik membuka rincian kejadian (`EventDetailPanel`) | `SRS-F-42`: tanggal, rantai wilayah, `point_id`, dampak; “—” berarti tidak dilaporkan, 0 berarti dilaporkan nol |
+| tombol “Buka panel kabupaten/kota” di rincian | `SRS-F-44`: angka wilayah dibaca dari panel `W2`, tidak dihitung ulang di lapisan ini |
+| `point_id` berbentuk `EVT-<event_id>` untuk 1.655 kejadian | kode identitas BNPB kosong untuk seluruh 2025–2026 (`SRS-D-06`) |
 
 ## Responsif
 

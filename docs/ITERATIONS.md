@@ -51,14 +51,103 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 13b | `feat/api-tile-yearly-density` | Kepadatan titik panas **per tahun** jadi properti tile kabupaten/kota dan muncul di bacaan kursor; rumusnya dibuktikan sama dengan metrik `hotspot_per_1000_km2` tersimpan | #34 | `iter-13b-tile-density` |
 | 14 | `feat/api-panel-kecamatan` | Panel kecamatan `W3`: `GET /api/v1/panel/kecamatan/{kode}` (baris bulanan disaring, sifat angka pendukung dinyatakan) + `DistrictDetailPanel` di antarmuka lewat hasil pencarian | #35 | `iter-14-district-panel` |
 | 15 | `feat/api-event-map` | Peta kejadian `P3`: `GET /tiles/events/{z}/{x}/{y}.mvt?year=` (kejadian tercatat BNPB, baris bulanan disaring) + lapisan keempat "Kejadian" beserta panel angka nasional tahun terpilih | #36 | `iter-15-event-map` |
+| 16 | `feat/api-event-points` | Peta titik kejadian `P5`: `GET /api/v1/events/points?year=` (6.390 kejadian berkoordinat, rincian dibawa sekalian) + lapisan kelima dengan warna/ukuran menurut ketelitian koordinat, panel rincian, dan jalan ke panel wilayah | #37 | `iter-16-event-points` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
-iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15 (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16 (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 16 — `feat/api-event-points` (peta titik kejadian `P5`)
+
+Lapisan peta terakhir di antrean. SRS menetapkan: 6.383 titik kejadian beserta koordinatnya
+(`SRS-F-40`), pembedaan menurut ketelitian koordinat `village`/`district`/`region` beserta artinya
+(`SRS-F-41`), rincian saat titik diklik (`SRS-F-42`), filter tahun (`SRS-F-43`), dan angka wilayah
+pada panel wilayah yang dipilih dari peta titik (`SRS-F-44`).
+
+Data diperiksa dulu (read-only, 2026-11-19). Yang menentukan bentuk endpoint bukan jumlah titiknya,
+melainkan **ketelitian koordinatnya**:
+
+| `coord_level` | kejadian | koordinat unik | arti |
+|---|---|---|---|
+| `village` | 2.086 | 1.519 | koordinat desa/kelurahan, paling teliti |
+| `district` | 1.705 | 806 | titik pusat kecamatan, bukan lokasi persis |
+| `region` | 2.599 | 262 | titik pusat kabupaten/kota, paling kasar |
+| total | **6.390** | — | seluruhnya berkoordinat, tanpa nilai null |
+
+Dua ribuan kejadian berbagi 262 titik pusat kabupaten/kota. Karena itu warna **dan** ukuran titik
+mengikuti `coord_level` — titik pusat wilayah digambar lebih besar — dan artinya ditulis di toolbar,
+legenda, kartu samping, serta `notes` API. Peta yang menggambar semuanya sama akan menyatakan presisi
+yang datanya tidak punya.
+
+Fakta lain yang masuk balasan: **1.655** kejadian tanpa kode identitas BNPB (seluruh 2025 dan 2026)
+memperoleh `point_id` cadangan `EVT-<event_id>` (`SRS-D-06` menyebut 1.648 pada data lama); dampak
+tersedia sebagai `deaths`/`injured`/`houses_damaged` dengan 1.946 baris berisi korban dan seluruh
+6.390 baris berisi `houses_damaged` (umumnya 0).
+
+| Berkas | Isi |
+|---|---|
+| `backend/app/routers/maps.py` | `points_router` + `QUERY_EVENT_POINTS` + `_points_notes` (tag `P5 peta titik kejadian`) |
+| `backend/app/main.py` | router didaftarkan setelah `event_router` |
+| `backend/tests/test_event_points.py` | 5 uji baru: jumlah + sebaran tingkat, rincian satu kejadian, `point_id` cadangan, catatan wajib, batas tahun |
+| `frontend/src/lib/event-points.ts` (+ uji) | gaya tiga tingkat ketelitian, GeoJSON, bacaan kursor, ringkasan |
+| `frontend/src/hooks/useEventPoints.ts` | daftar titik satu tahun, dimuat hanya saat lapisannya aktif |
+| `frontend/src/api/geosafe.ts` · `types/geosafe.ts` | `fetchEventPoints`, `EventPoint`, `MapLayer` menerima `'event_points'` |
+| `frontend/src/components/map/MapView.tsx` | sumber GeoJSON + layer `circle` (warna/jari-jari per tingkat), klik → rincian, bacaan kursor |
+| `frontend/src/components/map/MapToolbar.tsx` · `Legend.tsx` | opsi lapisan, tahun tetap aktif, saklar provinsi mati dengan sebabnya, legenda tiga tingkat |
+| `frontend/src/components/panel/EventDetailPanel.tsx` (+ uji) | rincian kejadian (`SRS-F-42`) + tombol ke panel kabupaten/kota (`SRS-F-44`) |
+| `frontend/src/components/panel/EventPointsPanel.tsx` (+ uji) | jumlah titik, sebaran ketelitian, catatan wajib |
+| `frontend/src/pages/MapPage.tsx` | lapisan kelima + state titik terpilih |
+
+```
+cd backend && uv run pytest -q
+130 passed, 1 warning in 41,30 dtk          (sebelumnya 125)
+uv run pytest -q tests/test_event_points.py
+5 passed, 1 warning in 2,85 dtk
+
+cd frontend && npm run typecheck && npm test
+tsc --noEmit                                 (bersih)
+Test Files 25 passed (25)
+Tests      178 passed (178)                  (sebelumnya 164)
+```
+
+Bukti HTTP (API unit systemd):
+
+```
+GET /api/v1/events/points?year=2023   → 200 · 841.221 B · 0,76 dtk · count 2153
+                                        coord_level_counts {village: 637, district: 384, region: 1132}
+GET /api/v1/events/points?year=2026   → 200 · 1.110 titik, semuanya ber-`point_id` `EVT-…`
+GET /api/v1/events/points?year=2019   → 422
+GET /openapi.json                     → 22 path (sebelumnya 21)
+```
+
+Bukti antarmuka di **produksi Vercel** (bundle `assets/index-B1T0NMQZ.js` memuat `events/points`;
+Chrome CDP): tombol `Titik kejadian` diklik → legenda berjudul "Titik kejadian menurut ketelitian
+koordinat", kartu menulis "Titik kejadian 2026 · Jumlah titik 1.110", sebaran
+"Desa/kelurahan (teliti): 653 · Pusat kecamatan: 312 · Pusat kabupaten/kota: 145", dan lima catatan
+wajib. Log API mencatat `GET /api/v1/events/points?year=2026 → 200` dari peramban lewat tunnel.
+
+Temuan yang harus diingat:
+
+1. **Ukuran balasan menentukan pilihan bentuk, bukan sebaliknya.** 2.153 titik dengan rincian penuh =
+   841 KB dan 0,76 dtk; itu masih wajar untuk satu permintaan dan jauh lebih murah daripada membuat
+   tile titik sendiri. Kalau suatu saat titiknya menjadi ratusan ribu (mode heatmap `P1`), keputusan
+   ini harus ditinjau.
+2. **Ketelitian koordinat harus terlihat, bukan hanya tertulis.** 2.599 kejadian berbagi 262 titik
+   pusat kabupaten/kota; tanpa ukuran/warna berbeda dan tanpa catatan, peta terbaca seolah tiap
+   kejadian punya lokasi presisi.
+3. **`null` dan `0` pada dampak bukan hal yang sama.** 1.946 kejadian melaporkan korban (kebanyakan
+   0), sisanya tidak melaporkan; panel menulis "—" untuk yang tidak dilaporkan dan "0" untuk nol.
+4. **Lapisan GeoJSON butuh pembersihan sendiri.** Sumber `event-points` tidak termasuk
+   `THEMATIC_IDS` (yang mengurus sumber vektor), jadi efeknya menghapus layer + sumber itu setiap kali
+   lapisan berganti — kalau tidak, titik kejadian tertinggal di atas choropleth lain.
+
+Ikut disinkronkan: `README.md` (22 endpoint, 130/178 uji, baris iterasi 16, baris endpoint
+`/api/v1/events/points`, baris status frontend), `docs/MVP.md` (baris 16 dan `P5` tidak lagi
+tertunda), `frontend/README.md` (lapisan kelima + `lib/event-points`), `AGENTS.md` (130/178 uji).
 
 ## Iterasi 15 — `feat/api-event-map` (peta kejadian `P3`)
 

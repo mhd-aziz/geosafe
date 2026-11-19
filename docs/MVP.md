@@ -51,7 +51,7 @@ Fitur lain memperkuat, tapi tidak menentukan.
 | P2 titik panas terkini | butuh penarik FIRMS + cache 15 menit + snapshot; kuota kunci harus dijaga | iterasi setelah MVP jalan |
 | P4 peta kerawanan (versi B) | skor disusun sendiri; bobot + uji sensitivitas belum ditetapkan | setelah W2/A1 jadi bahan pembanding |
 | P3 peta kejadian | bergantung pada lapisan peta yang sudah stabil | ✅ dikerjakan 15 |
-| P5 peta titik | 6.383 titik kejadian + tingkat ketelitian koordinat; butuh keputusan tampilan | menunggu keputusan heatmap/klaster |
+| P5 peta titik | 6.383 titik kejadian + tingkat ketelitian koordinat; butuh keputusan tampilan | ✅ dikerjakan 16 (GeoJSON, bukan tile: 841 KB untuk tahun terbesar) |
 | A2, A3 komposisi dan peringkat | turunan dari A1 | ✅ dikerjakan 13a |
 | W1 panel terkini | bergantung P2 | bersama P2 |
 | W3, W4 panel kecamatan/desa | angka pendukung, bukan unit analisis | ✅ dikerjakan: `W4` di 12m, `W3` di 14 |
@@ -106,7 +106,9 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 13b | `feat/api-tile-yearly-density` — kepadatan titik panas per tahun jadi properti tile kabupaten/kota + tampil di bacaan kursor | ✅ PR #34, tag `iter-13b-tile-density` |
 | 14 | `feat/api-panel-kecamatan` — panel kecamatan (`W3`): `GET /api/v1/panel/kecamatan/{kode}` + panel di antarmuka lewat hasil pencarian; baris bulanan disaring, sifat angka pendukung dinyatakan | ✅ PR #35, tag `iter-14-district-panel` |
 | 15 | `feat/api-event-map` — peta kejadian (`P3`): `GET /tiles/events/{z}/{x}/{y}.mvt?year=` + lapisan keempat "Kejadian" dengan panel angka nasional tahun terpilih | ✅ PR #36, tag `iter-15-event-map` |
-| — | `P5` peta titik (6.390 kejadian 2020–2026; 1.648 di antaranya tanpa kode identitas, koordinat berketelitian village/district/region) | belum dijadwalkan — perlu keputusan tampilan titik |
+| 16 | `feat/api-event-points` — peta titik kejadian (`P5`): `GET /api/v1/events/points?year=` + lapisan kelima dengan warna/ukuran menurut ketelitian koordinat, panel rincian kejadian, dan jalan ke panel wilayah | ✅ PR #37, tag `iter-16-event-points` |
+| — | mode heatmap di `P1` (918 ribu titik/tahun; keputusan tampilan belum diambil) | belum dijadwalkan |
+| — | kendali penyaring `confidence` di toolbar (`SRS-F-15`; API sudah menerima `?confidence=`) | berikutnya setelah `P5` |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar
