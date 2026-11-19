@@ -95,9 +95,9 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 12d | `ci/deploy-self-hosted` — CD: runner self-hosted di mesin ini, deploy otomatis ke `:8080` pada push ke `main` | ✅ PR #26 · #27, tag `iter-12d-deploy-self-hosted` |
 | 12e | `feat/cors-vercel-preview` — API publik (Cloudflare Tunnel) + CORS untuk origin pratinjau Vercel | ✅ PR #28, tag `iter-12e-vercel-preview` |
 | 12f | Vercel (di luar repo) — pratinjau frontend hidup dengan `VITE_API_BASE` ke API publik | ✅ `iter-12f-vercel-preview-live` |
-| 12h | Vercel (di luar repo) | Basemap PMTiles 216 MB di Vercel Blob; homelab berhenti melayani basemap | ✅ `iter-12h-basemap-blob` |
-| 12i | Vercel (di luar repo) | Sisa Vercel dirapikan: proyek sementara hilang (410), status `Vercel` menunjuk proyek `geosafe`, token unggah mati, dua store Blob yang tidak dipakai dihapus pemilik repo (2026-11-19) | ✅ `iter-12i-vercel-cleanup` |
-| 12j | Cloudflare R2 (di luar repo) | Basemap 216 MB pindah ke R2 (`geosafe-basemap` + domain `geosafe-tiles.zisaltech.site`); unggah REST 39,6 dtk; peta terbukti `206` dari R2 dengan **0** permintaan ke Blob | ✅ `iter-12j-basemap-r2` |
+| 12h | (di luar repo) Basemap PMTiles 216 MB di Vercel Blob; homelab berhenti melayani basemap | ✅ `iter-12h-basemap-blob` |
+| 12i | (di luar repo) Sisa Vercel dirapikan: proyek sementara hilang (410), status `Vercel` menunjuk proyek `geosafe`, token unggah mati, dua store Blob yang tidak dipakai dihapus pemilik repo (2026-11-19) | ✅ `iter-12i-vercel-cleanup` |
+| 12j | (di luar repo) Basemap 216 MB pindah ke Cloudflare R2 (`geosafe-basemap` + domain `geosafe-tiles.zisaltech.site`); unggah REST 39,6 dtk; peta terbukti `206` dari R2 dengan **0** permintaan ke Blob | ✅ `iter-12j-basemap-r2` |
 | 12k | `feat/frontend-latest-bbox` — lapisan terkini bisa dipersempit ke kotak peta saat muatan `truncated`; kotak dipotong ke batas wilayah Indonesia lebih dulu | ✅ PR #30, tag `iter-12k-latest-bbox` |
 | 12l | `chore/drop-homelab-frontend` — hosting frontend di mesin ini dihapus (nginx mati, `:8080` hilang), CD hanya memuat ulang API, basemap dev dari R2; halaman sepenuhnya di Vercel | ✅ PR #31, tag `iter-12l-vercel-only` |
 | 12m | `feat/api-village-panel` — panel desa/kelurahan (`W4`): `GET /api/v1/panel/desa/{kode}` + panel di antarmuka, terbuka dari klik poligon desa maupun pencarian | ✅ PR #32, tag `iter-12m-village-panel` |
