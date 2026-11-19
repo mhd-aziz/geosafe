@@ -260,12 +260,14 @@ dokumen boleh langsung ke `main`.
     diduplikasi di sana — kalau `LON_MIN`…`LAT_MAX` di `backend/app/routers/latest.py` berubah,
     keduanya harus berubah.
 
-20. **`village_facts` dan `district_facts` memuat baris bulanan di samping baris tahunan.**
-    Desa `6271012003` tahun 2023 punya baris bulan 8, 9, 10, 11 (5, 37, 85, 1) **dan** baris
-    tahunan 128 di tabel yang sama. Setiap panel atau agregat tingkat desa/kecamatan wajib
-    memakai `month is null`; tanpa itu satu tahun tampil beberapa kali dan angkanya terbaca
-    lebih besar. Baris tahunan sendiri unik per (wilayah, metrik, tahun, seri) — diperiksa
-    2026-11-19, 0 duplikat — jadi `sum()` tidak diperlukan begitu penyaringnya ada.
+20. **`village_facts`, `district_facts`, dan `region_facts` (metrik `event_count`) memuat baris
+    bulanan di samping baris tahunan.** Desa `6271012003` tahun 2023 punya baris bulan 8, 9, 10,
+    11 (5, 37, 85, 1) **dan** baris tahunan 128 di tabel yang sama; `region_facts` metrik
+    `event_count` 2023 punya 2.153 tahunan **dan** 2.153 bulanan. Setiap panel, tile, atau agregat
+    wajib memakai `month is null`; tanpa itu satu tahun tampil beberapa kali dan angkanya terbaca
+    sampai dua kali lipat. Baris tahunan sendiri unik per (wilayah, metrik, tahun, seri) — diperiksa
+    2026-11-19, 0 duplikat — jadi `sum()` tidak diperlukan begitu penyaringnya ada. Metrik
+    `event_count` juga tidak berseri (`series is null`) dan tidak dipecah `confidence`.
 21. **Penanda tahun parsial tidak boleh diambil dari `region_facts.hotspot_coverage_pct`.**
     Metrik itu ditulis **dua baris per tahun tanpa kolom pembeda** (2020: 68,9 dan 70,8; 2023:
     54,9 dan 59,2), jadi tidak ada cara memilih salah satunya. Sumber yang dipakai:
