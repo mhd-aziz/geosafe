@@ -55,7 +55,7 @@ Fitur lain memperkuat, tapi tidak menentukan.
 | A2, A3 komposisi dan peringkat | turunan dari A1 | ✅ dikerjakan 13a |
 | W1 panel terkini | bergantung P2 | bersama P2 |
 | W3, W4 panel kecamatan/desa | angka pendukung, bukan unit analisis | ✅ dikerjakan: `W4` di 12m, `W3` di 14 |
-| mode heatmap di P1 | ratusan ribu titik per tahun; diukur dulu | setelah P1 choropleth stabil |
+| mode heatmap di P1 | ratusan ribu titik per tahun; diukur dulu | ✅ dikerjakan 18 (agregasi sel grid, 1,4 MB → 84 KB per tile) |
 | basemap PMTiles (216 MB) | berkas besar; untuk MVP cukup geometri sendiri di atas latar polos | sebelum demo |
 | HTTPS + domain | perlu saat dipasang, bukan saat dikembangkan | saat unjuk kerja |
 
@@ -107,8 +107,9 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 14 | `feat/api-panel-kecamatan` — panel kecamatan (`W3`): `GET /api/v1/panel/kecamatan/{kode}` + panel di antarmuka lewat hasil pencarian; baris bulanan disaring, sifat angka pendukung dinyatakan | ✅ PR #35, tag `iter-14-district-panel` |
 | 15 | `feat/api-event-map` — peta kejadian (`P3`): `GET /tiles/events/{z}/{x}/{y}.mvt?year=` + lapisan keempat "Kejadian" dengan panel angka nasional tahun terpilih | ✅ PR #36, tag `iter-15-event-map` |
 | 16 | `feat/api-event-points` — peta titik kejadian (`P5`): `GET /api/v1/events/points?year=` + lapisan kelima dengan warna/ukuran menurut ketelitian koordinat, panel rincian kejadian, dan jalan ke panel wilayah | ✅ PR #37, tag `iter-16-event-points` |
-| — | mode heatmap di `P1` (918 ribu titik/tahun; keputusan tampilan belum diambil) | belum dijadwalkan |
-| — | kendali penyaring `confidence` di toolbar (`SRS-F-15`; API sudah menerima `?confidence=`) | berikutnya setelah `P5` |
+| 17 | `feat/frontend-confidence-filter` — penyaring kepercayaan `h`/`n`/`l` di lapisan titik panas (`SRS-F-15`) + angka tampilan aktif dan titik di luar poligon (`SRS-F-16`) | ✅ PR #38, tag `iter-17-confidence-filter` |
+| 17b | `fix/legend-coverage-series` — angka legenda penempatan titik diambil dari `point_count` supaya berjumlah dengan `placed`/`outside` | ✅ PR #39, tag `iter-17b-coverage-line` |
+| 18 | `feat/api-heatmap-mode` — mode heatmap `P1` (`SRS-F-14`): tile titik berkoordinat diagregasi per sel grid + saklar Choropleth/Heatmap, mulai zoom 4 | ✅ PR #40, tag `iter-18-heatmap` |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar

@@ -200,6 +200,24 @@ rincian penuh) berukuran 841 KB dan 0,76 dtk, jadi tile titik belum perlu.
 | tombol “Buka panel kabupaten/kota” di rincian | `SRS-F-44`: angka wilayah dibaca dari panel `W2`, tidak dihitung ulang di lapisan ini |
 | `point_id` berbentuk `EVT-<event_id>` untuk 1.655 kejadian | kode identitas BNPB kosong untuk seluruh 2025–2026 (`SRS-D-06`) |
 
+## Mode choropleth dan heatmap (`P1`, `SRS-F-14`)
+
+Lapisan titik panas punya dua cara gambar, dipilih lewat saklar **Tampilan**:
+
+| Mode | Sumber | Catatan |
+|---|---|---|
+| Choropleth | `/tiles/regions` (poligon + jumlah per wilayah) | kelas warna berangka (`SRS-F-18`), klik membuka panel `W2` |
+| Heatmap | `/tiles/hotspot_points` (sel grid dari titik berkoordinat) | gradasi kepadatan tanpa kelas angka; API membalas `422` di bawah z=4 dan peta memanggil `setMinZoom(4)` |
+
+Heatmap **tidak** mengirim titik mentah dari server: satu tile z=4 Kalimantan berisi 139.000 titik
+(1,4 MB, 3 dtk), sedangkan sel grid 1/256 tile hanya 84 KB. Warna menyatakan kepadatan, bukan kelas —
+legenda menyebut hal itu supaya tidak dibaca sebagai kelas kerawanan.
+
+Penyaring **Kepercayaan** (`Semua`/`h`/`n`/`l`) berlaku di kedua mode dan hanya di tingkat
+kabupaten/kota; di tingkat provinsi ia nonaktif dengan sebabnya, karena basis data tidak menyimpan
+baris provinsi per kelas (API membalas `422`). Legenda juga menampilkan angka tampilan aktif dari
+`/api/v1/point_coverage`: titik yang dipakai (per seri), yang masuk poligon, dan yang di luar poligon.
+
 ## Responsif
 
 Tata letak diuji di 375 px, 768 px, dan 1440 px: tidak ada gulir horizontal di

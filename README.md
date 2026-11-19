@@ -26,10 +26,10 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 22 endpoint, `uv run pytest` 130 passed, koneksi lewat kolam kecil (`psycopg_pool`), CORS hanya untuk origin pratinjau Vercel |
-| Frontend (`frontend/`) | berjalan — 4 halaman (peta + lapisan titik panas + lapisan kejadian `P3` + lapisan titik kejadian `P5` + lapisan titik terkini + lapisan kerawanan kabupaten/kota + lapisan kerawanan desa · tren · analisis wilayah · sumber data), basemap PMTiles z12, panel `W2` memuat skor kerawanan, panel kecamatan `W3` dan desa/kelurahan `W4` terbuka dari hasil pencarian (desa juga dari klik poligonnya), komposisi `A2` + peringkat 514 kabupaten/kota `A3` bisa diurutkan/dicari, tahun parsial ditandai dari tanggal deteksi terakhir, bacaan kursor memuat kepadatan per tahun, kendali "Batasi ke area tampak" mempersempit lapisan terkini lewat `bbox` saat muatan `truncated`, `npm test` 178 passed |
+| Backend (`backend/`) | berjalan — 23 endpoint, `uv run pytest` 136 passed, koneksi lewat kolam kecil (`psycopg_pool`), CORS hanya untuk origin pratinjau Vercel |
+| Frontend (`frontend/`) | berjalan — 4 halaman (peta + lapisan titik panas + lapisan kejadian `P3` + lapisan titik kejadian `P5` + lapisan titik terkini + lapisan kerawanan kabupaten/kota + lapisan kerawanan desa · tren · analisis wilayah · sumber data), basemap PMTiles z12, panel `W2` memuat skor kerawanan, panel kecamatan `W3` dan desa/kelurahan `W4` terbuka dari hasil pencarian (desa juga dari klik poligonnya), komposisi `A2` + peringkat 514 kabupaten/kota `A3` bisa diurutkan/dicari, tahun parsial ditandai dari tanggal deteksi terakhir, bacaan kursor memuat kepadatan per tahun, kendali "Batasi ke area tampak" mempersempit lapisan terkini lewat `bbox` saat muatan `truncated`, `npm test` 185 passed |
 | Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna di `127.0.0.1:8000` (nginx dimatikan & di-disable 2026-11-19); frontend produksi dilayani **Vercel**, memanggil API publik lewat Cloudflare Tunnel, basemap dari Cloudflare R2 (`geosafe-tiles.zisaltech.site`) |
-| Iterasi selesai | **16** peta titik kejadian `P5` — 6.390 kejadian berkoordinat per tahun, dibedakan menurut ketelitian koordinat (sebelumnya 15 peta kejadian `P3`, 14 panel kecamatan `W3`, 13b kepadatan titik panas per tahun di tile + bacaan kursor, 13a komposisi wilayah `A2` + peringkat `A3` + penanda tahun parsial, 12m panel desa/kelurahan `W4`, 12l hosting frontend di mesin ini dihapus — halaman sepenuhnya di Vercel, 12k kendali kotak peta untuk lapisan terkini, 12j basemap pindah ke Cloudflare R2, 12i sisa Vercel dirapikan, 12h basemap di Vercel Blob, 12g basemap lewat `VITE_BASEMAP_URL`, 12f pratinjau Vercel hidup, 12e CORS + Cloudflare Tunnel, 12d CD otomatis di mesin ini, 12c CI GitHub Actions, 12b sisa seri NRT dibersihkan, 12a data 2026-11-19 masuk aplikasi + skor kerawanan di panel `W2`, 11e lapisan kelas kerawanan desa, 11d kerawanan desa di API, 11c `P4` di antarmuka, 11b `P4` di API, 11a basis data pindah ke Aiven, 10b/10a `P2`+`W1`, 09c basemap, 09b nginx, 09a unit systemd, 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | **18** mode heatmap `P1` — tile titik berkoordinat diagregasi per sel grid + saklar Choropleth/Heatmap (sebelumnya 17/17b penyaring kepercayaan `h`/`n`/`l` + angka tampilan aktif di legenda, 16 peta titik kejadian `P5`, 15 peta kejadian `P3`, 14 panel kecamatan `W3`, 13b kepadatan titik panas per tahun di tile + bacaan kursor, 13a komposisi wilayah `A2` + peringkat `A3` + penanda tahun parsial, 12m panel desa/kelurahan `W4`, 12l hosting frontend di mesin ini dihapus — halaman sepenuhnya di Vercel, 12k kendali kotak peta untuk lapisan terkini, 12j basemap pindah ke Cloudflare R2, 12i sisa Vercel dirapikan, 12h basemap di Vercel Blob, 12g basemap lewat `VITE_BASEMAP_URL`, 12f pratinjau Vercel hidup, 12e CORS + Cloudflare Tunnel, 12d CD otomatis di mesin ini, 12c CI GitHub Actions, 12b sisa seri NRT dibersihkan, 12a data 2026-11-19 masuk aplikasi + skor kerawanan di panel `W2`, 11e lapisan kelas kerawanan desa, 11d kerawanan desa di API, 11c `P4` di antarmuka, 11b `P4` di API, 11a basis data pindah ke Aiven, 10b/10a `P2`+`W1`, 09c basemap, 09b nginx, 09a unit systemd, 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -140,7 +140,8 @@ yang sengaja belum dikerjakan ada di [`frontend/README.md`](frontend/README.md).
 |---|---|---|
 | `GET /health` | — | status proses API |
 | `GET /api/v1/sources` | T1 | daftar dataset sumber, institusi, tanggal akses, jumlah baris |
-| `GET /tiles/regions/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT kabupaten/kota + jumlah titik panas tahun itu |
+| `GET /tiles/regions/{z}/{x}/{y}.mvt?year=&confidence=` | P1 | *vector tile* MVT kabupaten/kota + jumlah titik panas tahun itu (penyaring `confidence` opsional, hanya tingkat ini) |
+| `GET /tiles/hotspot_points/{z}/{x}/{y}.mvt?year=&confidence=` | P1 | *vector tile* titik panas berkoordinat untuk **mode heatmap**, diagregasi per sel grid (`titik`, `weight`); hanya zoom 4–14 |
 | `GET /tiles/provinces/{z}/{x}/{y}.mvt?year=` | P1 | *vector tile* MVT provinsi (saklar tingkat tampilan) |
 | `GET /tiles/events/{z}/{x}/{y}.mvt?year=` | P3 | *vector tile* MVT kabupaten/kota + jumlah **kejadian tercatat BNPB** tahun itu (bukan deteksi satelit) |
 | `GET /api/v1/events/points?year=` | P5 | titik tiap kejadian tercatat BNPB tahun itu + rincian (tanggal, rantai wilayah, dampak, `point_id`) dan ketelitian koordinatnya |
@@ -155,7 +156,7 @@ yang sengaja belum dikerjakan ada di [`frontend/README.md`](frontend/README.md).
 | `GET /api/v1/analysis/national_trend` | A1 | tren nasional 2020–2026: titik panas (seri `main`/`fill` apa adanya + `archive_total`) dan kejadian, plus luas terbakar sebagai konteks; tabel tahunan tidak lagi memuat `nrt` |
 | `GET /api/v1/analysis/composition?year=&metric=` | A2 | komposisi wilayah: 10 provinsi + 10 kabupaten/kota teratas beserta pangsa % untuk satu tahun dan satu metrik |
 | `GET /api/v1/analysis/ranking?year=` | A3 | peringkat seluruh 514 kabupaten/kota (titik panas, kepadatan, kejadian) + penanda tahun parsial |
-| `GET /api/v1/point_coverage?year=` | T1 | berapa titik panas masuk poligon wilayah, berapa yang di luar (tidak dihitung nol) + rincian per seri arsip; seri `nrt` tidak dimuat |
+| `GET /api/v1/point_coverage?year=&confidence=` | T1 | berapa titik panas masuk poligon wilayah, berapa yang di luar (tidak dihitung nol) + rincian per seri arsip; seri `nrt` tidak dimuat |
 | `GET /api/v1/downloads` · `.../{berkas}` | T1 | daftar 31 tabel siap pakai + unduhan CSV-nya |
 | `/api/v1/latest?window=` | P2 | titik panas terkini 24/48/72 jam (`series: nrt`), `region_code` hasil join saat permintaan, `satellites` beserta ketersediaannya |
 | `/api/v1/latest/summary?window=` | W1 | ringkasan nasional: jumlah titik, kabupaten/kota terdampak, 10 provinsi terbanyak — tanpa titik mentah |
@@ -167,6 +168,8 @@ kerawanan namanya `has_score`, karena `0` di sana berarti *skor tidak diketahui*
 bukan *nol deteksi*; pada lapisan kejadian `P3` `has_fact = 0` berarti *tidak ada
 kejadian tercatat* — BNPB hanya mencatat kejadian yang terjadi); koordinat tile di luar rentang `0..2^z-1` dibalas `422`,
 bukan `500`;
+mode heatmap dilayani **mulai zoom 4** — di bawah itu `422` — dan mengirim sel grid,
+bukan titik mentah (satu tile z=4 terpadat 84 KB; titik mentahnya 1,4 MB);
 lapisan desa hanya dilayani **per provinsi** (`?province=`) dan pada **zoom 8 ke
 atas** — di bawah itu `422`, karena lapisan yang tetap dilayani justru menumpuk
 seluruh provinsi ke segelintir tile raksasa; kelas `tidak_ada_deteksi` pada

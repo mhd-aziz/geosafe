@@ -52,14 +52,142 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 14 | `feat/api-panel-kecamatan` | Panel kecamatan `W3`: `GET /api/v1/panel/kecamatan/{kode}` (baris bulanan disaring, sifat angka pendukung dinyatakan) + `DistrictDetailPanel` di antarmuka lewat hasil pencarian | #35 | `iter-14-district-panel` |
 | 15 | `feat/api-event-map` | Peta kejadian `P3`: `GET /tiles/events/{z}/{x}/{y}.mvt?year=` (kejadian tercatat BNPB, baris bulanan disaring) + lapisan keempat "Kejadian" beserta panel angka nasional tahun terpilih | #36 | `iter-15-event-map` |
 | 16 | `feat/api-event-points` | Peta titik kejadian `P5`: `GET /api/v1/events/points?year=` (6.390 kejadian berkoordinat, rincian dibawa sekalian) + lapisan kelima dengan warna/ukuran menurut ketelitian koordinat, panel rincian, dan jalan ke panel wilayah | #37 | `iter-16-event-points` |
+| 17 | `feat/frontend-confidence-filter` | Penyaring kepercayaan `h`/`n`/`l` di lapisan titik panas (`SRS-F-15`) + angka tampilan aktif di legenda (`SRS-F-16`) lewat `point_coverage?confidence=` | #38 | `iter-17-confidence-filter` |
+| 17b | `fix/legend-coverage-series` | Legenda penempatan titik: angka pertama jadi `point_count` (seluruh seri) supaya berjumlah dengan `placed`/`outside` | #39 | `iter-17b-coverage-line` |
+| 18 | `feat/api-heatmap-mode` | Mode heatmap `P1` (`SRS-F-14`): tile titik berkoordinat diagregasi per sel grid + saklar Choropleth/Heatmap | #40 | `iter-18-heatmap` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
-iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16 (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 18 — `feat/api-heatmap-mode` (mode heatmap `P1`)
+
+Kebutuhan peta terakhir yang belum ada: `SRS-F-14` meminta mode heatmap yang memakai **titik panas
+berkoordinat** tahun terpilih, bukan jumlah per wilayah. Titik mentahnya besar: 2023 berisi 288.756
+baris seri `main` di `point_observations`.
+
+Diukur dulu sebelum memilih bentuk (2026-11-19):
+
+| Bentuk | Muatan satu tile z=4 | Waktu |
+|---|---|---|
+| titik mentah (`ST_AsMVT` langsung, tile 13/8) | **1,4 MB** | **3 dtk** |
+| agregasi sel 1/256 tile (tile 13/8) | **84 KB** | 0,9 dtk (DB) |
+| agregasi sel, tile 12/8 lewat HTTP | 68 KB | 1,7 dtk (DB) · **6,6 dtk** (HTTP pertama) |
+
+**Batas yang diukur setelah deploy, dan tidak disembunyikan:** lewat HTTP di mesin ini satu tile
+heatmap butuh **1,9–3,0 dtk** (tile 13/8, tiga kali berturut-turut) dan **6,6 dtk** untuk tile 12/8
+pada permintaan pertama. Artinya mode heatmap pada tampilan nasional (beberapa tile sekaligus) baru
+tampil lengkap dalam hitungan detik, bukan seketika. Jalan perbaikannya jelas dan belum dikerjakan:
+indeks parsial pada `point_observations (series, confidence)` atau tabel grid yang dihitung ETL —
+keduanya perubahan basis data, bukan perubahan endpoint.
+
+Karena itu tile mengirim satu fitur per **sel grid** berisi `titik` (jumlah titik di sel) dan `weight`
+(jumlah berbobot kelas kepercayaan: h=3, n=2, l=1), dan layer `heatmap` MapLibre mewarnai menurut
+`heatmap-density`. Enam tile yang menutupi Indonesia berjumlah 235 KB.
+
+Dua penemuan yang menentukan kelayakannya:
+
+1. **JIT PostgreSQL memakan hampir seluruh waktu kueri.** `explain analyze` menunjukkan JIT 9,0 dtk
+   dari 10,4 dtk total pada instance kecil Aiven. Dengan `set jit = off` untuk sesi itu, eksekusinya
+   0,9 dtk. Dimatikan per sesi kolam di endpoint ini, bukan global di server.
+2. **Batas zoom 4 harus ditegakkan dua sisi.** API membalas `422` di bawah z=4 (bukan `204`, yang
+   berarti "tidak ada titik"), dan peta memanggil `setMinZoom(4)` selama mode heatmap aktif — sumber
+   ber-`minzoom` di atas zoom peta tidak meminta satu tile pun (jebakan 15 `AGENTS.md`).
+
+| Berkas | Isi |
+|---|---|
+| `backend/app/routers/maps.py` | `heatmap_router` + `QUERY_HOTSPOT_POINTS_TILE` + `HEATMAP_MIN_ZOOM`/`HEATMAP_CELLS`, `set jit = off` per permintaan |
+| `backend/app/main.py` | router didaftarkan |
+| `backend/tests/test_tiles.py` | 5 uji baru: layer + `weight`, batas zoom `422`, `204` di laut, batas tahun, muatan mengecil saat kelas `h` dipilih |
+| `frontend/src/api/geosafe.ts` · `types/geosafe.ts` | `heatmapTileUrlTemplate`, `HotspotView` |
+| `frontend/src/components/map/thematic-layer.ts` | `heatmapSpec` (sumber sendiri, minzoom 4) |
+| `frontend/src/components/map/MapView.tsx` | layer `heatmap` berbobot + zoom floor + peleburan sumber saat mode berganti |
+| `frontend/src/components/map/MapToolbar.tsx` · `Legend.tsx` | saklar Tampilan (Choropleth/Heatmap) + legenda gradasi kepadatan |
+| `frontend/src/pages/MapPage.tsx` | state `hotspotView` |
+
+```
+cd backend && uv run pytest -q
+136 passed, 1 warning in 64,20 dtk          (sebelumnya 131)
+uv run pytest -q tests/test_tiles.py
+25 passed, 1 warning in 25,23 dtk           (5 uji baru)
+
+cd frontend && npm run typecheck && npm test
+tsc --noEmit                                 (bersih)
+Test Files 25 passed (25)
+Tests      185 passed (185)                  (sebelumnya 182)
+```
+
+Bukti HTTP (API unit systemd, setelah `systemctl --user restart geosafe-api`):
+
+```
+GET /tiles/hotspot_points/4/13/8.mvt?year=2023              → 200 · 85.726 B · 1,9–3,0 dtk (tiga kali)
+GET /tiles/hotspot_points/4/12/8.mvt?year=2023              → 200 · 68.090 B · 6,6 dtk (permintaan pertama)
+GET /tiles/hotspot_points/4/13/8.mvt?year=2023&confidence=h → 200 · 23.594 B
+GET /tiles/hotspot_points/3/6/3.mvt?year=2023               → 422 ("di bawah batas")
+GET /openapi.json                                           → 23 path (sebelumnya 22)
+```
+
+Bukti antarmuka di **produksi Vercel** (bundle `assets/index-DoqPKp0H.js` memuat `hotspot_points`;
+Chrome CDP): tombol `Heatmap` diklik → legenda berjudul "Kepadatan titik panas (heatmap)" dengan
+kalimat "legenda ini tidak memakai kelas angka", dan log API mencatat **11 permintaan**
+`/tiles/hotspot_points/4/…` untuk tahun 2026 tanpa satu pun permintaan di bawah z=4 — artinya zoom
+peta benar-benar dijaga di batas lapisan.
+
+Legenda mode heatmap
+**tidak** memakai kelas angka: `SRS-F-18` menuntut angka pada legenda **kelas warna**, sedangkan
+heatmap adalah gradasi kepadatan — menyebutnya kelas akan salah menggambarkan lapisannya, jadi
+sebabnya ditulis di legenda.
+
+Temuan: **pilihan bentuk harus dari pengukuran, bukan dari kenyamanan**. Versi "kirim titik mentah
+lalu serahkan ke peramban" tampak paling sederhana dan gagal pada dua angka sekaligus (1,4 MB, 3 dtk
+per tile); agregasi sel memangkas keduanya ~17× dan ~3× tanpa kehilangan arti kepadatan.
+
+## Iterasi 17 — `feat/frontend-confidence-filter` (penyaring kepercayaan + angka tampilan aktif)
+
+Dua kebutuhan `P1` yang API-nya sudah siap tetapi belum bisa dijangkau pengguna:
+
+- `SRS-F-15`: penyaring tingkat kepercayaan (`Semua`/`h`/`n`/`l`) yang **mengubah angka dan warna**
+  peta. Pilihan masuk ke URL tile kabupaten/kota; di tingkat provinsi kendalinya nonaktif dengan
+  sebabnya (basis data tidak menyimpan baris provinsi per kelas, API membalas `422`), dan berpindah
+  ke provinsi mengembalikan pilihan ke `Semua`.
+- `SRS-F-16`: jumlah titik panas yang dipakai tampilan aktif beserta jumlah di luar poligon wilayah.
+  `/api/v1/point_coverage` menerima `confidence` yang sama, jadi legenda melaporkan kelas yang
+  sedang tampil, bukan total nasional.
+
+Partisi kelasnya terbukti utuh (diukur 2026-11-19): 2023 → h 8.419 + n 225.831 + l 19.095 = 253.345;
+2026 → 982 + 51.217 + 1.885 = 54.084, sama dengan angka tanpa penyaring.
+
+```
+cd backend && uv run pytest -q
+131 passed in 44,57 dtk                     (sebelumnya 130)
+cd frontend && npm run typecheck && npm test
+tsc --noEmit (bersih) · Tests 182 passed (182)   (sebelumnya 178)
+```
+
+Bukti HTTP: `point_coverage?year=2023&confidence=h` → seri `main` 9.824 titik, `placed` 8.574,
+`outside` 1.438; tile kelas `h` 50.954 B < tile seluruh kelas 56.674 B; tile provinsi + `confidence`
+→ `422`.
+
+**Satu kegagalan CI yang jujur dicatat:** `tsc` menolak `mock.calls[0][0]` (TS2493) karena mock
+`fetch` di uji baru tidak punya parameter; lolos dari typecheck lokal hanya karena perintah itu
+dijalankan **sebelum** uji tersebut ditambahkan. Perbaikannya mengetik parameter mock.
+
+## Iterasi 17b — `fix/legend-coverage-series` (angka legenda berjumlah)
+
+Ditemukan saat memeriksa halaman produksi, bukan dari suite: legenda mencetak `series.main` sebagai
+angka pertama sementara `placed_count` dan `outside_count` dihitung atas **seluruh** seri, sehingga
+2026 kelas `h` terbaca "1.857 titik · 1.140 masuk · 945 di luar" — dua angka terakhir berjumlah
+2.085. Sekarang angka pertama `point_count` (2.085) dengan rincian `main 1.857 · fill 228` di
+sebelahnya, dan uji App memeriksa bentuk itu.
+
+```
+cd frontend && npm test
+Test Files 25 passed (25) · Tests 182 passed (182)
+```
 
 ## Iterasi 16 — `feat/api-event-points` (peta titik kejadian `P5`)
 
