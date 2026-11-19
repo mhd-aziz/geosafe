@@ -4,7 +4,7 @@ import { formatCount } from '../../lib/format';
 import { eventLegendEntries } from '../../lib/events';
 import { COORD_LEVEL_ORDER, COORD_LEVEL_STYLES } from '../../lib/event-points';
 import { riskLegendEntries, villageLegendEntries } from '../../lib/risk';
-import type { ConfidenceCode, MapLayer } from '../../types/geosafe';
+import type { ConfidenceCode, HotspotView, MapLayer } from '../../types/geosafe';
 
 export interface LegendProps {
   layer: MapLayer;
@@ -18,6 +18,8 @@ export interface LegendProps {
   latestShown?: boolean;
   /** Kelas kepercayaan aktif (`SRS-F-15`); `null` = seluruh kelas. */
   confidence?: ConfidenceCode | null;
+  /** Choropleth atau heatmap (`SRS-F-14`). */
+  hotspotView?: HotspotView;
   /** Angka tampilan aktif dari `/api/v1/point_coverage` (`SRS-F-16`). */
   coverage?: {
     point_count: number;
@@ -45,6 +47,7 @@ export function Legend({
   latestShown = false,
   confidence = null,
   coverage = null,
+  hotspotView = 'choropleth',
 }: LegendProps) {
   const riskActive = layer === 'risk';
   const villageActive = layer === 'risk_village';
@@ -72,6 +75,20 @@ export function Legend({
 
   return (
     <div className="w-full rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur-sm sm:max-w-xs">
+      {layer === 'hotspot' && hotspotView === 'heatmap' ? (
+        <>
+          <h2 className="text-xs font-semibold text-slate-900">Kepadatan titik panas (heatmap)</h2>
+          <p className="mt-0.5 text-[11px] text-slate-600">
+            seri <code>main</code>, tahun terpilih · titik berkoordinat diagregasi ke sel grid
+          </p>
+          <p className="mt-2 text-[11px] text-slate-600">
+            Warna menyatakan <strong>kepadatan</strong> deteksi, bukan jumlah per wilayah: makin pekat,
+            makin banyak titik di sel itu. Karena itu legenda ini tidak memakai kelas angka seperti
+            mode choropleth (<code>SRS-F-18</code> berlaku untuk kelas warna, bukan gradasi kepadatan).
+          </p>
+        </>
+      ) : (
+      <>
       <h2 className="text-xs font-semibold text-slate-900">
         {villageActive
           ? 'Kelas kerawanan desa/kelurahan'
@@ -154,6 +171,9 @@ export function Legend({
           {formatCount(coverage.outside_count)} di luar (tidak dihitung nol).
         </p>
       ) : null}
+
+      </>
+      )}
 
       {latestShown ? (
         // Titik terkini tetap digambar di atas lapisan tematik apa pun; tanpa

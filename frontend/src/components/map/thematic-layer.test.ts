@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { VILLAGE_MIN_ZOOM, readoutText, thematicSpec } from './thematic-layer';
+import {
+  HEATMAP_MIN_ZOOM,
+  VILLAGE_MIN_ZOOM,
+  heatmapSpec,
+  readoutText,
+  thematicSpec,
+} from './thematic-layer';
 
 /** Spesifikasi lapisan yang wajib ada; `null` berarti ujinya sendiri yang salah. */
 function specOf(...args: Parameters<typeof thematicSpec>) {
@@ -196,5 +202,21 @@ describe('penyaring kepercayaan (SRS-F-15)', () => {
     expect(specOf('hotspot', 'province', 2023, 'a', null, 'h').url).toBe(
       '/tiles/provinces/{z}/{x}/{y}.mvt?year=2023',
     );
+  });
+});
+
+describe('mode heatmap (SRS-F-14)', () => {
+  it('memakai sumber sendiri dengan batas zoom 4 dan tahun pada URL', () => {
+    const heat = heatmapSpec(2023, 'h');
+
+    expect(heat.url).toBe('/tiles/hotspot_points/{z}/{x}/{y}.mvt?year=2023&confidence=h');
+    expect(heat.sourceLayer).toBe('hotspot_points');
+    expect(heat.minzoom).toBe(HEATMAP_MIN_ZOOM);
+    expect(HEATMAP_MIN_ZOOM).toBe(4);
+    // Nama sumber/layer tidak boleh bertabrakan dengan choropleth: kalau sama,
+    // perpindahan mode meninggalkan poligon lama di bawah awan panas.
+    const choropleth = specOf('hotspot', 'regency', 2023, 'a');
+    expect(heat.sourceId).not.toBe(choropleth.sourceId);
+    expect(heat.fillLayerId).not.toBe(choropleth.fillLayerId);
   });
 });

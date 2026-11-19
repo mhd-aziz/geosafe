@@ -24,13 +24,21 @@ import { riskFillColorExpression, villageRiskFillColorExpression } from '../../l
 import type {
   ConfidenceCode,
   EventPoint,
+  HotspotView,
   LatestPoint,
   MapLayer,
   MapLevel,
   RiskSchemeCode,
   SearchLevel,
 } from '../../types/geosafe';
-import { THEMATIC_IDS, VILLAGE_MIN_ZOOM, readoutText, thematicSpec } from './thematic-layer';
+import {
+  HEATMAP_MIN_ZOOM,
+  THEMATIC_IDS,
+  VILLAGE_MIN_ZOOM,
+  heatmapSpec,
+  readoutText,
+  thematicSpec,
+} from './thematic-layer';
 
 setWorkerUrl(`${maplibreWorkerUrl}?v=mjs-mime`);
 
@@ -90,6 +98,8 @@ export interface MapViewProps {
   eventPoints?: EventPoint[] | null;
   /** Tingkat kepercayaan deteksi untuk tile kabupaten/kota (`SRS-F-15`). */
   confidence?: ConfidenceCode | null;
+  /** Choropleth atau heatmap untuk lapisan titik panas (`SRS-F-14`). */
+  hotspotView?: HotspotView;
   onSelectRegion: (region: { code: string; name: string; level: SearchLevel }) => void;
   /** Klik satu titik kejadian membuka rinciannya (`SRS-F-42`). */
   onSelectEventPoint?: (point: EventPoint) => void;
@@ -116,6 +126,7 @@ export function MapView({
   latestPoints,
   eventPoints = null,
   confidence = null,
+  hotspotView = 'choropleth',
   onSelectRegion,
   onSelectEventPoint,
   onViewportChange,
@@ -330,6 +341,12 @@ export function MapView({
       return;
     }
 
+    // Mode heatmap menggambar tile titik, bukan poligon wilayah: poligonnya
+    // dilepas (pembersihan di atas sudah jalan) supaya awan panasnya terlihat.
+    if (layer === 'hotspot' && hotspotView === 'heatmap') {
+      return;
+    }
+
     // Lapisan desa tanpa provinsi terpilih: tidak ada tile yang sah untuk
     // diminta, jadi pembersihan di atas sudah cukup.
     if (!spec) {
@@ -417,6 +434,64 @@ export function MapView({
     });
   }, [ready, latestPoints]);
 
+  // Mode heatmap (`P1`, `SRS-F-14`): sumber vector berisi sel grid titik panas,
+  // diwarnai menurut `heatmap-density`. Bobot sel mengikuti kelas kepercayaan
+  // (h=3, n=2, l=1) sehingga penyaring yang sama ikut berlaku di sini.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) {
+      return;
+    }
+
+    const own = THEMATIC_IDS.find((ids) => ids.sourceId === 'hotspot-points');
+    if (own && map.getLayer(own.fillLayerId)) {
+      map.removeLayer(own.fillLayerId);
+    }
+    if (own && map.getSource(own.sourceId)) {
+      map.removeSource(own.sourceId);
+    }
+    if (layer !== 'hotspot' || hotspotView !== 'heatmap') {
+      return;
+    }
+
+    const spec = heatmapSpec(year, confidence);
+    map.addSource(spec.sourceId, {
+      type: 'vector',
+      tiles: [spec.url],
+      minzoom: spec.minzoom,
+      maxzoom: 14,
+    });
+    map.addLayer({
+      id: spec.fillLayerId,
+      type: 'heatmap',
+      source: spec.sourceId,
+      'source-layer': spec.sourceLayer,
+      paint: {
+        'heatmap-weight': ['coalesce', ['get', 'weight'], 1] as never,
+        'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 9, 2] as never,
+        'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 4, 6, 9, 18] as never,
+        'heatmap-opacity': 0.8,
+        'heatmap-color': [
+          'interpolate',
+          ['linear'],
+          ['heatmap-density'],
+          0,
+          'rgba(255,255,255,0)',
+          0.2,
+          '#fef0d9',
+          0.4,
+          '#fdcc8a',
+          0.6,
+          '#fc8d59',
+          0.8,
+          '#e34a33',
+          1,
+          '#b30000',
+        ] as never,
+      },
+    });
+  }, [ready, layer, hotspotView, year, confidence]);
+
   // Lapisan titik kejadian (`P5`): GeoJSON, bukan tile — 2.153 kejadian pada tahun
   // terbesar masih wajar dikirim sekali. Warna dan jari-jari mengikuti ketelitian
   // koordinat (`SRS-F-41`), dan sumbernya dibuang saat lapisan berganti supaya
@@ -475,8 +550,16 @@ export function MapView({
     if (!map || !ready) {
       return;
     }
-    map.setMinZoom(layer === 'risk_village' ? VILLAGE_MIN_ZOOM : 0);
-  }, [ready, layer]);
+    // Mode heatmap punya batasnya sendiri (`SRS-F-14`): tile titik baru dilayani
+    // di z>=4, dan sumber ber-`minzoom` tidak diminta sama sekali di bawah itu.
+    const floor =
+      layer === 'risk_village'
+        ? VILLAGE_MIN_ZOOM
+        : layer === 'hotspot' && hotspotView === 'heatmap'
+          ? HEATMAP_MIN_ZOOM
+          : 0;
+    map.setMinZoom(floor);
+  }, [ready, layer, hotspotView]);
 
   useEffect(() => {
     const map = mapRef.current;

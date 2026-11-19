@@ -45,6 +45,24 @@ export function tileSourceLayer(level: MapLevel): string {
   return level === 'province' ? 'provinces' : 'regions';
 }
 
+/** Templat URL tile titik panas berkoordinat untuk mode heatmap (`P1`, `SRS-F-14`).
+ *
+ * Titik diagregasi ke sel grid di server: satu tile z=4 Kalimantan hanya ~84 KB.
+ * Batas zoom 4 ditegakkan API (`422` di bawahnya).
+ */
+export function heatmapTileUrlTemplate(
+  year: number,
+  confidence: ConfidenceCode | null = null,
+): string {
+  const filter = confidence === null ? '' : `&confidence=${confidence}`;
+  return `${API_BASE}/tiles/hotspot_points/{z}/{x}/{y}.mvt?year=${year}${filter}`;
+}
+
+/** Nama layer di dalam tile heatmap. */
+export function heatmapTileSourceLayer(): string {
+  return 'hotspot_points';
+}
+
 /** Templat URL tile kejadian tercatat BNPB (`P3`, `SRS-F-28`).
  *
  * Lapisan ini hanya ada di tingkat kabupaten/kota: baris kejadian tingkat

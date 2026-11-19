@@ -1,6 +1,8 @@
 import {
   eventTileSourceLayer,
   eventTileUrlTemplate,
+  heatmapTileSourceLayer,
+  heatmapTileUrlTemplate,
   riskTileUrlTemplate,
   tileSourceLayer,
   tileUrlTemplate,
@@ -58,6 +60,9 @@ const VILLAGE_IDS = {
 /** Zoom terkecil lapisan desa; di bawah ini API menjawab `422`, jadi sumbernya
  *  tidak boleh meminta tile yang lebih rendah (`SRS-F-38`). */
 export const VILLAGE_MIN_ZOOM = 8;
+
+/** Zoom terkecil mode heatmap: di bawah ini API membalas `422`. */
+export const HEATMAP_MIN_ZOOM = 4;
 
 /** Spesifikasi lapisan aktif, atau `null` bila belum bisa dipasang.
  *
@@ -120,8 +125,29 @@ export function thematicSpec(
   };
 }
 
+const HEATMAP_IDS = {
+  sourceId: 'hotspot-points',
+  fillLayerId: 'hotspot-heat',
+  lineLayerId: 'hotspot-heat',
+} as const;
+
+/** Spesifikasi sumber heatmap (`SRS-F-14`): tile titik berkoordinat, bukan poligon.
+ *  Zoom minimum 4 sama dengan batas yang ditegakkan API.
+ */
+export function heatmapSpec(
+  year: number,
+  confidence: ConfidenceCode | null = null,
+): ThematicSpec {
+  return {
+    ...HEATMAP_IDS,
+    url: heatmapTileUrlTemplate(year, confidence),
+    sourceLayer: heatmapTileSourceLayer(),
+    minzoom: HEATMAP_MIN_ZOOM,
+  };
+}
+
 /** Semua layer/sumber tematik yang mungkin terpasang; dipakai untuk membersihkan. */
-export const THEMATIC_IDS = [HOTSPOT_IDS, RISK_IDS, EVENTS_IDS, VILLAGE_IDS];
+export const THEMATIC_IDS = [HOTSPOT_IDS, RISK_IDS, EVENTS_IDS, VILLAGE_IDS, HEATMAP_IDS];
 
 /** Teks bacaan saat kursor berhenti di atas satu wilayah.
  *

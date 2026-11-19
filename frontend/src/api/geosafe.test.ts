@@ -5,6 +5,8 @@ import {
   fetchLatestSummary,
   fetchRegionPanel,
   fetchPointCoverage,
+  heatmapTileSourceLayer,
+  heatmapTileUrlTemplate,
   fetchVillageProvinces,
   searchRegions,
   tileSourceLayer,
@@ -149,5 +151,17 @@ describe('penyaring kepercayaan (SRS-F-15)', () => {
     await fetchPointCoverage(2023, 'h');
 
     expect(fetchMock.mock.calls[0][0]).toContain('/api/v1/point_coverage?year=2023&confidence=h');
+  });
+});
+
+describe('tile heatmap (SRS-F-14)', () => {
+  it('menyusun URL tile titik berkoordinat dengan tahun dan kelas', () => {
+    expect(heatmapTileUrlTemplate(2023)).toBe(
+      '/tiles/hotspot_points/{z}/{x}/{y}.mvt?year=2023',
+    );
+    expect(heatmapTileUrlTemplate(2023, 'n')).toBe(
+      '/tiles/hotspot_points/{z}/{x}/{y}.mvt?year=2023&confidence=n',
+    );
+    expect(heatmapTileSourceLayer()).toBe('hotspot_points');
   });
 });

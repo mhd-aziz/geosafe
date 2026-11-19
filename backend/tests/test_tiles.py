@@ -335,3 +335,53 @@ def test_event_series_is_absent_from_the_event_metric() -> None:
             row = cur.fetchone()
 
     assert row["slashed"] == 0
+
+
+# --- P1 mode heatmap ---------------------------------------------------------
+#
+# Titik panas berkoordinat dikirim sebagai tile grid, bukan satu GeoJSON:
+# 2023 berisi 288.756 titik seri main, sementara satu tile z=4 Kalimantan
+# (13/8) hanya butuh ratusan sel. Ukuran tile dijaga di uji supaya regresi ke
+# "kirim titik mentah" (1,4 MB, 3 dtk) tidak lolos diam-diam.
+
+HEATMAP_TILE = "/tiles/hotspot_points/4/13/8.mvt"
+
+
+def test_heatmap_tile_contains_aggregated_points_layer() -> None:
+    response = client.get(HEATMAP_TILE, params={"year": 2023})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == MEDIA_TYPE_MVT
+    body = response.content
+    assert b"hotspot_points" in body
+    assert b"weight" in body
+    # Batas atas dari pengukuran 2026-11-19: 84 KB untuk tile terpadat z=4.
+    assert len(body) < 200_000
+
+
+def test_heatmap_tile_rejects_zoom_below_its_floor() -> None:
+    """Di bawah z=4 endpoint menjawab `422`, bukan `204` yang berarti kosong."""
+    response = client.get("/tiles/hotspot_points/3/6/3.mvt", params={"year": 2023})
+
+    assert response.status_code == 422
+    assert "di bawah batas" in response.json()["detail"]
+
+
+def test_heatmap_tile_answers_204_over_ocean() -> None:
+    assert client.get("/tiles/hotspot_points/4/0/0.mvt", params={"year": 2023}).status_code == 204
+
+
+def test_heatmap_tile_rejects_year_outside_range() -> None:
+    assert client.get(HEATMAP_TILE, params={"year": 2019}).status_code == 422
+    assert client.get(HEATMAP_TILE, params={"year": 2027}).status_code == 422
+
+
+def test_heatmap_tile_shrinks_with_the_confidence_filter() -> None:
+    """Penyaring `SRS-F-15` juga berlaku di mode heatmap."""
+    semua = client.get(HEATMAP_TILE, params={"year": 2023})
+    kelas_h = client.get(HEATMAP_TILE, params={"year": 2023, "confidence": "h"})
+
+    assert semua.status_code == 200
+    assert kelas_h.status_code == 200
+    # Kelas h hanya 10.012 dari 288.756 titik 2023, jadi muatannya lebih kecil.
+    assert len(kelas_h.content) < len(semua.content)

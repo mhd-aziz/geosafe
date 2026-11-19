@@ -3,6 +3,7 @@ import { YEARS } from '../../lib/constants';
 import { DEFAULT_RISK_SCHEME } from '../../lib/risk';
 import type {
   ConfidenceCode,
+  HotspotView,
   MapLayer,
   MapLevel,
   RiskScheme,
@@ -31,6 +32,9 @@ export interface MapToolbarProps {
   /** Kelas kepercayaan aktif (`SRS-F-15`); `null` = seluruh kelas. */
   confidence: ConfidenceCode | null;
   onConfidenceChange: (confidence: ConfidenceCode | null) => void;
+  /** Choropleth atau heatmap (`SRS-F-14`). */
+  hotspotView: HotspotView;
+  onHotspotViewChange: (view: HotspotView) => void;
 }
 
 /** Kendali peta: lapisan, tahun, tingkat wilayah, skema bobot, provinsi lapisan desa.
@@ -57,6 +61,8 @@ export function MapToolbar({
   onLevelChange,
   confidence,
   onConfidenceChange,
+  hotspotView,
+  onHotspotViewChange,
 }: MapToolbarProps) {
   // Tahun berlaku untuk lapisan titik panas dan lapisan kejadian; dua lapisan
   // kerawanan adalah ringkasan satu periode pada tingkat tetap.
@@ -152,6 +158,29 @@ export function MapToolbar({
           wilayah dikunci ke kabupaten/kota (`SRS-F-28`), dan abu-abu berarti tidak ada kejadian
           tercatat pada tahun terpilih.
         </p>
+      ) : null}
+
+      {hotspotActive ? (
+        <div className="space-y-1" data-testid="hotspot-view-control">
+          <Segmented
+            label="Tampilan"
+            value={hotspotView}
+            onChange={onHotspotViewChange}
+            options={[
+              { value: 'choropleth', label: 'Choropleth', title: 'Jumlah titik panas per wilayah' },
+              {
+                value: 'heatmap',
+                label: 'Heatmap',
+                title: 'Kepadatan titik panas berkoordinat, diagregasi per sel grid (SRS-F-14)',
+              },
+            ]}
+          />
+          <p className="text-[11px] leading-snug text-slate-600">
+            {hotspotView === 'heatmap'
+              ? 'Heatmap memakai titik panas berkoordinat tahun terpilih, diagregasi ke sel grid dan diwarnai menurut kepadatan — bukan kelas angka, jadi legenda angkanya tidak berlaku. Peta baru menggambar mulai zoom 4.'
+              : 'Choropleth mewarnai tiap wilayah menurut kelas jumlah titik panas, dengan angka di legenda.'}
+          </p>
+        </div>
       ) : null}
 
       {hotspotActive ? (
