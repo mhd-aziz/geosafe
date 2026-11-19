@@ -117,6 +117,13 @@ CI pada PR: `frontend` (typecheck · 154 uji · build) lulus 32 dtk, `backend` (
 hidup lewat role baca-saja) lulus 1m54s. Setelah *squash merge* (`a204f41`), job **Deploy** lulus
 20 dtk dan tag `iter-14-district-panel` menunjuk commit hasil merge.
 
+Bukti antarmuka di **produksi Vercel** (bundle `assets/index-BhYwiauk.js` memuat `panel/kecamatan`;
+Chrome CDP, tab dibawa ke depan): kotak pencarian diisi `Jekan Raya` → baris hasil `KECAMATAN`
+diklik → panel `aria-label="Panel kecamatan"` muncul dengan luas 387,55 km², kepadatan 129,88 per
+1.000 km², titik panas 2020–2026 (2 · 4 · 1 · **293** · 1 · 1 · 24 — baris bulanan tidak ikut),
+kejadian 1 · 3 · 2 · 5 · 2 · 2 · 1, dan lima catatan wajib, termasuk baris "pendukung, bukan unit
+analisis" dan cakupan 1.525/7.169.
+
 Temuan yang harus diingat:
 
 1. **`_single_value` membaca `value_text`, `district_facts` tidak punya kolom itu.** Versi pertama
