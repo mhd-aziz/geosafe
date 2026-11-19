@@ -15,7 +15,7 @@ Tiga hal yang disajikan router ini:
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -58,6 +58,9 @@ select extract(year from observed_on)::int as year,
    and (%(year)s::int is null
         or (observed_on >= make_date(%(year)s::int, 1, 1)
             and observed_on < make_date(%(year)s::int + 1, 1, 1)))
+   -- Penyaring tingkat kepercayaan untuk `SRS-F-15`/`SRS-F-16`: angka yang
+   -- dilaporkan ke pengguna harus angka kelas yang sedang tampil di peta.
+   and (%(confidence)s::text is null or confidence = %(confidence)s)
  group by 1, 2
  order by 1, 2
 """
@@ -97,11 +100,18 @@ def point_coverage(
         le=2026,
         description="Batasi ke satu tahun; kosong = seluruh rentang 2020–2026",
     ),
+    confidence: Literal["h", "n", "l"] | None = Query(
+        default=None,
+        description=(
+            "Tingkat kepercayaan deteksi (`SRS-F-15`/`SRS-F-16`). Kosong = seluruh "
+            "kelas; angka per kelas menjumlah tepat ke angka tanpa penyaring."
+        ),
+    ),
     conn: psycopg.Connection = Depends(get_connection),
 ) -> dict[str, Any]:
     """Berapa titik panas yang masuk poligon wilayah, dan berapa yang tidak."""
     with conn.cursor(row_factory=dict_row) as cur:
-        cur.execute(QUERY_POINT_COVERAGE, {"year": year})
+        cur.execute(QUERY_POINT_COVERAGE, {"year": year, "confidence": confidence})
         rows = cur.fetchall()
 
     per_year: dict[int, dict[str, Any]] = {}
@@ -153,9 +163,15 @@ def point_coverage(
             if year
             else "tabel titik panas kosong"
         )
+    if confidence is not None:
+        notes.append(
+            f"angka di atas hanya kelas kepercayaan {confidence}; kelas h + n + l "
+            "menjumlah tepat ke angka tanpa penyaring"
+        )
 
     return {
         "year": year,
+        "confidence": confidence,
         "totals": {
             "point_count": total_points,
             "placed_count": total_points - outside,

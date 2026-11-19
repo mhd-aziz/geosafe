@@ -186,3 +186,15 @@ describe('lapisan titik kejadian (P5)', () => {
     expect(thematicSpec('event_points', 'regency', 2023, 'a')).toBeNull();
   });
 });
+
+describe('penyaring kepercayaan (SRS-F-15)', () => {
+  it('membawa kelas kepercayaan pada URL tile kabupaten/kota saja', () => {
+    expect(specOf('hotspot', 'regency', 2023, 'a', null, 'h').url).toBe(
+      '/tiles/regions/{z}/{x}/{y}.mvt?year=2023&confidence=h',
+    );
+    // API menolak `?confidence=` di tile provinsi, jadi parameternya dibuang.
+    expect(specOf('hotspot', 'province', 2023, 'a', null, 'h').url).toBe(
+      '/tiles/provinces/{z}/{x}/{y}.mvt?year=2023',
+    );
+  });
+});

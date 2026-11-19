@@ -4,6 +4,7 @@ import {
   fetchLatest,
   fetchLatestSummary,
   fetchRegionPanel,
+  fetchPointCoverage,
   fetchVillageProvinces,
   searchRegions,
   tileSourceLayer,
@@ -126,5 +127,27 @@ describe('fetchVillageProvinces', () => {
 
     await expect(fetchVillageProvinces()).resolves.toEqual(body);
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/provinces', undefined);
+  });
+});
+
+describe('penyaring kepercayaan (SRS-F-15)', () => {
+  it('menambahkan confidence ke URL tile kabupaten/kota saat dipilih', () => {
+    expect(tileUrlTemplate('regency', 2023, 'h')).toBe(
+      '/tiles/regions/{z}/{x}/{y}.mvt?year=2023&confidence=h',
+    );
+    // Tanpa pilihan, URL tidak berubah: seluruh kelas.
+    expect(tileUrlTemplate('regency', 2023)).toBe('/tiles/regions/{z}/{x}/{y}.mvt?year=2023');
+  });
+
+  it('meneruskan kelas ke endpoint penempatan supaya angkanya angka tampilan aktif', async () => {
+    // Parameternya ditulis supaya `mock.calls[0][0]` bertipe (tuple kosong kalau tidak).
+    const fetchMock = vi.fn(async (_input: string) =>
+      jsonResponse({ year: 2023, confidence: 'h' }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchPointCoverage(2023, 'h');
+
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/v1/point_coverage?year=2023&confidence=h');
   });
 });

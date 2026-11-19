@@ -125,6 +125,8 @@ export interface PointCoverageYear {
 
 export interface PointCoverage {
   year: number | null;
+  /** Kelas kepercayaan yang dipakai (`SRS-F-15`); kosong = seluruh kelas. */
+  confidence?: ConfidenceCode | null;
   totals: {
     point_count: number;
     placed_count: number;
@@ -421,6 +423,9 @@ export interface VillagePanelData {
   hotspot_per_1000_km2: number | null;
   notes: string[];
 }
+
+/** Kelas kepercayaan deteksi FIRMS untuk penyaring peta (`SRS-F-15`). */
+export type ConfidenceCode = 'h' | 'n' | 'l';
 
 /** Ketelitian koordinat kejadian (`SRS-F-41`): desa, pusat kecamatan, pusat kabupaten/kota. */
 export type CoordLevel = 'village' | 'district' | 'region';

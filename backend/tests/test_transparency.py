@@ -125,3 +125,29 @@ def test_unduh_tidak_bisa_keluar_dari_folder_unduhan() -> None:
     response = client.get("/api/v1/downloads/..%2F..%2F..%2Fetc%2Fpasswd")
 
     assert response.status_code == 404
+
+
+def test_coverage_per_confidence_class_sums_to_the_unfiltered_number() -> None:
+    """Penyaring `confidence` (`SRS-F-15`) tidak boleh mengubah total saat digabung.
+
+    Angka yang dilaporkan ke pengguna harus angka kelas yang sedang tampil di
+    peta (`SRS-F-16`), dan h + n + l terbukti menjumlah tepat ke angka tanpa
+    penyaring — kalau suatu hari tidak lagi, kelasnya bukan partisi.
+    """
+    semua = client.get(COVERAGE, params={"year": 2023}).json()["totals"]
+
+    per_kelas = {
+        kelas: client.get(COVERAGE, params={"year": 2023, "confidence": kelas}).json()
+        for kelas in ("h", "n", "l")
+    }
+
+    for kelas, body in per_kelas.items():
+        assert body["confidence"] == kelas
+        assert f"hanya kelas kepercayaan {kelas}" in " ".join(body["notes"])
+
+    for seri in semua["series"]:
+        jumlah = sum(body["totals"]["series"].get(seri, 0) for body in per_kelas.values())
+        assert jumlah == semua["series"][seri], seri
+
+    # Angka kelas h tahun 2023 pada seri main: 9.824 titik (diukur 2026-11-19).
+    assert per_kelas["h"]["totals"]["series"]["main"] == 9_824

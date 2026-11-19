@@ -49,6 +49,23 @@ const fetchVillageProvincesMock = vi.mocked(fetchVillageProvinces);
 const fetchNationalTrendMock = vi.mocked(fetchNationalTrend);
 const fetchEventPointsMock = vi.mocked(fetchEventPoints);
 
+/** Angka tampilan aktif (`SRS-F-16`) yang dipakai legenda lapisan titik panas. */
+function mockCoverage() {
+  fetchPointCoverageMock.mockResolvedValue({
+    year: Number(new Date().getUTCFullYear()),
+    confidence: null,
+    totals: {
+      point_count: 54084,
+      placed_count: 54026,
+      outside_count: 58,
+      outside_share_percent: 0.11,
+      series: { main: 54084 },
+    },
+    by_year: [],
+    notes: [],
+  });
+}
+
 /** Lapisan titik kejadian (`P5`) meminta daftar titik satu tahun saat aktif. */
 function mockEventPoints() {
   fetchEventPointsMock.mockResolvedValue({
@@ -211,6 +228,7 @@ beforeEach(() => {
   mockVillageProvinces();
   mockNationalTrend();
   mockEventPoints();
+  mockCoverage();
 });
 
 function renderApp(path = '/') {
@@ -320,6 +338,24 @@ describe('App', () => {
 
     expect(await screen.findByText(/Keterangan sumber belum tersedia/)).toBeTruthy();
     expect(screen.getByTestId('map-stub')).toBeTruthy();
+  });
+
+  it('menyediakan penyaring kepercayaan di lapisan titik panas (`SRS-F-15`)', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp();
+
+    const control = await screen.findByTestId('confidence-control');
+    expect(control).toBeTruthy();
+    for (const label of ['Semua', 'h', 'n', 'l']) {
+      expect(screen.getByRole('button', { name: label })).toBeTruthy();
+    }
+    // `SRS-F-16`: angka tampilan aktif beserta yang di luar poligon. Kalimatnya
+    // memuat `<code>main</code>`, jadi dibaca dari `textContent` legenda — bukan
+    // `getByText`, yang hanya melihat simpul teks langsung.
+    expect(await screen.findByText(/Tampilan aktif memakai seri/)).toBeTruthy();
+    const legendText = document.body.textContent ?? '';
+    expect(legendText).toContain('54.084 titik');
+    expect(legendText).toContain('58 di luar (tidak dihitung nol)');
   });
 
   it('memuat lapisan kejadian tercatat BNPB beserta angka nasionalnya', async () => {
