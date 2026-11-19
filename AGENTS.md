@@ -75,7 +75,7 @@ Berikutnya, keadaan Vercel per 2026-11-19 (catat supaya tidak bingung lagi):
 | Blob store berisi basemap | **tidak dipakai lagi** — basemap pindah ke Cloudflare R2 (lihat bagian berikut) |
 | Cloudflare R2 | bucket **`geosafe-basemap`**, objek `indonesia.pmtiles` 216.138.172 byte, domain publik `geosafe-tiles.zisaltech.site` (CNAME `public.r2.dev`, TLS aktif) |
 | Proyek sementara | `geosafe-uploader` **sudah dihapus** (API `404`, semua deployment `410`) |
-| Sisa yang harus dihapus manusia | dua store Blob Vercel yang kini **tidak dipakai**: `geosafe-basemap-files` (216 MB) dan `geosafe-basemap` (0 byte) → *Storage → Delete*. Keduanya tidak dirujuk kode mana pun |
+| Sisa Vercel | **sudah bersih** (2026-11-19): dua store Blob yang tidak dipakai, `geosafe-basemap-files` (216 MB) dan `geosafe-basemap` (0 byte), sudah dihapus pemilik repo lewat *Storage → Delete*; token Cloudflare R2 juga sudah di-revoke |
 
 Basemap PMTiles (216 MB) **tidak** ikut ke Vercel sebagai berkas repo; berkasnya disimpan di **Cloudflare
 R2** (bucket `geosafe-basemap`, objek `indonesia.pmtiles`, 216.138.172 byte, kelas Standard) dan disajikan
