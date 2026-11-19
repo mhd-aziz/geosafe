@@ -361,6 +361,18 @@ describe('App', () => {
     expect(legendText).toContain('58 di luar (tidak dihitung nol)');
   });
 
+  it('menyediakan mode heatmap untuk lapisan titik panas (`SRS-F-14`)', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Heatmap' }));
+
+    expect(await screen.findByText('Kepadatan titik panas (heatmap)')).toBeTruthy();
+    // Tanpa kelas angka, dan sebabnya dinyatakan — bukan legenda kosong.
+    expect(screen.getByText(/legenda ini tidak memakai kelas angka/)).toBeTruthy();
+    expect(screen.getByText(/mulai zoom 4|baru menggambar mulai zoom 4/)).toBeTruthy();
+  });
+
   it('memuat lapisan kejadian tercatat BNPB beserta angka nasionalnya', async () => {
     fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
     renderApp();

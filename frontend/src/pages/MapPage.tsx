@@ -29,6 +29,7 @@ import { DEFAULT_RISK_SCHEME } from '../lib/risk';
 import type {
   ConfidenceCode,
   EventPoint,
+  HotspotView,
   LatestWindow,
   MapLayer,
   MapLevel,
@@ -65,6 +66,8 @@ export function MapPage() {
   const [year, setYear] = useState<number>(DEFAULT_YEAR);
   // Kelas kepercayaan deteksi (`SRS-F-15`); hanya berlaku di tingkat kabupaten/kota.
   const [confidence, setConfidence] = useState<ConfidenceCode | null>(null);
+  // Choropleth atau heatmap untuk lapisan titik panas (`SRS-F-14`).
+  const [hotspotView, setHotspotView] = useState<HotspotView>('choropleth');
   const [level, setLevel] = useState<MapLevel>('regency');
   // Lapisan desa dimuat per provinsi (`SRS-F-38`): tanpa provinsi terpilih tidak
   // ada tile yang sah untuk diminta.
@@ -202,6 +205,7 @@ export function MapPage() {
           provinceCode={provinceCode}
           focusBounds={focusBounds}
           confidence={layer === 'hotspot' ? confidence : null}
+          hotspotView={hotspotView}
           latestPoints={latest.data?.points ?? null}
           eventPoints={layer === 'event_points' ? (eventPoints.data?.points ?? null) : null}
           onSelectRegion={handleSelectFromMap}
@@ -228,11 +232,14 @@ export function MapPage() {
               onLevelChange={handleLevelChange}
               confidence={confidence}
               onConfidenceChange={setConfidence}
+              hotspotView={hotspotView}
+              onHotspotViewChange={setHotspotView}
             />
           </div>
           <div className="pointer-events-auto">
             <Legend
               layer={layer}
+              hotspotView={hotspotView}
               confidence={confidence}
               coverage={coverage.data?.totals ?? null}
               riskSchemeName={activeSchemeName}

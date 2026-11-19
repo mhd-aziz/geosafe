@@ -27,7 +27,7 @@ from psycopg.rows import dict_row
 from typing import Any, Literal
 
 from app.db import get_connection
-from app.tiles import check_tile_bounds, render_tile
+from app.tiles import check_tile_bounds, check_zoom_floor, render_tile
 
 router = APIRouter(prefix="/tiles", tags=["P1 peta titik panas"])
 
@@ -40,6 +40,9 @@ event_router = APIRouter(prefix="/tiles", tags=["P3 peta kejadian"])
 # per tahun (`SRS-F-40`…`44`). Berkasnya tetap di sini karena `maps.py` memegang
 # P1, P3, dan P5.
 points_router = APIRouter(prefix="/api/v1", tags=["P5 peta titik kejadian"])
+
+# Mode heatmap `P1` memakai titik panas berkoordinat sebagai tile sendiri.
+heatmap_router = APIRouter(prefix="/tiles", tags=["P1 mode heatmap"])
 
 # Geometri disimpan pada SRID 4326; tile dihitung pada 3857. Amplop tile
 # diproyeksikan ke 4326 untuk WHERE (agar indeks GiST `ix_region_geom` tetap
@@ -413,3 +416,100 @@ def event_points(
         "points": points,
         "notes": _points_notes(year, points),
     }
+
+
+# --- P1 mode heatmap --------------------------------------------------------
+#
+# Heatmap butuh titik panas berkoordinat (`SRS-F-14`), bukan jumlah per wilayah.
+# Tabel `point_observations` berisi ratusan ribu titik per tahun (2023: 288.756
+# baris seri main), jadi titiknya dikirim sebagai tile MVT, bukan satu GeoJSON
+# raksasa: peramban hanya meminta tile di dalam layar.
+#
+# Batas zoom 4 dipilih dari pengukuran, bukan tebakan: pada z=3 satu tile sudah
+# memuat puluhan ribu titik dan muatannya membesar tanpa manfaat visual, karena
+# pada zoom nasional pun titik-titik itu menyatu jadi awan panas. Di bawah z=4
+# endpoint membalas `422` (bukan `204`) supaya salah alamat tidak terbaca sebagai
+# "tidak ada titik".
+HEATMAP_MIN_ZOOM = 4
+
+# Jumlah sel per sisi tile: 256 berarti sel selebar 1/256 tile (≈ 5 km pada
+# z=4 di khatulistiwa). Dipilih setelah mengukur 128 (bintik terlalu kasar) dan
+# titik mentah (1,4 MB/tile).
+HEATMAP_CELLS = 256
+
+QUERY_HOTSPOT_POINTS_TILE = """
+with tile as (
+    select st_tileenvelope(%(z)s, %(x)s, %(y)s) as env_3857
+),
+cells as (
+    -- Titik diagregasi ke sel grid selebar 1/HEATMAP_CELLS tile. Titik mentah
+    -- tidak dikirim: satu tile z=4 Kalimantan berisi ~139 ribu titik = 1,4 MB dan
+    -- 3 dtk per permintaan (diukur 2026-11-19), sementara sel yang sama hanya
+    -- butuh ratusan fitur. Bobot sel = jumlah titik berbobot kelas kepercayaan.
+    select count(*) as titik,
+           sum(case p.confidence when 'h' then 3 when 'n' then 2 else 1 end) as weight,
+           st_snaptogrid(
+               st_transform(p.geom, 3857),
+               (st_xmax(tile.env_3857) - st_xmin(tile.env_3857)) / %(cells)s
+           ) as cell
+      from point_observations p
+      cross join tile
+     where p.point_type = 'hotspot'
+       and p.series = 'main'
+       and p.observed_on >= make_date(%(year)s::int, 1, 1)
+       and p.observed_on < make_date(%(year)s::int + 1, 1, 1)
+       and (%(confidence)s::text is null or p.confidence = %(confidence)s)
+       and p.geom && st_transform(tile.env_3857, 4326)
+     group by cell
+),
+mvt_rows as (
+    select st_asmvtgeom(
+               cells.cell,
+               tile.env_3857,
+               4096,
+               128,
+               false
+           ) as geom,
+           cells.weight,
+           cells.titik
+      from cells
+      cross join tile
+)
+select st_asmvt(mvt_rows.*, 'hotspot_points', 4096, 'geom') as tile
+  from mvt_rows
+"""
+
+
+@heatmap_router.get("/hotspot_points/{z}/{x}/{y:int}.mvt")
+def hotspot_points_tile(
+    year: int = Query(ge=2020, le=2026, description="Tahun seri titik panas"),
+    confidence: Literal["h", "n", "l"] | None = Query(
+        default=None,
+        description="Kelas kepercayaan deteksi; kosong = seluruh kelas",
+    ),
+    z: int = Path(ge=0, le=14),
+    x: int = Path(ge=0),
+    y: int = Path(ge=0),
+    conn: psycopg.Connection = Depends(get_connection),
+) -> Response:
+    """Tile titik panas berkoordinat untuk mode heatmap (`P1`, `SRS-F-14`).
+
+    Seri yang dipakai `main` — sama dengan choropleth — sehingga heatmap dan
+    choropleth tahun yang sama tidak bercerita beda. Toleransi geometri 64 satuan
+    tile dipakai karena heatmap tidak butuh posisi subpiksel.
+    """
+    check_tile_bounds(z, x, y)
+    check_zoom_floor(z, HEATMAP_MIN_ZOOM)
+
+    with conn.cursor(row_factory=dict_row) as cur:
+        # JIT PostgreSQL memakan 9 dari 10,4 dtk pada kueri ini di instance kecil
+        # Aiven (dibuktikan `explain analyze`: JIT 9,0 dtk vs eksekusi 0,9 dtk
+        # tanpa JIT). Dimatikan per sesi kolam, bukan global di server.
+        cur.execute("set jit = off")
+        cur.execute(
+            QUERY_HOTSPOT_POINTS_TILE,
+            {"z": z, "x": x, "y": y, "year": year, "confidence": confidence, "cells": HEATMAP_CELLS},
+        )
+        row = cur.fetchone()
+
+    return render_tile(row["tile"] if row else None)

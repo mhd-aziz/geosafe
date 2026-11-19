@@ -424,6 +424,9 @@ export interface VillagePanelData {
   notes: string[];
 }
 
+/** Cara menggambar lapisan titik panas: poligon per wilayah atau heatmap titik. */
+export type HotspotView = 'choropleth' | 'heatmap';
+
 /** Kelas kepercayaan deteksi FIRMS untuk penyaring peta (`SRS-F-15`). */
 export type ConfidenceCode = 'h' | 'n' | 'l';
 
