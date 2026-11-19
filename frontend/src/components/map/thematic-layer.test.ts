@@ -100,6 +100,29 @@ describe('readoutText', () => {
     ).toBe('PAPUA SELATAN · 1.204 titik panas 2023');
   });
 
+  it('menambahkan kepadatan per tahun di tingkat kabupaten/kota', () => {
+    // Merauke 2023: 22.474 titik panas, 46.256,2 km² → 485,8 per 1.000 km².
+    expect(
+      readoutText('hotspot', 'regency', 2023, {
+        region_name: 'Merauke',
+        hotspot_count: 22474,
+        hotspot_per_1000_km2: 485.85,
+        has_fact: 1,
+      }),
+    ).toBe('Merauke · 22.474 titik panas 2023 · 485,85 per 1.000 km²');
+  });
+
+  it('tidak menampilkan kepadatan saat wilayah belum punya baris fakta', () => {
+    expect(
+      readoutText('hotspot', 'regency', 2020, {
+        region_name: 'Contoh',
+        hotspot_count: null,
+        hotspot_per_1000_km2: null,
+        has_fact: 0,
+      }),
+    ).toBe('Contoh · belum ada baris fakta 2020');
+  });
+
   it('menyatakan wilayah tanpa baris fakta, bukan angka nol', () => {
     expect(
       readoutText('hotspot', 'regency', 2020, { region_name: 'Contoh', has_fact: 0 }),

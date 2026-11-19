@@ -13,6 +13,12 @@ ulang 2026-11-19, ETL menulis **nol secara eksplisit**, jadi `has_fact = 1` deng
 Peramban yang memutuskan cara menggambarnya, bukan endpoint ini.
 
 Satu implementasi join tetap di SQL; JavaScript tidak menghitung apa pun.
+
+Sejak 13b tile ini juga membawa `hotspot_per_1000_km2` untuk tahun yang dipilih
+(`hotspot_count × 1000 / regions.area_km2`). Angkanya mengikuti seri `main` seperti
+`hotspot_count` di tile ini, sedangkan panel `W2`, komposisi `A2`, dan peringkat
+`A3` memakai arsip total (`main + fill`) — selisihnya kecil tetapi nyata
+(Merauke 2023: 22.463 vs 22.474), jadi jangan dibandingkan tanpa menyebut serinya.
 """
 
 import psycopg
@@ -44,6 +50,15 @@ mvt_rows as (
            r.region_name,
            r.province_code,
            f.value as hotspot_count,
+           -- Kepadatan = deteksi tahun itu per 1.000 km², rumus yang sama dengan
+           -- metrik `hotspot_per_1000_km2` di `REGION_FACTS` (rata-rata 2020–2025
+           -- = rata-rata kepadatan tahunan, dibuktikan 0 selisih > 0,05 di 514
+           -- wilayah). Dihitung di sini karena metrik tersimpan itu tidak bertahun.
+           -- Ikut penyaring `confidence` bila dipakai: angkanya kepadatan subset itu.
+           round(
+               (f.value * 1000.0 / nullif(r.area_km2, 0))::numeric,
+               2
+           ) as hotspot_per_1000_km2,
            case when f.metric_code is null then 0 else 1 end as has_fact
       from regions r
       left join region_facts f
@@ -153,6 +168,11 @@ def province_tile(
 
     Saklar tingkat tampilan di `SRS-F-13` memakai tile ini. Wilayah tanpa baris
     fakta tetap terkirim dengan `has_fact = 0`, sama seperti tile kabupaten/kota.
+
+    Tile ini **tidak** membawa `hotspot_per_1000_km2`: tabel `provinces` tidak
+    menyimpan luas wilayah, sedangkan menghitung luas dari geometri pada setiap
+    permintaan tile belum diukur biayanya. Kepadatan hanya ada di tile
+    kabupaten/kota, tempat `regions.area_km2` tersedia.
     """
     if confidence is not None:
         raise HTTPException(

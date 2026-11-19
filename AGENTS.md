@@ -13,13 +13,13 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 112 passed, 30-115 dtk (Aiven); butuh basis data hidup
+uv run pytest -q                         # 114 passed, 30-115 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
 cd frontend
 npm ci                                   # sekali, dari package-lock.json
-npm test                                 # 146 passed (19 berkas, Vitest + jsdom), tanpa DB
+npm test                                 # 148 passed (19 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
                                          #   hanya untuk diperiksa; halaman disajikan Vercel
@@ -274,6 +274,15 @@ dokumen boleh langsung ke `main`.
     2026-07-31** (212 dari 365 hari, 58,1%). Query pemindainya (918 ribu baris, 1,2 dtk di
     Aiven) di-cache 15 menit di proses (`app/routers/analysis.py`), jadi jangan memanggilnya
     langsung per permintaan tanpa cache.
+22. **Tile peta memakai seri `main`, panel dan peringkat memakai `main + fill`.** Angka satu
+    wilayah bisa berbeda antar jalur karena itu: Merauke 2023 = **22.463** di tile (dan di
+    kepadatan `hotspot_per_1000_km2` tile) tetapi **22.474** di panel `W2`, komposisi `A2`, dan
+    peringkat `A3`. Keduanya benar untuk serinya masing-masing; jangan menyamakannya tanpa
+    menyebut seri, dan jangan "memperbaiki" salah satunya tanpa keputusan pemilik repo.
+    Kepadatan per tahun di tile dihitung `hotspot_count × 1000 / regions.area_km2` — rumus yang
+    terbukti sama dengan metrik `hotspot_per_1000_km2` tersimpan (rata-rata kepadatan tahunan
+    2020–2025, 0 dari 514 wilayah berselisih > 0,05). Tile provinsi **tidak** punya properti ini
+    karena `provinces` tidak menyimpan luas wilayah.
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.

@@ -47,7 +47,8 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 12k | `feat/frontend-latest-bbox` | `truncated` di lapisan terkini punya jalan keluar: kendali kotak peta mengirim `bbox` hasil potongan batas Indonesia; `bash`/`pytest` tidak berubah | #30 | `iter-12k-latest-bbox` |
 | 12l | `chore/drop-homelab-frontend` | Hosting frontend di mesin ini dihapus: nginx dimatikan & di-disable, situs `:8080` hilang, CD hanya memuat ulang API, basemap dev dari R2 | #31 | `iter-12l-vercel-only` |
 | 12m | `feat/api-village-panel` | Panel desa/kelurahan `W4`: endpoint `GET /api/v1/panel/desa/{kode}` + panel di antarmuka (klik poligon desa maupun pencarian) | #32 | `iter-12m-village-panel` |
-| 13a | `feat/api-composition-ranking` | `A2` komposisi (10 provinsi + 10 kabupaten/kota, metrik titik panas ↔ kejadian, pangsa %) + `A3` peringkat 514 kabupaten/kota (urut titik panas/kepadatan/kejadian, pencarian) + penanda tahun parsial dari tanggal deteksi terakhir | PR | `iter-13a-composition-ranking` |
+| 13a | `feat/api-composition-ranking` | `A2` komposisi (10 provinsi + 10 kabupaten/kota, metrik titik panas ↔ kejadian, pangsa %) + `A3` peringkat 514 kabupaten/kota (urut titik panas/kepadatan/kejadian, pencarian) + penanda tahun parsial dari tanggal deteksi terakhir | #33 | `iter-13a-composition-ranking` |
+| 13b | `feat/api-tile-yearly-density` | Kepadatan titik panas **per tahun** jadi properti tile kabupaten/kota dan muncul di bacaan kursor; rumusnya dibuktikan sama dengan metrik `hotspot_per_1000_km2` tersimpan | PR | `iter-13b-tile-density` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
 iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
@@ -56,6 +57,46 @@ iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m (2026-11
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 13b — `feat/api-tile-yearly-density` (kepadatan per tahun di tile)
+
+Antrean menyebut "kepadatan per tahun sebagai atribut tile". Ternyata **tidak perlu ETL**: metrik
+`hotspot_per_1000_km2` yang tersimpan memang tidak bertahun, tetapi ia adalah **rata-rata kepadatan
+tahunan 2020–2025** — dibuktikan dengan membandingkan 514 baris terhadap
+`avg(hotspot_tahunan) × 1000 / luas`: **0 baris** berselisih lebih dari 0,05. Jadi kepadatan satu
+tahun cukup dihitung di query tile dengan rumus yang sama.
+
+| Hal | Nilai |
+|---|---|
+| Berkas | `backend/app/routers/maps.py` (`QUERY_REGION_TILE`), `frontend/src/components/map/thematic-layer.ts` (`readoutText`) |
+| Properti tile baru | `hotspot_per_1000_km2` = `round(hotspot_count × 1000 / area_km2, 2)`, ikut penyaring `confidence` bila dipakai |
+| Tingkat provinsi | **tidak** mendapat properti ini: `provinces` tidak menyimpan `area_km2`, dan menghitung luas dari geometri per permintaan tile belum diukur biayanya — dinyatakan di docstring endpoint |
+| Bacaan kursor | `Merauke · 22.463 titik panas 2023 · 485,62 per 1.000 km²` |
+| Uji | backend **114 lulus** (112 sebelumnya), frontend **148 lulus** (19 berkas; 146 sebelumnya), `tsc --noEmit` bersih, `npm run build` ok |
+
+Bukti lewat peramban (Vite dev → API `:8000`, Chrome tab di depan), tahun 2023, peta diarahkan ke
+Merauke lewat pencarian lalu kursor disapu 20 titik di kanvas:
+
+| Wilayah | Bacaan yang muncul |
+|---|---|
+| Merauke | `Merauke · 22.463 titik panas 2023 · 485,62 per 1.000 km²` |
+| Mappi | `Mappi · 1.338 titik panas 2023 · 59,09 per 1.000 km²` |
+
+Tile yang sama diambil langsung lewat peramban: `GET /tiles/regions/0/0/0.mvt?year=2023` → `200`,
+**56.674 B**, nama properti `hotspot_per_1000_km2` ada di protobuf.
+
+Temuan:
+
+1. **Kepadatan tile mengikuti seri `main`, sedangkan panel dan peringkat memakai `main + fill`.**
+   Merauke 2023: tile **22.463** (main), panel/peringkat **22.474** (arsip total) — selisih 11
+   deteksi. Itu perilaku lama peta (selalu `main`, `SRS-F-13`), tetapi sekarang ikut terlihat di
+   angka kepadatan, jadi perbedaannya dicatat di sini dan di docstring `maps.py`.
+2. **Provinsi tidak punya luas wilayah di basis data.** Menghitung `ST_Area(geom)` per permintaan
+   tile akan menambah biaya yang belum diukur hanya untuk satu properti tambahan; yang dipilih:
+   properti itu hanya ada di tingkat kabupaten/kota, dan alasannya tertulis di kode + `/docs`.
+3. **Verifikasi pertama di peramban gagal secara menipu**: `performance` tidak memuat permintaan
+   tile karena MapLibre menariknya dari worker, sehingga "0 tile" terbaca padahal tile-nya ada.
+   Yang menentukan: bacaan kursor yang benar-benar muncul.
 
 ## Iterasi 13a — `feat/api-composition-ranking` (`A2` + `A3` + penanda tahun parsial)
 
