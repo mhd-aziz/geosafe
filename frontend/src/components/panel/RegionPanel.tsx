@@ -1,10 +1,17 @@
 import { useRegionPanel } from '../../hooks/useRegionPanel';
 import { formatAreaKm2, formatCount, formatDecimal, levelLabel } from '../../lib/format';
-import type { HotspotSeriesRow } from '../../types/geosafe';
+import { riskClassLabel } from '../../lib/risk';
+import type { HotspotSeriesRow, RegionPanelRisk } from '../../types/geosafe';
 import { DataNotes } from '../common/DataNotes';
 
-/** Urutan kolom seri titik panas: arsip lebih dulu, nrt dipisah paling kanan. */
-const SERIES_COLUMNS = ['main', 'fill', 'nrt'] as const;
+/** Urutan kolom seri titik panas: arsip `main` lalu pengisi hari kosong `fill`.
+ *
+ * Seri tidak digabung: `main` + `fill` sama-sama arsip tetapi berbeda sensor,
+ * dan sejak data dibangun ulang 2026-11-19 tabel tahunan tidak lagi memuat seri
+ * `nrt` — NRT hanya hidup di lapisan terkini (`P2`). Kolom `nrt` karena itu
+ * dihapus dari tabel panel, bukan dibiarkan kosong selamanya.
+ */
+const SERIES_COLUMNS = ['main', 'fill'] as const;
 
 /** Susun baris titik panas per tahun dengan kolom per seri.
  *
@@ -22,6 +29,25 @@ function hotspotTable(rows: HotspotSeriesRow[]): { year: number; values: Record<
   return [...byYear.entries()]
     .sort(([left], [right]) => left - right)
     .map(([year, values]) => ({ year, values }));
+}
+
+/** Skor dan kelas pada skema yang dipakai peta (`default_scheme` dari API).
+ *
+ * Panel tidak memilih sendiri: kalau API mengganti skema tampilan awal, angka di
+ * panel ikut berganti. Dua skema lain tetap tersedia di `data.risk`.
+ */
+function riskOfDefaultScheme(risk: RegionPanelRisk): {
+  score: number | null;
+  className: string | null;
+} {
+  switch (risk.default_scheme) {
+    case 'b':
+      return { score: risk.risk_score_b, className: risk.risk_class_b };
+    case 'c':
+      return { score: risk.risk_score_c, className: risk.risk_class_c };
+    default:
+      return { score: risk.risk_score_a, className: risk.risk_class_a };
+  }
 }
 
 export interface RegionPanelProps {
@@ -46,6 +72,7 @@ export function RegionPanel({ regionCode, onClose }: RegionPanelProps) {
   }
 
   const hotspotRows = hotspotTable(data.hotspot_by_year);
+  const { score: riskScore, className: riskClass } = riskOfDefaultScheme(data.risk);
 
   return (
     <section aria-label="Panel wilayah" className="space-y-4">
@@ -71,9 +98,15 @@ export function RegionPanel({ regionCode, onClose }: RegionPanelProps) {
 
       <dl className="grid grid-cols-2 gap-3 text-xs">
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-          <dt className="text-slate-600">Kepadatan titik panas (seluruh seri)</dt>
+          <dt className="text-slate-600">Kepadatan titik panas (rata-rata 2020–2025)</dt>
           <dd className="text-sm font-semibold text-slate-900">
             {formatDecimal(data.hotspot_per_1000_km2)} per 1.000 km²
+          </dd>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+          <dt className="text-slate-600">Skor kerawanan (skema {data.risk.default_scheme}, susunan penelitian)</dt>
+          <dd className="text-sm font-semibold text-slate-900">
+            {formatDecimal(riskScore)} · {riskClassLabel(riskClass)}
           </dd>
         </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">

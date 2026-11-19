@@ -13,7 +13,7 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 91 passed, 45-115 dtk (Aiven); butuh basis data hidup
+uv run pytest -q                         # 92 passed, 30-115 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
@@ -60,9 +60,11 @@ sendiri di `/docs` dan `/openapi.json`, jangan dibuatkan berkas daftar endpoint.
   `dict_row`. Query ditulis di berkas router, bukan modul terpisah.
 - Semua angka dan geometri dibaca dari PostgreSQL. Aplikasi **tidak** membaca CSV `siap-pakai/` dan tidak
   mengulang join titik-ke-wilayah di JavaScript — join hanya di SQL.
-- Celah berarti nol, dan itu harus dinyatakan: ETL tidak menulis baris bernilai nol, jadi setiap angka
-  yang bisa nol wajib menyebut tahun/seri yang tidak punya baris (panel pakai medan `notes`, tile pakai
-  properti `has_fact`). Jangan menambah baris nol diam-diam.
+- Nol ditulis eksplisit, dan artinya harus dinyatakan: sejak data dibangun ulang 2026-11-19 ETL
+  **menulis baris bernilai 0**, jadi `hotspot_count = 0` berarti nol deteksi yang terukur. Yang
+  masih mungkin tidak punya baris adalah wilayah yang belum dimuat sama sekali; itu ditandai
+  `has_fact = 0` (tile) dan disebut di `notes` (panel). Jangan mencampur dua keadaan itu, dan
+  jangan menambah baris nol diam-diam tanpa menyebut tahun/serinya.
 - Nama berkas/fungsi/kelas/variabel/kolom JSON: Inggris, `snake_case` (fungsi & variabel), `PascalCase`
   (kelas), kolom JSON sama persis dengan kolom DB (`hotspot_count`, `region_code`). Komentar dan
   docstring: **Bahasa Indonesia**. README dan `docs/`: Bahasa Indonesia.
@@ -140,8 +142,10 @@ dokumen boleh langsung ke `main`.
     **sah pada zoom itu** (`z=7` hanya `0..127`), kalau tidak penjaga rentang yang menjawab
     lebih dulu dan ujinya menguji hal yang salah.
 14. Properti `has_fact` (lapisan titik panas) dan `has_score` (lapisan kerawanan) **tidak sama
-    artinya**: `has_fact = 0` berarti nol deteksi yang terukur, `has_score = 0` berarti skor
-    kerawanan belum ada. Baris kerawanan di `region_facts` tidak bertahun/bulan/seri (periksa
+    artinya**: `has_fact = 1` dengan `hotspot_count = 0` berarti nol deteksi yang terukur (nol
+    eksplisit sejak data dibangun ulang 2026-11-19), sedangkan `has_fact = 0` berarti wilayah itu
+    belum punya baris sama sekali; `has_score = 0` berarti skor kerawanan belum ada. Baris
+    kerawanan di `region_facts` tidak bertahun/bulan/seri (periksa
     dengan `select ... where metric_code like 'risk_%'`), jadi join-nya wajib mengunci syarat itu
     atau poligon bisa tergandakan di dalam satu tile. Aturan yang sama berlaku untuk
     `village_facts` metrik `risk_class_desa` (83.315 baris, semuanya tanpa tahun).
@@ -158,6 +162,17 @@ dokumen boleh langsung ke `main`.
     menolak koneksi (`FATAL: remaining connection slots are reserved for roles with the SUPERUSER
     attribute`) dan sebagian tile dijawab `500`. Jangan menaikkan `max_size` tanpa memeriksa
     `select count(*) from pg_stat_activity` lebih dulu.
+17. **Uji backend memeriksa angka, jadi data yang dibangun ulang membuatnya merah — itu benar,
+    bukan regresi.** Setelah Aiven dimuat ulang 2026-11-19 dengan seri baru, **12 dari 91 uji
+    gagal** karena angkanya masih angka lama (2023 main 253.127 → 253.345, `nrt` hilang dari seri
+    tahunan, kelas kerawanan 138/239/137 → 140/225/149, titik 1.452.263 → 918.319). Tindakan yang
+    benar: perbarui angka dan teks `notes` di uji, lalu jalankan ulang; yang salah adalah
+    menambahkan tiruan/mock supaya hijau. Kalau angka berubah tanpa data berubah, baru itu bug.
+18. **Setiap uji yang menghitung `region_facts` harus menyaring tingkat wilayahnya.** Tabel itu
+    memuat baris kabupaten/kota (`region_code` terisi), provinsi (`region_code` kosong,
+    `province_code` terisi), dan nasional (keduanya kosong) dalam satu tabel: satu tahun punya
+    **553 baris**, bukan 514. Tanpa `where region_code is not null`, hasilnya 553/… dan ujinya
+    menguji hal yang salah.
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.

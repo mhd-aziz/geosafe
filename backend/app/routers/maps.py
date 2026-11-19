@@ -6,10 +6,11 @@ menerima 514 poligon dalam bentuk GeoJSON. Nilai yang diwarnai diambil dari
 tingkat kepercayaan).
 
 Wilayah yang **belum punya baris fakta** pada tahun itu tetap dikirim: join-nya
-`LEFT JOIN` dan hasilnya membawa properti `has_fact` (1/0) serta
-`hotspot_count` yang kosong. ETL tidak menulis baris bernilai nol, jadi wilayah
-tanpa baris berarti nol deteksi — peramban yang memutuskan cara menggambarnya,
-bukan endpoint ini (aturan 7 di README).
+`LEFT JOIN` dan hasilnya membawa properti `has_fact` (1/0). Sejak data dibangun
+ulang 2026-11-19, ETL menulis **nol secara eksplisit**, jadi `has_fact = 1` dengan
+`hotspot_count = 0` berarti *nol deteksi yang terukur* (2020: 39 wilayah), dan
+`has_fact = 0` hanya muncul bila wilayah itu belum punya baris sama sekali.
+Peramban yang memutuskan cara menggambarnya, bukan endpoint ini.
 
 Satu implementasi join tetap di SQL; JavaScript tidak menghitung apa pun.
 """

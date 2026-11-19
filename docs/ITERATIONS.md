@@ -34,6 +34,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 11c | `feat/frontend-risk-ui` | `P4` di antarmuka: lapisan kerawanan + pemilih skema, bacaan skor, perapian tampilan dan tata letak responsif | #20 | `iter-11c-risk-ui` |
 | 11d | `feat/api-village-risk-tiles` | `P4` di API: tile kelas kerawanan desa per provinsi (`SRS-F-38`) + daftar provinsi untuk pemilihnya, pagar zoom di `app/tiles.py` | #21 | `iter-11d-village-risk-api` |
 | 11e | `feat/frontend-village-risk` | `P4` di antarmuka: lapisan kerawanan desa + pemilih provinsi (`SRS-F-38`/`F-39`), zoom peta dijaga 8 ke atas; sekaligus `fix(api)` kolam koneksi basis data | #22 | `iter-11e-village-risk-ui` |
+| 12a | `feat/api-panel-risk-density` | data hasil bangun ulang 2026-11-19 masuk aplikasi: 12 angka uji disinkronkan, panel `W2` memuat skor kerawanan tiga skema, label kepadatan diperbaiki | belum | `iter-12a-data-sync-panel` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -41,6 +42,71 @@ Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c,
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 12a — `feat/api-panel-risk-density` (PR belum dibuka)
+
+Tag `iter-12a-data-sync-panel` menandai commit hasil *squash merge* nanti.
+
+Data di `../planning-GeoSafe/` dibangun ulang 2026-11-19 (arsip titik panas jadi
+918.319 baris, NRT 621.100 dipisah, nol ditulis eksplisit, kepadatan dihitung
+ulang) lalu dimuat ke Aiven. Repo aplikasi belum ikut berubah, jadi **12 dari 91
+uji backend merah**: angkanya masih angka lama. Iterasi ini menyelaraskan kode
+dan uji dengan data baru, sekaligus menutup dua butir "tahap 2 kualitas tampilan"
+yang tidak perlu mengubah basis data: label kepadatan dan skor kerawanan di panel
+`W2`.
+
+Berkas: `app/routers/panels.py` · `app/routers/analysis.py` · `app/routers/maps.py`
+· `tests/{test_analysis,test_panels,test_risk,test_risk_villages,test_tiles,test_transparency}.py`
+· `frontend/src/{types/geosafe.ts,components/panel/RegionPanel.tsx,lib/{format,choropleth}.ts}`
+· `components/panel/RegionPanel.test.tsx` · `AGENTS.md` · `README.md` · `docs/{ITERATIONS,MVP}.md`.
+
+Yang berubah pada balasan API:
+
+| Hal | Sebelum | Sesudah |
+|---|---|---|
+| `panel.risk` | tidak ada | `{default_scheme, risk_score_a…c, risk_class_a…c}` — nama medan = `metric_code` |
+| catatan kepadatan | "mencakup seluruh seri tanpa tahun tertentu" | "kepadatan deteksi, rata-rata tahun lengkap 2020–2025, tanpa seri nrt; 2026 (198 hari) tidak ikut" |
+| catatan tahun tanpa baris | "ETL tidak menulis baris bernilai nol" | "angka 0 berarti nol deteksi terukur; tahun tanpa baris berarti angkanya belum dimuat" |
+| `analysis.national_trend` | memuat seri `nrt` 600.323 (2026) | seri `nrt` kosong untuk semua tahun + catatan bahwa NRT hanya hidup di `P2` |
+| panel frontend | kolom `main`/`fill`/`nrt` | kolom `main`/`fill`; kartu "Skor kerawanan (skema a, susunan penelitian)" |
+
+Bukti:
+
+| Uji | Hasil |
+|---|---|
+| `uv run pytest -q` sebelum perubahan | **12 failed, 79 passed** (data baru, kode lama) |
+| `uv run pytest -q` sesudah | **92 passed**, 1 warning, 32,19 dtk |
+| `npm run typecheck` · `npm test` | bersih · **112 passed** (16 berkas), 53,15 dtk |
+| `npm run build` | 14,62 dtk (`dist/assets/index-*.js` 1.444,66 kB, peringatan ukuran chunk tetap ada) |
+| `curl :8080/api/v1/panel/kabupaten_kota/9301` | `risk_score_a` **73,88** · `risk_class_a` **tinggi** · `hotspot_per_1000_km2` 128,03 |
+| `curl :8000/api/v1/analysis/national_trend` | 2023 `main` **253.345**, `archive_total` 256.222; 2026 `main` 54.084 + `fill` 7.093; `nrt` `null` di ketujuh tahun |
+| `curl :8000/api/v1/point_coverage` | 918.319 titik · 746.272 masuk poligon (81,27%) · di luar 172.047 |
+| `curl :8000/api/v1/risk/schemes` | berpindah kelas **112 / 87 / 53**; rho A–B 0,9294 · A–C 0,959 · B–C 0,9841 |
+| `curl :8000/api/v1/provinces` | kelas desa **5.570 tinggi · 21.329 sedang · 8.853 rendah · 47.563 tanpa deteksi** |
+
+Temuan:
+
+1. **Uji berbasis angka memang jadi merah saat data berubah, dan itu bukan regresi.**
+   Dua belas kegagalan semuanya berasal dari satu sebab: Aiven dimuat ulang
+   (`point_count` 1.452.263 → 918.319, 2023 `main` 253.127 → 253.345, `nrt`
+   hilang, kelas kerawanan 138/239/137 → 140/225/149). Yang benar adalah
+   memperbarui angka + teks `notes`, bukan menambah tiruan supaya hijau — aturan
+   ini ditulis sebagai jebakan 17 di `AGENTS.md`.
+2. **`region_facts` memuat tiga tingkat wilayah dalam satu tabel.** Satu tahun
+   berisi **553 baris** (514 kabupaten/kota + 38 provinsi + 1 nasional), bukan
+   514. Uji yang menghitung baris tanpa `where region_code is not null` menguji
+   hal yang salah; jebakan 18.
+3. **Nol eksplisit mengubah arti `has_fact`.** Sejak bangun ulang, 2020 punya 514
+   baris dengan **39 di antaranya bernilai 0** — dulu 39 wilayah itu tidak punya
+   baris sama sekali. `has_fact = 1` + `hotspot_count = 0` sekarang berarti nol
+   deteksi terukur, dan di peta wilayah itu jatuh ke kelas `0` (bukan abu-abu).
+4. **Panel akhirnya memakai skema yang sama dengan peta.** `default_scheme`
+   dikirim di balasan panel dan antarmuka membacanya, jadi panel tidak bisa
+   menampilkan skema `b` sementara peta mewarnai skema `a`.
+5. **Verifikasi peramban tidak dilakukan di iterasi ini** — Chrome otomasi
+   (`127.0.0.1:9223`) mati saat pengerjaan. Angka dibuktikan lewat jalur HTTP
+   nginx (`:8080`) dan uji jsdom, sesuai definisi selesai `MVP.md` bagian 4
+   butir 2.
 
 ## Iterasi 11e — `feat/frontend-village-risk` (PR #22)
 

@@ -88,7 +88,8 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 11c | `feat/frontend-risk-ui` — `P4` di antarmuka: pemilih skema, legenda kelas, bacaan skor, perapian tampilan + responsif | ✅ PR #20, tag `iter-11c-risk-ui` |
 | 11d | `feat/api-village-risk-tiles` — `P4` di API: tile kelas kerawanan desa per provinsi (`SRS-F-38`) + daftar provinsi untuk pemilihnya, pagar zoom di `app/tiles.py` | ✅ PR #21, tag `iter-11d-village-risk-api` |
 | 11e | `feat/frontend-village-risk` — `P4` di antarmuka: lapisan kerawanan desa + pemilih provinsi, zoom peta dijaga 8 ke atas; sekaligus `fix(api)` kolam koneksi | ✅ PR #22, tag `iter-11e-village-risk-ui` |
-| — | skor kerawanan di panel `W2`, panel desa `W4`, kendali kotak wilayah (`bbox`), lalu `P3`/`P5` dan `A2`/`A3` | belum dijadwalkan |
+| 12a | `feat/api-panel-risk-density` — data bangun ulang 2026-11-19 masuk aplikasi: angka uji disinkronkan, skor kerawanan tiga skema di panel `W2`, label kepadatan "rata-rata 2020–2025" | ✅ menunggu PR + tag `iter-12a-data-sync-panel` |
+| — | panel desa `W4`, kendali kotak wilayah (`bbox`), kepadatan per tahun sebagai atribut tile, penanda tahun parsial, T1 memisahkan arsip vs NRT, lalu `P3`/`P5` dan `A2`/`A3` | belum dijadwalkan |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar

@@ -26,8 +26,9 @@ function decimalFormatFor(digits: number): Intl.NumberFormat {
 
 /** Angka tanpa desimal; nilai kosong ditampilkan sebagai "—", bukan 0.
  *
- * ETL tidak menulis baris bernilai nol, jadi `null` berarti "tidak ada baris",
- * bukan "tidak ada deteksi" sampai catatan dari API ikut dibaca pengguna.
+ * ETL menulis nol secara eksplisit (sejak data dibangun ulang 2026-11-19), jadi
+ * `0` berarti "nol deteksi terukur" dan `null` berarti "tidak ada baris untuk
+ * tahun itu" — dua hal berbeda yang tidak boleh tampil sama.
  */
 export function formatCount(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : countFormat.format(value);

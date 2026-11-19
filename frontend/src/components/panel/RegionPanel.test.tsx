@@ -9,7 +9,8 @@ vi.mock('../../api/geosafe', () => ({ fetchRegionPanel: vi.fn() }));
 
 const fetchRegionPanelMock = vi.mocked(fetchRegionPanel);
 
-/** Angka Merauke 2026 seperti di basis data: arsip dan nrt dikirim terpisah. */
+/** Angka Merauke seperti di basis data setelah data dibangun ulang 2026-11-19:
+ * 2026 hanya seri arsip (main + fill), NRT tidak masuk tabel tahunan. */
 const PANEL: RegionPanelData = {
   region: {
     region_code: '9301',
@@ -22,7 +23,6 @@ const PANEL: RegionPanelData = {
   hotspot_by_year: [
     { year: 2026, series: 'main', hotspot_count: 4581 },
     { year: 2026, series: 'fill', hotspot_count: 627 },
-    { year: 2026, series: 'nrt', hotspot_count: 62245 },
   ],
   event_by_year: [{ year: 2026, event_count: 12 }],
   emergency_2025: { emergency_sk_karhutla_2025: 0, emergency_sk_mentions_2025: 1 },
@@ -31,6 +31,15 @@ const PANEL: RegionPanelData = {
     { year: 2025, irbi_karhutla_score: 29.17, irbi_karhutla_class: 'Sedang' },
   ],
   hotspot_per_1000_km2: 147.38,
+  risk: {
+    default_scheme: 'a',
+    risk_score_a: 73.88,
+    risk_class_a: 'tinggi',
+    risk_score_b: 71.84,
+    risk_class_b: 'tinggi',
+    risk_score_c: 66.61,
+    risk_class_c: 'sedang',
+  },
   notes: [
     'seri nrt tahun 2026 berasal dari pemrosesan berbeda dan tidak sebanding dengan seri arsip (main)',
   ],
@@ -52,17 +61,20 @@ describe('RegionPanel', () => {
 
     expect(await screen.findByText('4.581')).toBeTruthy(); // main
     expect(screen.getByText('627')).toBeTruthy(); // fill
-    expect(screen.getByText('62.245')).toBeTruthy(); // nrt
-    expect(screen.queryByText('67.453')).toBeNull(); // jumlah campuran yang dilarang
+    expect(screen.queryByText('5.208')).toBeNull(); // jumlah campuran yang dilarang
+    expect(screen.queryByText('nrt')).toBeNull(); // NRT tidak ada di tabel tahunan
   });
 
-  it('memuat kejadian, status darurat, dan IRBI', async () => {
+  it('memuat kejadian, status darurat, IRBI, dan skor kerawanan skema peta', async () => {
     fetchRegionPanelMock.mockResolvedValue(PANEL);
     render(<RegionPanel regionCode="9301" onClose={vi.fn()} />);
 
     expect(await screen.findByText('Kejadian karhutla per tahun')).toBeTruthy();
     expect(screen.getByText('12')).toBeTruthy();
     expect(screen.getByText('147,38 per 1.000 km²')).toBeTruthy();
+    expect(screen.getByText(/rata-rata 2020–2025/)).toBeTruthy();
+    expect(screen.getByText(/73,88 · Tinggi/)).toBeTruthy();
+    expect(screen.getByText(/skema a/)).toBeTruthy();
     expect(screen.getByText(/30,53 · Sedang/)).toBeTruthy();
   });
 

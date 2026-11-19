@@ -19,12 +19,18 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 
 from app.db import get_connection
 
+# Skema bobot kerawanan milik `P4`; panel tidak mendefinisikan ulang namanya,
+# supaya label di panel dan di peta tidak bisa berbeda.
+from app.routers.risk import CLASS_METRIC, DEFAULT_SCHEME, SCORE_METRIC
+
 router = APIRouter(prefix="/api/v1", tags=["W2 panel kabupaten/kota"])
 
 # Rentang data proyek; dipakai untuk mengenali tahun yang tidak ada barisnya.
 EXPECTED_YEARS: tuple[int, ...] = (2020, 2021, 2022, 2023, 2024, 2025, 2026)
 
 # Metrik yang benar-benar ditampilkan panel. Menambah fitur = menambah daftar ini.
+# Skor/kelas kerawanan (`risk_*`) tidak bertahun dan tidak berseri — sama seperti
+# di `app/routers/risk.py`, barisnya dikunci tanpa `year`/`month`/`series`.
 METRICS: tuple[str, ...] = (
     "hotspot_count",
     "hotspot_per_1000_km2",
@@ -35,7 +41,7 @@ METRICS: tuple[str, ...] = (
     "irbi_class",
     "irbi_karhutla_score",
     "irbi_karhutla_class",
-)
+) + tuple(SCORE_METRIC.values()) + tuple(CLASS_METRIC.values())
 
 QUERY_PANEL = """
 select r.region_code,
@@ -98,8 +104,9 @@ def _panel_notes(
         )
     if "hotspot_per_1000_km2" in grouped:
         notes.append(
-            "hotspot_per_1000_km2 mencakup seluruh seri tanpa tahun tertentu; "
-            "angkanya diambil dari tabel siap pakai"
+            "hotspot_per_1000_km2 adalah kepadatan deteksi, bukan kerawanan: satu "
+            "angka rata-rata tahun lengkap 2020–2025 tanpa seri nrt. Kepadatan 2026 "
+            "tidak ikut karena tahun itu baru 198 hari terukur"
         )
 
     missing_series = []
@@ -110,8 +117,14 @@ def _panel_notes(
     if missing_series:
         notes.append(
             f"seri {' dan '.join(missing_series)} tidak memuat baris untuk semua tahun "
-            "2020–2026 karena ETL tidak menulis baris bernilai nol; tahun yang "
-            "hilang berarti nol deteksi titik panas atau nol kejadian tercatat"
+            "2020–2026; angka 0 berarti nol deteksi terukur, sedangkan tahun tanpa "
+            "baris berarti angkanya belum dimuat"
+        )
+    if any(metric in grouped for metric in SCORE_METRIC.values()):
+        notes.append(
+            "skor kerawanan adalah susunan penelitian ini, bukan angka resmi BNPB; "
+            "skema a (titik panas 50% + kejadian 50%) dipakai sebagai tampilan awal, "
+            "sedangkan skema b dan c ikut memasukkan IRBI 20% sebagai uji sensitivitas"
         )
     return notes
 
@@ -155,6 +168,15 @@ def panel_kabupaten_kota(
     irbi_class_2025 = _single_value(grouped.get("irbi_class", []), "irbi_class") or {}
     density = _single_value(grouped.get("hotspot_per_1000_km2", []), "hotspot_per_1000_km2") or {}
 
+    # Tiga skema dikirim sekaligus: panel menyebut skema mana yang dipakai peta
+    # (`default_scheme`) dan dua lainnya sebagai pembanding uji sensitivitas.
+    # Nama medan sama persis dengan `metric_code` di basis data.
+    risk: dict[str, Any] = {"default_scheme": DEFAULT_SCHEME}
+    for metric in SCORE_METRIC.values():
+        risk[metric] = (_single_value(grouped.get(metric, []), metric) or {}).get("value")
+    for metric in CLASS_METRIC.values():
+        risk[metric] = (_single_value(grouped.get(metric, []), metric) or {}).get("value_text")
+
     return {
         "region": {
             "region_code": head["region_code"],
@@ -176,6 +198,7 @@ def panel_kabupaten_kota(
         },
         "irbi_karhutla_by_year": irbi_karhutla,
         "hotspot_per_1000_km2": density.get("value"),
+        "risk": risk,
         "notes": _panel_notes(
             grouped,
             {row["year"] for row in hotspot if row["year"]},

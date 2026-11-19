@@ -57,6 +57,22 @@ export interface IrbiKarhutlaRow {
   irbi_karhutla_class: string | null;
 }
 
+/** Skor dan kelas kerawanan satu wilayah (`W2`), tiga skema bobot sekaligus.
+ *
+ * Nama medan sama dengan `metric_code` di basis data, dan barisnya **tidak
+ * bertahun**: satu wilayah punya satu skor per skema. `default_scheme` adalah
+ * skema yang dipakai lapisan peta sehingga panel dan peta tidak bisa berbeda.
+ */
+export interface RegionPanelRisk {
+  default_scheme: RiskSchemeCode;
+  risk_score_a: number | null;
+  risk_class_a: string | null;
+  risk_score_b: number | null;
+  risk_class_b: string | null;
+  risk_score_c: number | null;
+  risk_class_c: string | null;
+}
+
 export interface RegionPanelData {
   region: {
     region_code: string;
@@ -78,6 +94,7 @@ export interface RegionPanelData {
   };
   irbi_karhutla_by_year: IrbiKarhutlaRow[];
   hotspot_per_1000_km2: number | null;
+  risk: RegionPanelRisk;
   notes: string[];
 }
 

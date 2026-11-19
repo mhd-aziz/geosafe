@@ -9,9 +9,11 @@ ketiga data penelitian, dan hanya tersedia sampai 2025 pada tingkat nasional
 (`SRS-F-47`, `SRS-F-48`) — kenyataan itu ikut dinyatakan di medan `notes`.
 
 Seri titik panas tidak digabung diam-diam: `series` dikirim apa adanya, ditambah
-`archive_total` (main + fill) sebagai garis arsip, sedangkan `nrt` berdiri sendiri
-karena pemrosesannya berbeda. ETL tidak menulis baris bernilai nol, jadi tahun
-yang tidak punya baris disebutkan di `notes`, bukan diisi nol.
+`archive_total` (main + fill) sebagai garis arsip. Seri `nrt` **tidak ada** di
+tabel tahunan sejak data dibangun ulang 2026-11-19 (NRT hanya dipakai fitur
+terkini `P2`), jadi medan `nrt` selalu kosong; medan itu dipertahankan supaya
+bentuk balasan tidak berubah. Nol ditulis eksplisit oleh ETL, jadi tahun tanpa
+baris berarti angkanya belum dimuat — dan itu dinyatakan di `notes`.
 """
 
 from typing import Any
@@ -78,6 +80,12 @@ def _trend_notes(
         notes.append(
             "seri nrt berasal dari pemrosesan berbeda dan tidak sebanding dengan "
             "seri arsip; angkanya dikirim terpisah dan tidak masuk archive_total"
+        )
+    elif hotspot:
+        notes.append(
+            "tabel tahunan tidak memuat seri nrt sejak data dibangun ulang "
+            "2026-11-19; NRT hanya hidup di fitur titik panas terkini (24/48/72 jam) "
+            "dan tidak boleh dijumlahkan dengan angka arsip 2020–2026"
         )
 
     fill_years = sorted({row["year"] for row in hotspot if "fill" in row["series"]})

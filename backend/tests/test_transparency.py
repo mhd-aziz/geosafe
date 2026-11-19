@@ -34,25 +34,26 @@ def test_sumber_data_memuat_tujuh_dataset() -> None:
 def test_penempatan_titik_2023_dipisah_masuk_dan_luar_poligon() -> None:
     body = client.get(COVERAGE, params={"year": 2023}).json()
 
-    # 270.179 seri main + 3.112 seri fill = 273.291 titik
-    assert body["totals"]["point_count"] == 273_291
-    assert body["totals"]["placed_count"] == 255_520
-    assert body["totals"]["outside_count"] == 17_771
-    assert body["totals"]["outside_share_percent"] == 6.5
+    # Setelah unduh ulang 2026-11-18: 288.756 seri main + 3.215 seri fill.
+    assert body["totals"]["point_count"] == 291_971
+    assert body["totals"]["placed_count"] == 255_748
+    assert body["totals"]["outside_count"] == 36_223
+    assert body["totals"]["outside_share_percent"] == 12.41
 
     assert [row["year"] for row in body["by_year"]] == [2023]
     seri = body["by_year"][0]["series"]
-    assert seri["main"] == 270_179
-    assert seri["fill"] == 3_112
+    assert seri["main"] == 288_756
+    assert seri["fill"] == 3_215
 
 
 def test_penempatan_titik_seluruh_rentang_menyebut_luar_poligon() -> None:
     body = client.get(COVERAGE).json()
 
     assert [row["year"] for row in body["by_year"]] == [2020, 2021, 2022, 2023, 2024, 2025, 2026]
-    assert body["totals"]["point_count"] == 1_452_263
-    assert body["totals"]["outside_count"] == 106_800
-    assert body["totals"]["outside_share_percent"] == 7.35
+    # 918.319 titik arsip; NRT 621.100 tidak dimuat ke `point_observations`.
+    assert body["totals"]["point_count"] == 918_319
+    assert body["totals"]["outside_count"] == 172_047
+    assert body["totals"]["outside_share_percent"] == 18.73
 
     catatan = " ".join(body["notes"])
     assert "di luar poligon" in catatan
