@@ -292,3 +292,30 @@ export interface VillageProvincesResponse {
   villages_without_province: number;
   notes: string[];
 }
+
+/** Identitas desa/kelurahan beserta rantai wilayah induknya (`SRS-F-65`). */
+export interface VillagePanelIdentity {
+  village_code: string;
+  village_name: string;
+  district_code: string | null;
+  district_name: string | null;
+  region_code: string | null;
+  region_name: string | null;
+  province_code: string | null;
+  province_name: string | null;
+  area_km2: number | null;
+}
+
+/** `GET /api/v1/panel/desa/{village_code}` — panel desa/kelurahan (`W4`).
+ *
+ * `risk_class_desa` adalah susunan penelitian ini, bukan kelas resmi BNPB
+ * (`SRS-F-66`); `hotspot_by_year` hanya memuat baris tahunan, bukan bulanan.
+ */
+export interface VillagePanelData {
+  village: VillagePanelIdentity;
+  hotspot_by_year: HotspotSeriesRow[];
+  event_by_year: EventSeriesRow[];
+  risk_class_desa: string | null;
+  hotspot_per_1000_km2: number | null;
+  notes: string[];
+}

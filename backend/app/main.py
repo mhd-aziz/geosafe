@@ -53,6 +53,7 @@ app.add_middleware(
 app.include_router(transparency.router)
 app.include_router(maps.router)
 app.include_router(panels.router)
+app.include_router(panels.village_router)
 app.include_router(search.router)
 app.include_router(analysis.router)
 app.include_router(latest.router)

@@ -14,6 +14,7 @@ import type {
   SearchResponse,
   SourcesResponse,
   TrendData,
+  VillagePanelData,
   VillageProvincesResponse,
 } from '../types/geosafe';
 
@@ -57,6 +58,12 @@ export function fetchVillageProvinces(): Promise<VillageProvincesResponse> {
 
 export function fetchRegionPanel(regionCode: string): Promise<RegionPanelData> {
   return fetchJson<RegionPanelData>(`/api/v1/panel/kabupaten_kota/${regionCode}`);
+}
+
+/** Panel desa/kelurahan (`W4`). Kode BPS desa selalu sepuluh digit; API membalas
+ * `422` untuk kode lain dan `404` untuk desa yang tidak ada. */
+export function fetchVillagePanel(villageCode: string): Promise<VillagePanelData> {
+  return fetchJson<VillagePanelData>(`/api/v1/panel/desa/${encodeURIComponent(villageCode)}`);
 }
 
 export function searchRegions(keyword: string): Promise<SearchResponse> {

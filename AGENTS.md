@@ -13,13 +13,13 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 96 passed, 30-115 dtk (Aiven); butuh basis data hidup
+uv run pytest -q                         # 102 passed, 30-115 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
 cd frontend
 npm ci                                   # sekali, dari package-lock.json
-npm test                                 # 125 passed (16 berkas, Vitest + jsdom), tanpa DB
+npm test                                 # 133 passed (17 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
                                          #   hanya untuk diperiksa; halaman disajikan Vercel
@@ -259,6 +259,13 @@ dokumen boleh langsung ke `main`.
     memotong kotaknya dan mengembalikan `null` bila hasil potongannya kosong; batas API
     diduplikasi di sana — kalau `LON_MIN`…`LAT_MAX` di `backend/app/routers/latest.py` berubah,
     keduanya harus berubah.
+
+20. **`village_facts` dan `district_facts` memuat baris bulanan di samping baris tahunan.**
+    Desa `6271012003` tahun 2023 punya baris bulan 8, 9, 10, 11 (5, 37, 85, 1) **dan** baris
+    tahunan 128 di tabel yang sama. Setiap panel atau agregat tingkat desa/kecamatan wajib
+    memakai `month is null`; tanpa itu satu tahun tampil beberapa kali dan angkanya terbaca
+    lebih besar. Baris tahunan sendiri unik per (wilayah, metrik, tahun, seri) — diperiksa
+    2026-11-19, 0 duplikat — jadi `sum()` tidak diperlukan begitu penyaringnya ada.
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.
