@@ -31,8 +31,15 @@ sana tidak ada proxy, jadi alamat API wajib diberikan lewat variabel lingkungan
 `VITE_API_BASE=https://geosafe-api.zisaltech.site`. API itu dijangkau lewat
 Cloudflare Tunnel dan hanya mengizinkan origin `https://geosafe*.vercel.app`
 (CORS, lihat `backend/app/config.py`). `vercel.json` di folder ini mengatur build
-Vite + SPA fallback. Basemap PMTiles **tidak** ikut terpasang di Vercel (216 MB,
-dilayani nginx); tanpa itu peta tetap menggambar geometri di atas latar polos.
+Vite + SPA fallback.
+
+Basemap PMTiles (216 MB) **tidak** ikut ke Vercel. Tanpa berkas itu gaya peta gagal
+memuat sumbernya dan **seluruh peta kosong** (poligon choropleth ikut hilang karena
+layer tematik baru dipasang setelah gaya selesai dimuat). Karena itu alamat basemap
+juga bisa diarahkan lewat **`VITE_BASEMAP_URL`**, contoh:
+`VITE_BASEMAP_URL=pmtiles://https://geosafe-tiles.zisaltech.site/pmtiles/indonesia.pmtiles`
+(tunnel ke nginx `:8080`, yang menyajikan berkasnya dengan `206` + CORS). Tanpa
+variabel itu, bawaannya tetap `/pmtiles/indonesia.pmtiles` untuk pemakaian lokal.
 
 Perintah lain:
 
