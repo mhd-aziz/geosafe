@@ -13,7 +13,7 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 93 passed, 30-115 dtk (Aiven); butuh basis data hidup
+uv run pytest -q                         # 96 passed, 30-115 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
@@ -49,6 +49,13 @@ deploy gagal dengan pesan jelas kalau working copy tidak di `main` atau kotor), 
 `sudo systemctl reload nginx`, lalu uji asap `:8080` + `/health` + panel Merauke. Runner ini
 mengeksekusi kode di mesin yang menyimpan layanan, karena itu workflow-nya **tidak pernah** memakai
 pemicu `pull_request`; jangan menambahkannya.
+
+Pratinjau di Vercel memakai **frontend saja**; API tetap di mesin ini dan dijangkau lewat Cloudflare
+Tunnel `geosafe-api.zisaltech.site` → `127.0.0.1:8000` (`/etc/cloudflared/config-geosafe-api.yml`,
+unit sistem `cloudflared-geosafe-api.service`). Karena origin pratinjau berbeda domain, `app/main.py`
+memasang `CORSMiddleware`: origin dari `GEOSAFE_ALLOWED_ORIGINS` (dipisah koma, bawaan dua alamat
+lokal) plus pola `https://geosafe*.vercel.app`, hanya metode `GET`. Alamat API untuk build Vercel
+diberikan lewat `VITE_API_BASE`; jangan menulis alamat itu di kode.
 
 Basis data harus hidup: **Aiven PostgreSQL 18.7 + PostGIS 3.6.4** (basis data `geosafe`, TLS wajib)
 sejak 2026-11-17, DSN di `~/.config/geosafe/geosafe.env` (jangan pernah ditulis di repo). Koneksi

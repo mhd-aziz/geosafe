@@ -14,6 +14,12 @@ DATABASE_URL_ENV = "GEOSAFE_DATABASE_URL"
 DATA_DIR_ENV = "GEOSAFE_DATA_DIR"
 FIRMS_KEY_ENV = "FIRMS_MAP_KEY"
 SNAPSHOT_PATH_ENV = "GEOSAFE_SNAPSHOT_PATH"
+# Daftar origin yang boleh memanggil API dari peramban, dipisah koma.
+ALLOWED_ORIGINS_ENV = "GEOSAFE_ALLOWED_ORIGINS"
+
+# Origin pratinjau Vercel berubah setiap commit (`geosafe-<hash>-<team>.vercel.app`),
+# jadi dicocokkan dengan pola, bukan didaftar satu per satu. Hanya HTTPS.
+VERCEL_PREVIEW_ORIGIN_REGEX = r"^https://geosafe[a-z0-9-]*\.vercel\.app$"
 
 # Bawaan: `data/siap-pakai/` di repo perencanaan, dihitung dari letak repo ini
 # (`project-GeoSafe/backend/app/config.py` → `project-GeoSafe/` → `planning-GeoSafe/`).
@@ -75,3 +81,17 @@ def snapshot_path() -> Path:
     """
     raw = os.environ.get(SNAPSHOT_PATH_ENV, "").strip()
     return Path(raw).expanduser() if raw else _DEFAULT_SNAPSHOT_PATH
+
+
+def allowed_origins() -> list[str]:
+    """Origin yang boleh memanggil API dari peramban (CORS).
+
+    Bawaannya dua alamat pengembangan (Vite `:5173` dan nginx `:8080`) yang
+    sebenarnya satu origin dengan API, jadi tidak berbahaya bila kosong. Di
+    produksi/ pratinjau, origin ditambahkan lewat `GEOSAFE_ALLOWED_ORIGINS`
+    (dipisah koma) tanpa menulis alamat apa pun di repo.
+    """
+    raw = os.environ.get(ALLOWED_ORIGINS_ENV, "").strip()
+    if not raw:
+        return ["http://127.0.0.1:5173", "http://127.0.0.1:8080"]
+    return [item.strip().rstrip("/") for item in raw.split(",") if item.strip()]
