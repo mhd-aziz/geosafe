@@ -42,7 +42,9 @@ menggantinya dengan tiruan — endpoint-nya sendiri sudah menjawab jujur (`count
 
 CD ada di `.github/workflows/deploy.yml` dan berjalan **hanya pada push ke `main`**: runner
 **self-hosted** di mesin ini (label `geosafe`, `~/actions-runner`, unit pengguna
-`geosafe-runner.service`) menyinkronkan working copy (`git reset --hard origin/main`), menjalankan
+`geosafe-runner.service`) menyinkronkan working copy (`git fetch` + `merge --ff-only origin/main` —
+**tidak** `reset --hard`, supaya cabang lain dan pekerjaan yang belum di-commit tidak tertimpa;
+deploy gagal dengan pesan jelas kalau working copy tidak di `main` atau kotor), menjalankan
 `uv sync --frozen`, `npm ci && npm run build`, `systemctl --user restart geosafe-api`,
 `sudo systemctl reload nginx`, lalu uji asap `:8080` + `/health` + panel Merauke. Runner ini
 mengeksekusi kode di mesin yang menyimpan layanan, karena itu workflow-nya **tidak pernah** memakai

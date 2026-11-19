@@ -32,8 +32,20 @@ jobs:
     steps:
       - name: Sinkronkan working copy ke origin/main
         run: |
+          set -euo pipefail
+          branch=$(git -C "$APP_DIR" rev-parse --abbrev-ref HEAD)
+          if [ "$branch" != "main" ]; then
+            echo "::error::working copy di <APP_DIR> sedang di cabang '$branch', bukan main."
+            echo "Deploy tidak mengubah cabang lain; pindahkan ke main lalu jalankan ulang."
+            exit 1
+          fi
+          if [ -n "$(git -C "$APP_DIR" status --porcelain)" ]; then
+            echo "::error::working copy <APP_DIR> kotor; deploy tidak menimpa perubahan yang belum di-commit."
+            git -C "$APP_DIR" status --short
+            exit 1
+          fi
           git -C "$APP_DIR" fetch --prune origin main
-          git -C "$APP_DIR" reset --hard origin/main
+          git -C "$APP_DIR" merge --ff-only origin/main
           git -C "$APP_DIR" log --oneline -1
 
       - name: Pasang dependensi backend (terkunci)
