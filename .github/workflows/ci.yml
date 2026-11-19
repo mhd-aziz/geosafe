@@ -1,0 +1,88 @@
+name: CI
+
+# Penjaga mutu repo ini: 93 uji backend (butuh basis data hidup) + 113 uji
+# frontend, typecheck, dan build. Tidak ada ESLint/Prettier, jadi yang diperiksa
+# di sini persis yang diperiksa di mesin pengembang.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Satu run per ref; push baru membatalkan run lama yang belum selesai.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Tidak ada masukan tak tepercaya (judul/isi PR, pesan commit) yang dipakai di
+# dalam `run:`; nilai yang dipakai hanya rahasia dari `env:`.
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: frontend (typecheck · test · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: frontend/dist
+          retention-days: 7
+
+  backend:
+    name: backend (pytest ke basis data hidup)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Role khusus CI: `geosafe_ci`, hanya SELECT (dibuat 2026-11-19). Repo ini
+      # publik, jadi PR dari fork tidak menerima secret ini — job tetap jalan
+      # sampai tahap koleksi uji, lalu menyebut alasannya di ringkasan.
+      GEOSAFE_DATABASE_URL: ${{ secrets.GEOSAFE_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Pasang dependensi terkunci
+        run: uv sync --frozen
+
+      - name: Koleksi uji (selalu; sintaks dan import diperiksa)
+        run: uv run pytest --collect-only -q
+
+      - name: Uji terhadap basis data hidup
+        if: env.GEOSAFE_DATABASE_URL != ''
+        run: uv run pytest -q
+
+      - name: Catat bahwa uji basis data dilewati
+        if: env.GEOSAFE_DATABASE_URL == ''
+        run: |
+          echo "::warning title=Uji basis data dilewati::secret GEOSAFE_DATABASE_URL tidak tersedia untuk ref ini (kemungkinan PR dari fork). Yang diperiksa hanya koleksi uji."
+          {
+            echo "### Uji basis data dilewati"
+            echo "Secret \`GEOSAFE_DATABASE_URL\` tidak tersedia untuk ref ini (PR dari fork tidak menerima secret repo)."
+            echo "Yang diperiksa: sintaks dan import seluruh uji (\`pytest --collect-only\`)."
+            echo "Uji penuh dijalankan pada push ke cabang repo ini."
+          } >> "$GITHUB_STEP_SUMMARY"

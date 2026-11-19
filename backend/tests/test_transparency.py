@@ -3,16 +3,32 @@
 Dua hal yang diuji di sini sengaja tidak nyaman: jumlah titik panas yang **tidak**
 masuk poligon wilayah mana pun (`SRS-F-76`), dan unduhan tabel siap pakai
 (`SRS-F-75`) — berkasnya tinggal di folder data di luar repo aplikasi.
+
+Karena folder data itu di luar repo, dua uji unduhan **dilewati** (bukan
+dibuat tiruannya) ketika folder tidak ada — mis. di GitHub Actions. Endpoint-nya
+sendiri sudah menjawab jujur pada keadaan itu: `count: 0` + catatan.
 """
 
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
 
+from app.config import data_dir
 from app.main import app
 
 client = TestClient(app)
 
 COVERAGE = "/api/v1/point_coverage"
 DOWNLOADS = "/api/v1/downloads"
+
+# Folder tabel siap pakai milik mesin ini (`../planning-GeoSafe/data/siap-pakai`).
+# Tidak ada di runner CI, jadi uji yang membacanya dilewati dengan alasan jelas.
+DATA_DIR_AVAILABLE: bool = Path(data_dir()).is_dir()
+requires_data_dir = pytest.mark.skipif(
+    not DATA_DIR_AVAILABLE,
+    reason="folder tabel siap pakai tidak ada di mesin ini (data di luar repo, lihat AGENTS.md)",
+)
 
 
 def test_sumber_data_memuat_tujuh_dataset() -> None:
@@ -76,6 +92,7 @@ def test_penempatan_memisahkan_seri_arsip_dari_seri_nrt() -> None:
     assert "tidak boleh dijumlahkan" in catatan
 
 
+@requires_data_dir
 def test_daftar_unduhan_memuat_tabel_siap_pakai() -> None:
     body = client.get(DOWNLOADS).json()
 
@@ -86,6 +103,7 @@ def test_daftar_unduhan_memuat_tabel_siap_pakai() -> None:
     assert body["notes"] == []
 
 
+@requires_data_dir
 def test_unduh_berkas_tabel_siap_pakai_berisi_csv_nyata() -> None:
     response = client.get(f"{DOWNLOADS}/panel_kabupaten_kota.csv")
 

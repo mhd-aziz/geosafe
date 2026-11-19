@@ -30,6 +30,16 @@ Kedua layanan sudah jalan: `systemctl --user restart geosafe-api` (kode baru),
 `sudo systemctl reload nginx` (setelah build), `systemctl restart nginx`. Situsnya
 `/etc/nginx/sites-enabled/geosafe` → `deploy/nginx/geosafe.conf`.
 
+CI ada di GitHub Actions (`.github/workflows/ci.yml`, sejak 2026-11-19): setiap push dan PR
+menjalankan `frontend` (typecheck · `npm test` · build) dan `backend` (`uv sync --frozen` →
+`pytest --collect-only` → `pytest` ke basis data hidup). Uji basis data memakai rahasia repo
+`GEOSAFE_DATABASE_URL` berisi role **baca-saja** `geosafe_ci` (hanya SELECT); PR dari fork tidak
+menerima secret itu, jadi hanya koleksi uji yang diperiksa dan alasannya ditulis di ringkasan job.
+Tidak ada ESLint/Prettier — yang diperiksa CI persis yang diperiksa di mesin ini. Dua uji unduhan
+(`test_daftar_unduhan_memuat_tabel_siap_pakai`, `test_unduh_berkas_tabel_siap_pakai_berisi_csv_nyata`)
+**dilewati** di runner karena folder `../planning-GeoSafe/data/siap-pakai/` ada di luar repo; jangan
+menggantinya dengan tiruan — endpoint-nya sendiri sudah menjawab jujur (`count: 0` + catatan).
+
 Basis data harus hidup: **Aiven PostgreSQL 18.7 + PostGIS 3.6.4** (basis data `geosafe`, TLS wajib)
 sejak 2026-11-17, DSN di `~/.config/geosafe/geosafe.env` (jangan pernah ditulis di repo). Koneksi
 lewat kolam kecil (`psycopg_pool`, maksimal 3) karena `max_connections` server hanya 15 — lihat
@@ -39,8 +49,9 @@ isi langsung (`PGPASSWORD=... psql -h 127.0.0.1 -p 5433 -U homelab -d geosafe`) 
 (`aiven_pg_read`, service `pg`, project `aziz`, database `geosafe` — hanya SELECT). Data dipindahkan
 `pg_dump -Fc` + `pg_restore`; setiap perubahan `data/siap-pakai/` wajib dipulangkan ke Aiven dengan
 `python3 ../planning-GeoSafe/data/pembangun/sinkron_aiven.py` (data saja, ±10 menit, verifikasi otomatis;
-jalankan di latar, bukan di sel kode — batas 300 dtk memotongnya). Tidak ada `Makefile`, tidak ada CI, tidak ada
-ESLint/Prettier — penjaga mutunya hanya `pytest`, `npm test`, dan `tsc --noEmit`. Dokumentasi API hidup
+jalankan di latar, bukan di sel kode — batas 300 dtk memotongnya). Tidak ada `Makefile` dan tidak ada
+ESLint/Prettier — penjaga mutunya `pytest`, `npm test`, `tsc --noEmit`, dan CI GitHub Actions
+(`.github/workflows/ci.yml`) yang menjalankan ketiganya pada setiap push dan PR. Dokumentasi API hidup
 sendiri di `/docs` dan `/openapi.json`, jangan dibuatkan berkas daftar endpoint.
 
 ## Konvensi yang berlaku di kode
