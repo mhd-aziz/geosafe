@@ -13,6 +13,7 @@ import { SearchBox } from '../components/search/SearchBox';
 import { useLatestHotspots } from '../hooks/useLatestHotspots';
 import { useRemoteData } from '../hooks/useRemoteData';
 import { DEFAULT_YEAR } from '../lib/constants';
+import { bboxParam } from '../lib/format';
 import { DEFAULT_RISK_SCHEME } from '../lib/risk';
 import type {
   LatestWindow,
@@ -56,7 +57,13 @@ export function MapPage() {
   const [selected, setSelected] = useState<SelectedRegion | null>(null);
   const [focusBounds, setFocusBounds] = useState<Bounds | null>(null);
   const [latestWindow, setLatestWindow] = useState<LatestWindow>(72);
-  const latest = useLatestHotspots(latestWindow);
+  // Kotak peta yang terakhir tampil dan kotak yang sedang dipakai sebagai `bbox`
+  // permintaan. Balasan API tidak memuat `bbox` yang dipakai, jadi kesegaran data
+  // terhadap kotak tidak bisa diperiksa seperti jendela jam — yang dijaga: kotak
+  // hanya berubah atas permintaan pengguna, tidak setiap kali peta digeser.
+  const [viewport, setViewport] = useState<Bounds | null>(null);
+  const [latestBbox, setLatestBbox] = useState<string | null>(null);
+  const latest = useLatestHotspots(latestWindow, latestBbox);
   // Skema bobot diambil sekali di sini dan dibagikan ke kendali peta maupun panel,
   // supaya bobot dan uji sensitivitas yang tampil berasal dari satu balasan API.
   const riskSchemes = useRemoteData(fetchRiskSchemes, []);
@@ -115,6 +122,18 @@ export function MapPage() {
 
   const closePanel = useCallback(() => setSelected(null), []);
 
+  // Kotak peta hanya dikirim saat pengguna memintanya: mengirimnya otomatis setiap
+  // geseran berarti menarik ulang titik setiap kali peta digeser. Kotaknya dipotong
+  // ke batas wilayah Indonesia (`bboxParam`), dan `null` berarti peta sedang
+  // memperlihatkan area di luar Indonesia sehingga tidak ada kotak yang sah.
+  const viewportParam = viewport === null ? null : bboxParam(viewport);
+  const handleUseViewport = useCallback(() => {
+    if (viewportParam !== null) {
+      setLatestBbox(viewportParam);
+    }
+  }, [viewportParam]);
+  const handleClearBounds = useCallback(() => setLatestBbox(null), []);
+
   const activeSchemeName =
     riskSchemes.data?.schemes.find((scheme) => scheme.scheme_code === riskScheme)?.scheme_name ??
     null;
@@ -140,6 +159,7 @@ export function MapPage() {
           focusBounds={focusBounds}
           latestPoints={latest.data?.points ?? null}
           onSelectRegion={handleSelectFromMap}
+          onViewportChange={setViewport}
         />
         {/* Kendali mengapung: di layar kecil daftar ini bisa digulir dan tingginya
          * dibatasi supaya peta tetap kelihatan di bawahnya — tanpa batas itu peta
@@ -180,8 +200,12 @@ export function MapPage() {
               usingSnapshot={latestMatchesWindow ? (latest.data?.using_snapshot ?? false) : false}
               pointCount={latestMatchesWindow ? (latest.data?.point_count ?? null) : null}
               truncated={latestMatchesWindow ? (latest.data?.truncated ?? false) : false}
+              bboxActive={latestBbox !== null}
+              canUseViewport={viewportParam !== null}
               error={latest.error}
               onRefresh={latest.refresh}
+              onUseViewport={handleUseViewport}
+              onClearBounds={handleClearBounds}
             />
           </div>
         </div>

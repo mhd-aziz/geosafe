@@ -70,6 +70,8 @@ export interface MapViewProps {
   /** Titik panas terkini (`P2`); `null` = belum ada/`truncated`, tidak digambar. */
   latestPoints: LatestPoint[] | null;
   onSelectRegion: (region: { code: string; name: string; level: SearchLevel }) => void;
+  /** Kotak peta yang sedang tampil: dikirim hanya saat pengguna memintanya jadi `bbox`. */
+  onViewportChange?: (bounds: [number, number, number, number]) => void;
 }
 
 /** Peta MapLibre dengan satu lapisan tematik aktif.
@@ -90,6 +92,7 @@ export function MapView({
   focusBounds,
   latestPoints,
   onSelectRegion,
+  onViewportChange,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -103,8 +106,8 @@ export function MapView({
   const [readout, setReadout] = useState<{ x: number; y: number; text: string } | null>(null);
   // Handler peta tidak dibuat ulang setiap render, jadi nilai terbaru dibaca
   // lewat ref: kalau tidak, klik selalu memakai tingkat wilayah/lapisan yang lama.
-  const latest = useRef({ layer, level, year, onSelectRegion });
-  latest.current = { layer, level, year, onSelectRegion };
+  const latest = useRef({ layer, level, year, onSelectRegion, onViewportChange });
+  latest.current = { layer, level, year, onSelectRegion, onViewportChange };
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -126,7 +129,22 @@ export function MapView({
     }
 
     mapRef.current = map;
-    map.on('load', () => setReady(true));
+    // Kotak peta dilaporkan setiap gerakan selesai **dan** sekali saat gaya siap:
+    // tanpa laporan awal itu, kendali "Batasi ke area tampak" tidak punya kotak
+    // untuk dikirim selama pengguna belum menggeser peta.
+    const emitViewport = () => {
+      const handler = latest.current.onViewportChange;
+      if (!handler) {
+        return;
+      }
+      const box = map.getBounds();
+      handler([box.getWest(), box.getSouth(), box.getEast(), box.getNorth()]);
+    };
+    map.on('load', () => {
+      setReady(true);
+      emitViewport();
+    });
+    map.on('moveend', emitViewport);
 
     map.on('error', (event) => {
       const cause = (event as { error?: unknown }).error;

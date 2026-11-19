@@ -1,6 +1,31 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatAreaKm2, formatCount, formatDecimal, levelLabel, parentPath } from './format';
+import { formatAreaKm2, bboxParam, formatCount, formatDecimal, levelLabel, parentPath } from './format';
+
+describe('bboxParam', () => {
+  it('menulis empat batas berurutan min_lon,min_lat,max_lon,max_lat', () => {
+    // Urutan ini yang diterima API; tertukar berarti 422 atau kotak yang salah.
+    expect(bboxParam([95, -11, 141, 6])).toBe('95,-11,141,6');
+  });
+
+  it('membulatkan ke empat desimal supaya URL tidak berubah setiap piksel', () => {
+    expect(bboxParam([95.123456789, -10.987654321, 140.99999, 5.500000049])).toBe(
+      '95.1235,-10.9877,141,5.5',
+    );
+  });
+
+  it('memotong kotak peta ke batas wilayah Indonesia (`API-P2` bagian 1)', () => {
+    // Zoom nasional: peta menampilkan jauh lebih luas daripada Indonesia, dan API
+    // menolak bbox di luar 94,5…141,5 / -11,5…6,5 — kasus yang persis memicu
+    // `truncated`, jadi tanpa potongan ini tombolnya selalu berakhir 422.
+    expect(bboxParam([79.1695, -24.064, 156.8305, 19.4199])).toBe('94.5,-11.5,141.5,6.5');
+  });
+
+  it('mengembalikan null bila kotak peta seluruhnya di luar Indonesia', () => {
+    expect(bboxParam([0, 0, 20, 20])).toBeNull();
+    expect(bboxParam([100, 30, 120, 40])).toBeNull();
+  });
+});
 
 describe('formatCount', () => {
   it('memakai pemisah ribuan gaya Indonesia', () => {

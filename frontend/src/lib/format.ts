@@ -97,6 +97,38 @@ export function formatMoment(iso: string | null | undefined): string {
   return Number.isNaN(moment.getTime()) ? '—' : `${momentFormat.format(moment)} WIB`;
 }
 
+/** Batas `bbox` yang diterima API (`backend/app/routers/latest.py`: `LON_MIN`…
+ * `LAT_MAX`). Diduplikasi di sini karena API tidak mengirimkannya di balasan;
+ * kotak peta pada zoom nasional memang lebih lebar daripada Indonesia, dan tanpa
+ * potongan ini setiap klik "Batasi ke area tampak" dijawab `422`.
+ */
+const BBOX_LIMITS = { lonMin: 94.5, latMin: -11.5, lonMax: 141.5, latMax: 6.5 } as const;
+
+/** Empat batas peta → parameter `bbox` API: `min_lon,min_lat,max_lon,max_lat`.
+ *
+ * Kotak **dipotong** ke batas wilayah Indonesia lebih dulu: peta pada zoom
+ * nasional menampilkan laut dan negara tetangga, sedangkan API menolak `bbox`
+ * di luar 94,5…141,5 / -11,5…6,5 dengan `422`. Dibulatkan empat desimal (± 11 m)
+ * supaya URL pendek dan cache 60 detik tidak pecah oleh digit yang bergerak.
+ *
+ * `null` = kotak peta seluruhnya di luar Indonesia; tidak ada permintaan yang sah
+ * untuk dikirim (batas bawah akan sama dengan batas atas).
+ */
+export function bboxParam(bounds: [number, number, number, number]): string | null {
+  const [west, south, east, north] = bounds;
+  const box = [
+    Math.max(west, BBOX_LIMITS.lonMin),
+    Math.max(south, BBOX_LIMITS.latMin),
+    Math.min(east, BBOX_LIMITS.lonMax),
+    Math.min(north, BBOX_LIMITS.latMax),
+  ].map((value) => Number(value.toFixed(4)));
+
+  if (box[0] >= box[2] || box[1] >= box[3]) {
+    return null;
+  }
+  return box.join(',');
+}
+
 /** Bagian dari keseluruhan sebagai persen; pembagi nol berarti "—", bukan 0 %. */
 export function formatPercent(value: number | null | undefined, total: number | null | undefined): string {
   if (value === null || value === undefined || !total) {

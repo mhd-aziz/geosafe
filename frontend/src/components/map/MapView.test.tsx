@@ -48,6 +48,15 @@ const { mapState, FakeMap } = vi.hoisted(() => {
     queryRenderedFeatures() {
       return [];
     }
+    getBounds() {
+      // Kotak peta tiruan: seluruh Indonesia.
+      return {
+        getWest: () => 95,
+        getSouth: () => -11,
+        getEast: () => 141,
+        getNorth: () => 6,
+      };
+    }
     fitBounds(bounds: unknown, options?: unknown) {
       mapState.fitBounds.push(options);
       void bounds;
@@ -108,6 +117,30 @@ beforeEach(() => {
   mapState.fitBounds.length = 0;
   mapState.minZoom.length = 0;
   mapState.removed.length = 0;
+});
+
+describe('MapView kotak peta', () => {
+  it('melaporkan kotak peta saat gaya siap dan setiap gerakan selesai', () => {
+    const onViewportChange = vi.fn();
+    mount({ ...baseProps, layer: 'hotspot', provinceCode: null, onViewportChange });
+
+    // Laporan awal wajib: kendali "Batasi ke area tampak" butuh kotak sebelum
+    // pengguna menggeser peta sama sekali.
+    expect(onViewportChange).toHaveBeenCalledWith([95, -11, 141, 6]);
+
+    act(() => {
+      mapState.listeners.get('moveend')?.();
+    });
+
+    expect(onViewportChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('tidak memasang pelapor kotak peta saat pemanggil tidak memintanya', () => {
+    expect(() =>
+      mount({ ...baseProps, layer: 'hotspot', provinceCode: null }),
+    ).not.toThrow();
+    expect(mapState.listeners.has('moveend')).toBe(true);
+  });
 });
 
 describe('MapView lapisan desa', () => {
