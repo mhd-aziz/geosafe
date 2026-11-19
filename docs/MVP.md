@@ -91,7 +91,9 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 12a | `feat/api-panel-risk-density` — data bangun ulang 2026-11-19 masuk aplikasi: angka uji disinkronkan, skor kerawanan tiga skema di panel `W2`, label kepadatan "rata-rata 2020–2025" | ✅ PR #23, tag `iter-12a-data-sync-panel` |
 | 12b | `fix/frontend-nrt-leftovers` — sisa seri NRT dibersihkan dari antarmuka, T1 mengirim rincian seri arsip dan menyatakan NRT tidak dimuat | ✅ PR #24, tag `iter-12b-t1-archive-nrt` |
 | 12c | `ci/github-actions` — CI GitHub Actions (frontend + backend ke basis data hidup lewat role baca-saja), proteksi `main` mewajibkan check | ✅ PR #25, tag `iter-12c-ci-github-actions` |
-| 12d | `ci/deploy-self-hosted` — CD: runner self-hosted di mesin ini, deploy otomatis ke `:8080` pada push ke `main` | ✅ menunggu PR + tag `iter-12d-deploy-self-hosted` |
+| 12d | `ci/deploy-self-hosted` — CD: runner self-hosted di mesin ini, deploy otomatis ke `:8080` pada push ke `main` | ✅ PR #26 · #27, tag `iter-12d-deploy-self-hosted` |
+| 12e | `feat/cors-vercel-preview` — API publik (Cloudflare Tunnel) + CORS untuk origin pratinjau Vercel | ✅ PR #28, tag `iter-12e-vercel-preview` |
+| 12f | Vercel (di luar repo) — pratinjau frontend hidup dengan `VITE_API_BASE` ke API publik | ✅ `iter-12f-vercel-preview-live` |
 | — | panel desa `W4`, kendali kotak wilayah (`bbox`), kepadatan per tahun sebagai atribut tile, penanda tahun parsial, lalu `P3`/`P5` dan `A2`/`A3` | belum dijadwalkan |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti

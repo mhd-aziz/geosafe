@@ -38,7 +38,8 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 12b | `fix/frontend-nrt-leftovers` | sisa seri NRT dibersihkan: kolom `nrt` dan kode mati di halaman tren hilang, T1 mengirim rincian seri arsip + menyatakan NRT tidak dimuat, `README` 29 → 31 tabel | #24 | `iter-12b-t1-archive-nrt` |
 | 12c | `ci/github-actions` | CI GitHub Actions: job **frontend** (typecheck · 113 uji · build) dan **backend** (93 uji ke basis data hidup lewat role baca-saja `geosafe_ci`); proteksi `main` mewajibkan kedua check, admin tetap boleh push dokumen | #25 | `iter-12c-ci-github-actions` |
 | 12d | `ci/deploy-self-hosted` | CD: runner self-hosted di mesin ini (label `geosafe`, unit pengguna `geosafe-runner.service`), `deploy.yml` pada push ke `main` — sinkron working copy, build, restart API, reload nginx, uji asap `:8080` | #26 · #27 | `iter-12d-deploy-self-hosted` |
-| 12e | `feat/cors-vercel-preview` | API publik lewat Cloudflare Tunnel `geosafe-api.zisaltech.site` + `CORSMiddleware` (origin `geosafe*.vercel.app`, hanya `GET`) agar frontend bisa dipratinjau di Vercel; `frontend/vercel.json` | belum | `iter-12e-vercel-preview` |
+| 12e | `feat/cors-vercel-preview` | API publik lewat Cloudflare Tunnel `geosafe-api.zisaltech.site` + `CORSMiddleware` (origin `geosafe*.vercel.app`, hanya `GET`) agar frontend bisa dipratinjau di Vercel; `frontend/vercel.json` | #28 | `iter-12e-vercel-preview` |
+| 12f | Vercel (di luar repo) | Proyek `geosafe` di Vercel: Root Directory `frontend`, Vite, `VITE_API_BASE=https://geosafe-api.zisaltech.site`, protection dimatikan; deploy produksi `READY` dan `CORS` terbukti untuk origin Vercel asli | — | `iter-12f-vercel-preview-live` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -46,6 +47,69 @@ Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c,
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 12f — pratinjau frontend di Vercel (di luar repo)
+
+Frontend kini punya pratinjau di Vercel; API tetap di mesin ini. Tidak ada berkas repo
+yang berubah kecuali dokumentasi — konfigurasi proyeknya hidup di Vercel.
+
+| Hal | Nilai |
+|---|---|
+| Proyek | `geosafe` (`prj_SoYy4Gxw8MXbVFjLc8GZH9p4B3IB`), tim `muhamad-azizs-projects-83e323d5` (plan hobby) |
+| Setelan | Root Directory `frontend`, framework Vite, build `npm run build`, output `dist`, Node `26.x` |
+| Variabel | `VITE_API_BASE=https://geosafe-api.zisaltech.site` (production + preview + development) |
+| Protection | Vercel Authentication **dimatikan** supaya tautan bisa dibuka tanpa login |
+| Deploy pertama | `dpl_C9PHp73pBmSvJJ6aB8nbFvvmFkvr` → state **READY**, commit `f6f14c7` |
+| Alamat | `https://geosafe-muhamad-azizs-projects-83e323d5.vercel.app` (produksi) · `…-git-main-…` |
+
+Bukti:
+
+| Uji | Hasil |
+|---|---|
+| `curl` halaman produksi tanpa login | **200** (sebelum protection dimatikan: 302 ke Vercel Authentication) |
+| `curl /tren` (rute dalam SPA) | **200** — rewrite `vercel.json` bekerja |
+| Bundle `index-tHbdsBPx.js` | memuat `geosafe-api.zisaltech.site` **1 kali** → `VITE_API_BASE` benar-benar masuk saat build |
+| `curl` API dengan `Origin` Vercel asli | `HTTP/2 200` + `access-control-allow-origin: https://geosafe-9c8y5qzca-…vercel.app` |
+
+Temuan:
+
+1. **Pratinjau yang dilindungi tidak bisa diverifikasi dengan `curl`.** Deploy pertama membalas
+   `302 Protected by Vercel Authentication`; halaman terlihat "gagal" padahal build-nya sehat.
+   Verifikasi harus lewat `web_fetch_vercel_url` (MCP) atau setelah protection dimatikan.
+2. **Membuktikan `VITE_API_BASE` terpakai** tidak cukup dengan melihat build sukses: string host harus
+   dicari di berkas JS hasil build. Tanpa itu aplikasi memanggil alamat relatif dan semua panel kosong.
+3. **Repo ini masih tertaut ke proyek Vercel lain (`omniroute-relay`)** yang memunculkan check bernama
+   `Vercel` di setiap PR. Proyek itu 404 lewat API (di luar scope token MCP), jadi pelepasan tautannya
+   manual di dasbor: proyek `omniroute-relay` → Settings → Git → Disconnect.
+4. **Basemap PMTiles tidak ikut** (216 MB, di luar git): di Vercel peta menggambar geometri di atas
+   latar polos. Degradasi yang disengaja, bukan bug.
+
+## Iterasi 12e — `feat/cors-vercel-preview` (PR #28)
+
+API dibuka ke publik lewat Cloudflare Tunnel dan diberi CORS, karena pratinjau Vercel memanggil domain
+lain. Sebelum ini `app/main.py` tidak punya middleware CORS sama sekali.
+
+| Hal | Nilai |
+|---|---|
+| Tunnel | `geosafe-api.zisaltech.site` → `http://127.0.0.1:8000`, id `b7e28aca-692a-4c0f-ba5e-a0e900f7617f` |
+| Konfigurasi | `/etc/cloudflared/config-geosafe-api.yml` + unit sistem `cloudflared-geosafe-api.service` |
+| CORS | `GEOSAFE_ALLOWED_ORIGINS` (bawaan dua alamat lokal) + regex `https://geosafe*.vercel.app`, **hanya `GET`** |
+| Uji | `pytest -q` **96 passed** (+3 uji `test_cors.py`); `curl /health` lewat tunnel **200**; header CORS terkirim untuk origin Vercel |
+
+## Iterasi 12d — `ci/deploy-self-hosted` (PR #26 · #27)
+
+CD ke mesin ini lewat runner **self-hosted** (label `geosafe`, `~/actions-runner`, unit pengguna
+`geosafe-runner.service`, runner `2.338.2`). `deploy.yml` hanya berjalan pada push ke `main`:
+sinkron working copy (`merge --ff-only`, menolak kalau bukan `main` atau kotor), `uv sync --frozen`,
+`npm ci && npm run build`, `systemctl --user restart geosafe-api`, `sudo systemctl reload nginx`,
+lalu uji asap.
+
+| Uji | Hasil |
+|---|---|
+| Deploy pertama (`#26`) | **gagal**: uji asap membaca `/health` = **502** karena uvicorn belum siap |
+| Perbaikan (`#27`) | uji asap menunggu sampai 30 dtk sebelum menyimpulkan gagal → **success 1 mnt 1 dtk** |
+| Uji asap | `:8080` 200 · `/health` 200 · panel Merauke memuat `risk_score_a` |
+| Rancangan awal yang dibatalkan | `git reset --hard origin/main` → **diganti** `merge --ff-only` + pemeriksaan bersih, supaya cabang lokal dan pekerjaan yang belum di-commit tidak tertimpa |
 
 ## Iterasi 12c — `ci/github-actions` (PR #25)
 

@@ -28,8 +28,8 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 |---|---|
 | Backend (`backend/`) | berjalan — 16 endpoint, `uv run pytest` 96 passed, koneksi lewat kolam kecil (`psycopg_pool`), CORS hanya untuk origin pratinjau Vercel |
 | Frontend (`frontend/`) | berjalan — 3 halaman (peta + lapisan titik terkini + lapisan kerawanan kabupaten/kota + lapisan kerawanan desa · tren · sumber data), basemap PMTiles z12, panel `W2` memuat skor kerawanan, halaman tren tanpa kolom `nrt`, `npm test` 113 passed |
-| Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna, nginx menyajikan halaman, proxy API, dan basemap PMTiles z12 (216 MB) di `127.0.0.1:8080` |
-| Iterasi selesai | **12e** (CORS untuk pratinjau Vercel + API publik lewat Cloudflare Tunnel; sebelumnya 12d CD otomatis di mesin ini, 12c CI GitHub Actions, 12b sisa seri NRT dibersihkan, 12a data 2026-11-19 masuk aplikasi + skor kerawanan di panel `W2`, 11e lapisan kelas kerawanan desa, 11d kerawanan desa di API, 11c `P4` di antarmuka, 11b `P4` di API, 11a basis data pindah ke Aiven, 10b/10a `P2`+`W1`, 09c basemap, 09b nginx, 09a unit systemd, 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna, nginx menyajikan halaman, proxy API, dan basemap PMTiles z12 (216 MB) di `127.0.0.1:8080`; pratinjau frontend di Vercel memanggil API publik lewat Cloudflare Tunnel |
+| Iterasi selesai | **12f** (pratinjau frontend di Vercel hidup dan terbukti memanggil API publik; sebelumnya 12e CORS + Cloudflare Tunnel, 12d CD otomatis di mesin ini, 12c CI GitHub Actions, 12b sisa seri NRT dibersihkan, 12a data 2026-11-19 masuk aplikasi + skor kerawanan di panel `W2`, 11e lapisan kelas kerawanan desa, 11d kerawanan desa di API, 11c `P4` di antarmuka, 11b `P4` di API, 11a basis data pindah ke Aiven, 10b/10a `P2`+`W1`, 09c basemap, 09b nginx, 09a unit systemd, 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 

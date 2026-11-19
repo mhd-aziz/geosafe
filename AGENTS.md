@@ -57,6 +57,16 @@ memasang `CORSMiddleware`: origin dari `GEOSAFE_ALLOWED_ORIGINS` (dipisah koma, 
 lokal) plus pola `https://geosafe*.vercel.app`, hanya metode `GET`. Alamat API untuk build Vercel
 diberikan lewat `VITE_API_BASE`; jangan menulis alamat itu di kode.
 
+Pratinjau frontend ada di Vercel: proyek **`geosafe`** (`prj_SoYy4Gxw8MXbVFjLc8GZH9p4B3IB`, tim
+`muhamad-azizs-projects-83e323d5`), Root Directory `frontend`, framework Vite, Node `26.x`.
+Variabel proyek `VITE_API_BASE=https://geosafe-api.zisaltech.site` untuk production + preview +
+development; nilainya masuk ke bundle **saat build**, jadi mengubahnya butuh deploy ulang. Alias:
+`geosafe-muhamad-azizs-projects-83e323d5.vercel.app` (produksi) dan `geosafe-git-<cabang>-…` (pratinjau).
+Vercel Authentication dimatikan supaya tautannya bisa dibuka tanpa login; jangan dinyalakan lagi tanpa
+alasan. **Repo ini juga tertaut ke proyek Vercel lain `omniroute-relay`** yang berada di luar scope
+token MCP (API membalas 404 walau check-nya muncul di PR); melepas tautan itu harus lewat dasbor
+Vercel: proyek `omniroute-relay` → Settings → Git → Disconnect.
+
 Basis data harus hidup: **Aiven PostgreSQL 18.7 + PostGIS 3.6.4** (basis data `geosafe`, TLS wajib)
 sejak 2026-11-17, DSN di `~/.config/geosafe/geosafe.env` (jangan pernah ditulis di repo). Koneksi
 lewat kolam kecil (`psycopg_pool`, maksimal 3) karena `max_connections` server hanya 15 — lihat
