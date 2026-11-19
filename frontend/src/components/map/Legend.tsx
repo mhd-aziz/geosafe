@@ -50,6 +50,13 @@ export function Legend({
   const villageActive = layer === 'risk_village';
   const eventsActive = layer === 'events';
   const pointsActive = layer === 'event_points';
+  // Rincian seri apa adanya (`main`, `fill`); tidak digabung karena artinya beda.
+  const seriesText =
+    coverage === null
+      ? ''
+      : Object.entries(coverage.series)
+          .map(([series, count]) => `${series} ${formatCount(count)}`)
+          .join(' · ');
   const entries = villageActive
     ? villageLegendEntries(villageClassCounts)
     : riskActive
@@ -136,11 +143,13 @@ export function Legend({
       {layer === 'hotspot' && coverage !== null ? (
         // `SRS-F-16`: angka yang dipakai tampilan aktif, termasuk titik yang di
         // luar poligon wilayah — yang terakhir tidak boleh dibaca sebagai nol.
+        // Ketiga angka diambil dari kumpulan baris yang SAMA: `placed_count` dan
+        // `outside_count` dihitung atas seluruh seri, jadi angka pertamanya juga
+        // `point_count` (bukan `series.main`), dan rincian seri ditulis terpisah.
         <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] text-slate-600">
-          Tampilan aktif memakai seri{' '}
-          <code>main</code>
+          Tampilan aktif
           {confidence === null ? ' seluruh kelas kepercayaan' : ` kelas kepercayaan ${confidence}`}:{' '}
-          {formatCount(coverage.series.main ?? coverage.point_count)} titik ·{' '}
+          {formatCount(coverage.point_count)} titik ({seriesText}) ·{' '}
           {formatCount(coverage.placed_count)} masuk poligon wilayah ·{' '}
           {formatCount(coverage.outside_count)} di luar (tidak dihitung nol).
         </p>
