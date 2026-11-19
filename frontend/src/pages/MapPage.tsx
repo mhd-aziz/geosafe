@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
 
-import { fetchRiskSchemes, fetchVillageProvinces } from '../api/geosafe';
+import { fetchNationalTrend, fetchRiskSchemes, fetchVillageProvinces } from '../api/geosafe';
 import { Legend } from '../components/map/Legend';
 import { LatestControl } from '../components/map/LatestControl';
 import { MapToolbar } from '../components/map/MapToolbar';
 import { MapView } from '../components/map/MapView';
 import { DistrictDetailPanel } from '../components/panel/DistrictDetailPanel';
+import { EventPanel } from '../components/panel/EventPanel';
 import { LatestPanel } from '../components/panel/LatestPanel';
 import { RegionPanel } from '../components/panel/RegionPanel';
 import { RiskPanel } from '../components/panel/RiskPanel';
@@ -69,6 +70,9 @@ export function MapPage() {
   // Skema bobot diambil sekali di sini dan dibagikan ke kendali peta maupun panel,
   // supaya bobot dan uji sensitivitas yang tampil berasal dari satu balasan API.
   const riskSchemes = useRemoteData(fetchRiskSchemes, []);
+  // Seri nasional untuk pembanding lapisan kejadian (`SRS-F-31`): angkanya dibaca
+  // dari endpoint tren, bukan dijumlahkan dari tile yang sedang tampil.
+  const trend = useRemoteData(fetchNationalTrend, []);
   // Daftar provinsi + sebaran kelas desa: dipakai kendali lapisan desa dan panelnya.
   const villageProvinces = useRemoteData(fetchVillageProvinces, []);
   // Data hanya dipakai bila berasal dari jendela yang sedang dipilih: saat pengguna
@@ -148,7 +152,9 @@ export function MapPage() {
             ? 'Peta kelas kerawanan desa/kelurahan'
             : layer === 'risk'
               ? 'Peta kelas kerawanan kabupaten/kota'
-              : 'Peta sebaran titik panas'
+              : layer === 'events'
+                ? 'Peta jumlah kejadian karhutla tercatat BNPB'
+                : 'Peta sebaran titik panas'
         }
         className="relative h-[58vh] min-h-[340px] shrink-0 sm:h-[56vh] sm:min-h-[380px] lg:h-auto lg:min-h-0 lg:flex-1"
       >
@@ -221,6 +227,10 @@ export function MapPage() {
         {layer === 'risk' ? (
           <div className={CARD}>
             <RiskPanel state={riskSchemes} scheme={riskScheme} />
+          </div>
+        ) : layer === 'events' ? (
+          <div className={CARD}>
+            <EventPanel trend={trend} year={year} />
           </div>
         ) : layer === 'risk_village' ? (
           <div className={CARD}>

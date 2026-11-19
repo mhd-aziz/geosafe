@@ -150,3 +150,33 @@ describe('readoutText', () => {
     ).toBe('Contoh (Contoh) · kelas kerawanan belum ada');
   });
 });
+
+describe('lapisan kejadian (P3)', () => {
+  it('memakai sumber sendiri dan membawa tahun pada URL-nya', () => {
+    const events = specOf('events', 'regency', 2023, 'a');
+    const hotspot = specOf('hotspot', 'regency', 2023, 'a');
+
+    expect(events.url).toBe('/tiles/events/{z}/{x}/{y}.mvt?year=2023');
+    expect(events.sourceLayer).toBe('events');
+    // Nama sumber/layer tidak boleh sama dengan lapisan titik panas: kalau sama,
+    // perpindahan lapisan bisa meninggalkan poligon lama tanpa galat apa pun.
+    const ids = [events, hotspot].flatMap((spec) => [spec.sourceId, spec.fillLayerId]);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('membaca jumlah kejadian tercatat, dan menyebut nol sebagai tidak tercatat', () => {
+    expect(
+      readoutText('events', 'regency', 2023, {
+        region_name: 'Kota Banjarbaru',
+        event_count: 79,
+        has_fact: 1,
+      }),
+    ).toBe('Kota Banjarbaru · 79 kejadian tercatat BNPB 2023');
+
+    // Di lapisan ini `has_fact = 0` berarti tidak ada kejadian tercatat, bukan
+    // "angkanya belum dimuat" seperti pada lapisan titik panas.
+    expect(
+      readoutText('events', 'regency', 2023, { region_name: 'Contoh', has_fact: 0 }),
+    ).toBe('Contoh · tidak ada kejadian tercatat 2023');
+  });
+});

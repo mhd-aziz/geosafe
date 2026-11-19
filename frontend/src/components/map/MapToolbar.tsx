@@ -52,9 +52,11 @@ export function MapToolbar({
   onYearChange,
   onLevelChange,
 }: MapToolbarProps) {
-  // Tahun dan tingkat wilayah hanya berlaku untuk lapisan titik panas; dua
-  // lapisan kerawanan adalah ringkasan satu periode pada tingkat tetap.
+  // Tahun berlaku untuk lapisan titik panas dan lapisan kejadian; dua lapisan
+  // kerawanan adalah ringkasan satu periode pada tingkat tetap.
   const hotspotActive = layer === 'hotspot';
+  const eventsActive = layer === 'events';
+  const yearlyActive = hotspotActive || eventsActive;
   const riskActive = layer === 'risk';
   const villageActive = layer === 'risk_village';
   const schemeOptions = riskSchemes.data?.schemes ?? FALLBACK_SCHEMES;
@@ -69,6 +71,11 @@ export function MapToolbar({
         onChange={onLayerChange}
         options={[
           { value: 'hotspot', label: 'Titik panas', title: 'Jumlah titik panas per tahun (P1)' },
+          {
+            value: 'events',
+            label: 'Kejadian',
+            title: 'Jumlah kejadian karhutla tercatat BNPB per tahun, tingkat kabupaten/kota (P3)',
+          },
           {
             value: 'risk',
             label: 'Kerawanan',
@@ -87,9 +94,9 @@ export function MapToolbar({
           Tahun
           <select
             value={year}
-            disabled={!hotspotActive}
+            disabled={!yearlyActive}
             title={
-              hotspotActive
+              yearlyActive
                 ? undefined
                 : 'Lapisan kerawanan adalah ringkasan satu periode, bukan seri tahunan'
             }
@@ -116,11 +123,22 @@ export function MapToolbar({
               disabled: !hotspotActive,
               title: hotspotActive
                 ? undefined
-                : 'Skor kerawanan hanya dihitung untuk kabupaten/kota (SRS-F-37)',
+                : eventsActive
+                  ? 'Kejadian dipetakan per kabupaten/kota (SRS-F-28)'
+                  : 'Skor kerawanan hanya dihitung untuk kabupaten/kota (SRS-F-37)',
             },
           ]}
         />
       </div>
+
+      {eventsActive ? (
+        // `SRS-F-30`: pembaca harus tahu ini catatan kejadian, bukan deteksi satelit.
+        <p className="text-[11px] leading-snug text-slate-600">
+          Peta ini memuat <strong>kejadian tercatat BNPB</strong>, bukan deteksi satelit. Tingkat
+          wilayah dikunci ke kabupaten/kota (`SRS-F-28`), dan abu-abu berarti tidak ada kejadian
+          tercatat pada tahun terpilih.
+        </p>
+      ) : null}
 
       {villageActive ? (
         <div className="space-y-1.5 border-t border-slate-100 pt-2">

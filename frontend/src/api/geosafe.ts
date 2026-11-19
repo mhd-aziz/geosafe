@@ -33,6 +33,20 @@ export function tileSourceLayer(level: MapLevel): string {
   return level === 'province' ? 'provinces' : 'regions';
 }
 
+/** Templat URL tile kejadian tercatat BNPB (`P3`, `SRS-F-28`).
+ *
+ * Lapisan ini hanya ada di tingkat kabupaten/kota: baris kejadian tingkat
+ * provinsi dan nasional dipakai sebagai pembanding, bukan sebagai poligon.
+ */
+export function eventTileUrlTemplate(year: number): string {
+  return `${API_BASE}/tiles/events/{z}/{x}/{y}.mvt?year=${year}`;
+}
+
+/** Nama layer kejadian di dalam MVT (dibuat endpoint `P3`). */
+export function eventTileSourceLayer(): string {
+  return 'events';
+}
+
 /** Templat URL tile kerawanan (`P4`). Skema bobot ikut di URL, bukan di klien. */
 export function riskTileUrlTemplate(scheme: RiskSchemeCode): string {
   return `${API_BASE}/tiles/risk/{z}/{x}/{y}.mvt?scheme=${scheme}`;

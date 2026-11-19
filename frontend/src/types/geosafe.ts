@@ -6,9 +6,10 @@
 
 export type MapLevel = 'regency' | 'province';
 
-/** Lapisan tematik yang bisa digambar di peta: jumlah titik panas, kerawanan
- *  kabupaten/kota, atau kelas kerawanan desa/kelurahan. */
-export type MapLayer = 'hotspot' | 'risk' | 'risk_village';
+/** Lapisan tematik yang bisa digambar di peta: jumlah titik panas, jumlah
+ *  kejadian tercatat BNPB, kerawanan kabupaten/kota, atau kelas kerawanan
+ *  desa/kelurahan. */
+export type MapLayer = 'hotspot' | 'events' | 'risk' | 'risk_village';
 
 /** Skema bobot skor kerawanan (`P4`); nilainya ditentukan API. */
 export type RiskSchemeCode = 'a' | 'b' | 'c';

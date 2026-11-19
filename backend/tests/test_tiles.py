@@ -244,3 +244,94 @@ def test_kelas_confidence_tak_dikenal_ditolak_validasi() -> None:
     response = client.get(WORLD_TILE, params={"year": 2020, "confidence": "x"})
 
     assert response.status_code == 422
+
+
+# --- P3 peta kejadian --------------------------------------------------------
+#
+# Lapisan ini mewarnai **kejadian tercatat BNPB**, bukan deteksi satelit
+# (`SRS-F-30`), dan arti `has_fact` berbeda dari lapisan titik panas: wilayah
+# tanpa baris berarti tidak ada kejadian tercatat, karena BNPB hanya mencatat
+# kejadian yang terjadi.
+
+EVENT_TILE = "/tiles/events/0/0/0.mvt"
+OCEAN_EVENT_TILE = "/tiles/events/1/0/1.mvt"
+
+
+def test_event_tile_contains_events_layer() -> None:
+    response = client.get(EVENT_TILE, params={"year": 2023})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == MEDIA_TYPE_MVT
+    body = response.content
+    assert len(body) > 10_000
+    assert b"events" in body  # nama layer di dalam MVT
+    # Properti angka dan penandanya ikut tertulis di tabel string protobuf.
+    assert b"event_count" in body
+    assert b"has_fact" in body
+
+
+def test_event_tile_answers_204_over_ocean() -> None:
+    response = client.get(OCEAN_EVENT_TILE, params={"year": 2023})
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+
+def test_event_tile_rejects_year_outside_range_and_bad_coordinates() -> None:
+    assert client.get(EVENT_TILE, params={"year": 2019}).status_code == 422
+    assert client.get(EVENT_TILE, params={"year": 2027}).status_code == 422
+    # Penjaga bersama `check_tile_bounds` (`z=0` hanya punya x/y 0).
+    bad = client.get("/tiles/events/0/5/5.mvt", params={"year": 2023})
+    assert bad.status_code == 422
+    assert "di luar rentang" in bad.json()["detail"]
+
+
+def test_event_rows_are_yearly_only_and_country_row_matches_regions() -> None:
+    """Baris kejadian harus disaring `month is null`, dan nol berarti tercatat nol.
+
+    Dua hal yang dijaga di sini:
+
+    1. `region_facts` juga memuat baris **bulanan** untuk `event_count`, dan
+       jumlahnya sama dengan baris tahunan (2023: 2.153 = 2.153) — tanpa
+       penyaring `month is null` satu tahun akan terhitung dua kali.
+    2. Baris nasional sama dengan jumlah baris kabupaten/kota, sehingga wilayah
+       tanpa baris memang berarti *tidak ada kejadian tercatat*, bukan angka yang
+       belum dimuat. Kalau suatu hari ETL mengubah cara itu, arti `has_fact` di
+       lapisan kejadian perlu ditinjau ulang.
+    """
+    with psycopg.connect(database_url(), row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                select sum(value) filter (where month is null and region_code is not null) as yearly_sum,
+                       count(*) filter (where month is null and region_code is not null) as yearly_rows,
+                       sum(value) filter (where month is not null and region_code is not null) as monthly_sum,
+                       count(*) filter (where month is null and region_code is null
+                                          and province_code is null) as national_rows
+                  from region_facts
+                 where metric_code = 'event_count' and year = 2023
+                   and confidence is null and series is null
+                """
+            )
+            row = cur.fetchone()
+
+    assert row["yearly_rows"] == 254  # kabupaten/kota yang mencatat kejadian 2023
+    assert row["yearly_sum"] == 2_153
+    assert row["monthly_sum"] == 2_153  # bukti penyaring `month is null` wajib
+    assert row["national_rows"] == 1
+
+
+def test_event_series_is_absent_from_the_event_metric() -> None:
+    """Kejadian tidak berseri seperti titik panas: tidak ada `main`/`fill`/`nrt`."""
+    with psycopg.connect(database_url(), row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                select count(*) as slashed
+                  from region_facts
+                 where metric_code = 'event_count' and series is not null
+                """
+            )
+            row = cur.fetchone()
+
+    assert row["slashed"] == 0

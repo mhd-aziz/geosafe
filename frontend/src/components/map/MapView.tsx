@@ -16,6 +16,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 
 import { fillColorExpression } from '../../lib/choropleth';
+import { eventFillColorExpression } from '../../lib/events';
 import { latestCircleColorExpression, pointsToGeoJson } from '../../lib/latest-layer';
 import { basemapStyle } from '../../lib/map-style';
 import { riskFillColorExpression, villageRiskFillColorExpression } from '../../lib/risk';
@@ -37,6 +38,7 @@ const LATEST_LAYER_ID = 'latest-hotspot-points';
 /** Layer poligon yang sedang aktif; dipakai klik, kursor, dan bacaan angka. */
 const ACTIVE_FILL_LAYER: Record<MapLayer, string> = {
   hotspot: 'hotspot-fill',
+  events: 'events-fill',
   risk: 'risk-fill',
   risk_village: 'village-risk-fill',
 };
@@ -44,6 +46,7 @@ const ACTIVE_FILL_LAYER: Record<MapLayer, string> = {
 /** Warna kelas per lapisan; peta hanya mewarnai, angkanya dibaca di bacaan kursor. */
 const FILL_COLOR_EXPRESSION: Record<MapLayer, () => readonly unknown[]> = {
   hotspot: fillColorExpression,
+  events: eventFillColorExpression,
   risk: riskFillColorExpression,
   risk_village: villageRiskFillColorExpression,
 };
@@ -182,8 +185,10 @@ export function MapView({
       }
 
       // Lapisan kerawanan hanya ada di tingkat kabupaten/kota (`SRS-F-37`), jadi
-      // klik di sana selalu membuka panel kabupaten/kota.
-      const currentLevel: MapLevel = currentLayer === 'risk' ? 'regency' : latest.current.level;
+      // klik di sana selalu membuka panel kabupaten/kota. Lapisan kejadian (`P3`)
+      // juga hanya ada di tingkat itu (`SRS-F-28`).
+      const currentLevel: MapLevel =
+        currentLayer === 'risk' || currentLayer === 'events' ? 'regency' : latest.current.level;
       latest.current.onSelectRegion({
         code: String(properties[CODE_PROPERTY[currentLevel]]),
         name: String(properties[NAME_PROPERTY[currentLevel]]),
@@ -275,7 +280,7 @@ export function MapView({
           // sungai dari basemap tak lagi terlihat di bawah kelas warna (diperiksa
           // di peramban, tidak cukup dari kode). Kelas kerawanan hanya tiga sampai
           // empat, jadi opasitasnya boleh lebih tinggi.
-          'fill-opacity': layer === 'hotspot' ? 0.72 : 0.78,
+          'fill-opacity': layer === 'hotspot' || layer === 'events' ? 0.72 : 0.78,
         },
       },
       beforeId,
