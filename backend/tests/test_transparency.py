@@ -60,6 +60,22 @@ def test_penempatan_titik_seluruh_rentang_menyebut_luar_poligon() -> None:
     assert "geometri" in catatan  # alasan selisih angka disebutkan
 
 
+def test_penempatan_memisahkan_seri_arsip_dari_seri_nrt() -> None:
+    """Tabel titik panas hanya memuat arsip; NRT hidup di endpoint terkini."""
+    body = client.get(COVERAGE).json()
+
+    assert set(body["totals"]["series"]) == {"main", "fill"}
+    assert (
+        body["totals"]["series"]["main"] + body["totals"]["series"]["fill"]
+        == body["totals"]["point_count"]
+    )
+
+    catatan = " ".join(body["notes"])
+    assert "hanya memuat seri arsip" in catatan
+    assert "nrt" in catatan
+    assert "tidak boleh dijumlahkan" in catatan
+
+
 def test_daftar_unduhan_memuat_tabel_siap_pakai() -> None:
     body = client.get(DOWNLOADS).json()
 

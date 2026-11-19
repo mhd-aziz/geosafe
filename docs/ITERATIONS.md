@@ -35,6 +35,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 11d | `feat/api-village-risk-tiles` | `P4` di API: tile kelas kerawanan desa per provinsi (`SRS-F-38`) + daftar provinsi untuk pemilihnya, pagar zoom di `app/tiles.py` | #21 | `iter-11d-village-risk-api` |
 | 11e | `feat/frontend-village-risk` | `P4` di antarmuka: lapisan kerawanan desa + pemilih provinsi (`SRS-F-38`/`F-39`), zoom peta dijaga 8 ke atas; sekaligus `fix(api)` kolam koneksi basis data | #22 | `iter-11e-village-risk-ui` |
 | 12a | `feat/api-panel-risk-density` | data hasil bangun ulang 2026-11-19 masuk aplikasi: 12 angka uji disinkronkan, panel `W2` memuat skor kerawanan tiga skema, label kepadatan diperbaiki | #23 | `iter-12a-data-sync-panel` |
+| 12b | `fix/frontend-nrt-leftovers` | sisa seri NRT dibersihkan: kolom `nrt` dan kode mati di halaman tren hilang, T1 mengirim rincian seri arsip + menyatakan NRT tidak dimuat, `README` 29 → 31 tabel | belum | `iter-12b-t1-archive-nrt` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -42,6 +43,52 @@ Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c,
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 12b — `fix/frontend-nrt-leftovers` (PR belum dibuka)
+
+Melanjutkan 12a: setelah seri `nrt` dikeluarkan dari tabel tahunan, tiga tempat di
+antarmuka dan satu di API masih membicarakannya seolah masih ada. Iterasi ini
+menutup butir 4 rencana "T1 memisahkan arsip vs NRT".
+
+Berkas: `frontend/src/pages/{TrendPage,SourcesPage}.tsx` ·
+`frontend/src/components/analysis/TrendChart.tsx` · `frontend/src/types/geosafe.ts` ·
+`frontend/src/pages/{TrendPage,SourcesPage}.test.tsx` · `frontend/src/App.test.tsx` ·
+`backend/app/routers/transparency.py` · `backend/tests/test_transparency.py` ·
+`README.md` · `AGENTS.md` · `docs/{ITERATIONS,MVP}.md`.
+
+Yang berubah:
+
+| Hal | Sebelum | Sesudah |
+|---|---|---|
+| tabel angka per tahun di halaman tren | 6 kolom termasuk `nrt` yang selalu "—" | 5 kolom: `main`, `fill`, arsip, kejadian |
+| keterangan grafik | "Seri nrt 2026: 600.323 titik …" (kode mati, `nrt` selalu `null`) | "nrt hanya hidup di lapisan titik panas terkini (24/48/72 jam)" |
+| `point_coverage.totals` | `point_count`, `placed_count`, `outside_count`, `outside_share_percent` | + `series` (`{main: 889240, fill: 29079}`) |
+| catatan `point_coverage` | tidak menyebut NRT sama sekali | menyatakan tabel hanya memuat seri arsip dan angka terkini tidak boleh dijumlahkan |
+| halaman T1 | tidak ada rincian seri | "889.240 titik seri main + 29.079 titik seri fill; nrt tidak dimuat" |
+| `README.md` | "29 tabel siap pakai" | **31** (sesuai `/api/v1/downloads`) |
+
+Bukti:
+
+| Uji | Hasil |
+|---|---|
+| `uv run pytest -q` | **93 passed**, 1 warning, 35,73 dtk (92 sebelum, +1 uji baru) |
+| `npm run typecheck` · `npm test` | bersih · **113 passed** (16 berkas), 51,87 dtk (112 sebelum) |
+| `npm run build` | 14,06 dtk |
+| `curl :8080/api/v1/point_coverage` | 918.319 titik · `series` `{main: 889.240, fill: 29.079}` · 172.047 di luar (18,73 %) · catatan NRT ikut terkirim |
+| `/api/v1/downloads` | **31** berkas (sebelumnya README menulis 29) |
+
+Temuan:
+
+1. **Kode mati lebih berbahaya daripada teks salah.** `TrendChart` masih memuat
+   `nrtRows.map(...)` dan komentar berangka 600.323; karena `nrt` selalu `null`
+   blok itu tidak pernah tampil, jadi tidak ada uji yang gagal — tapi pembaca kode
+   dan dokumen mengira seri itu masih ada. Yang menemukannya pemeriksaan teks,
+   bukan uji.
+2. **`totals.series` membuat selisih bisa dipertanggungjawabkan tanpa tabel baru.**
+   `main + fill = point_count` diuji di backend, jadi dua seri itu tidak bisa
+   diam-diam digabung atau saling menggantikan.
+3. Verifikasi peramban tetap tidak dilakukan (Chrome otomasi mati); angka diukur
+   lewat `:8080` (nginx) dan uji jsdom.
 
 ## Iterasi 12a — `feat/api-panel-risk-density` (PR #23)
 

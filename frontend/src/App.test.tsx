@@ -188,7 +188,13 @@ function renderApp(path = '/') {
 function mockEmptyTransparency() {
   fetchPointCoverageMock.mockResolvedValue({
     year: null,
-    totals: { point_count: 0, placed_count: 0, outside_count: 0, outside_share_percent: null },
+    totals: {
+      point_count: 0,
+      placed_count: 0,
+      outside_count: 0,
+      outside_share_percent: null,
+      series: {},
+    },
     by_year: [],
     notes: [],
   });

@@ -16,9 +16,9 @@ export interface TrendChartProps {
  * kejadian. Kedua seri **tidak** digambar pada satu sumbu karena alat ukurnya
  * berbeda: titik panas adalah deteksi satelit, kejadian adalah catatan BNPB.
  *
- * Seri `nrt` sengaja tidak dijadikan garis pada skala ini: nilainya (600.323 pada
- * 2026) berasal dari pemrosesan berbeda dan akan menenggelamkan garis arsip.
- * Angkanya dinyatakan sebagai keterangan berangka, bukan dihilangkan.
+ * Seri `nrt` tidak digambar dan tidak disebut di sini: sejak data dibangun ulang
+ * 2026-11-19 tabel tahunan tidak memuatnya (`nrt` selalu `null`), dan angkanya
+ * hanya hidup di lapisan titik panas terkini (`P2`).
  */
 export function TrendChart({ hotspot, events }: TrendChartProps) {
   const years = hotspot.map((row) => row.year);
@@ -41,7 +41,6 @@ export function TrendChart({ hotspot, events }: TrendChartProps) {
       .map((value, index) => `${index === 0 ? 'M' : 'L'}${xAt(index).toFixed(1)},${scale(value).toFixed(1)}`)
       .join(' ');
 
-  const nrtRows = hotspot.filter((row) => row.nrt !== null);
   const gridValues = [0, 0.25, 0.5, 0.75, 1];
 
   return (
@@ -113,12 +112,6 @@ export function TrendChart({ hotspot, events }: TrendChartProps) {
           <span aria-hidden="true" className="mr-1 inline-block h-2 w-3 align-middle bg-[#1d4ed8]" />
           Kejadian karhutla (BNPB), sumbu kanan, satuan kejadian
         </p>
-        {nrtRows.map((row) => (
-          <p key={row.year} className="text-slate-600">
-            Seri nrt {row.year}: {formatCount(row.nrt)} titik — pemrosesan berbeda, tidak sebanding dengan
-            arsip, tidak digambar pada skala ini dan tidak dijumlahkan ke garis arsip.
-          </p>
-        ))}
       </figcaption>
     </figure>
   );

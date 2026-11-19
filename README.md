@@ -23,10 +23,10 @@ sistem ada di repo perencanaan `../planning-GeoSafe/` — lihat bagian Dokumen.
 
 | Bagian | Keadaan |
 |---|---|
-| Backend (`backend/`) | berjalan — 16 endpoint, `uv run pytest` 92 passed, koneksi lewat kolam kecil (`psycopg_pool`) |
-| Frontend (`frontend/`) | berjalan — 3 halaman (peta + lapisan titik terkini + lapisan kerawanan kabupaten/kota + lapisan kerawanan desa · tren · sumber data), basemap PMTiles z12, panel `W2` memuat skor kerawanan, `npm test` 112 passed |
+| Backend (`backend/`) | berjalan — 16 endpoint, `uv run pytest` 93 passed, koneksi lewat kolam kecil (`psycopg_pool`) |
+| Frontend (`frontend/`) | berjalan — 3 halaman (peta + lapisan titik terkini + lapisan kerawanan kabupaten/kota + lapisan kerawanan desa · tren · sumber data), basemap PMTiles z12, panel `W2` memuat skor kerawanan, halaman tren tanpa kolom `nrt`, `npm test` 113 passed |
 | Deploy (**berkas di mesin, tidak di git**) | berjalan — API sebagai unit systemd pengguna, nginx menyajikan halaman, proxy API, dan basemap PMTiles z12 (216 MB) di `127.0.0.1:8080` |
-| Iterasi selesai | **12a** (data 2026-11-19 masuk aplikasi: angka uji disinkronkan, panel `W2` memuat skor kerawanan tiga skema, label kepadatan diperbaiki; sebelumnya 11e lapisan kelas kerawanan desa, 11d kerawanan desa di API, 11c `P4` di antarmuka, 11b `P4` di API, 11a basis data pindah ke Aiven, 10b/10a `P2`+`W1`, 09c basemap, 09b nginx, 09a unit systemd, 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
+| Iterasi selesai | **12b** (sisa seri NRT dibersihkan dari antarmuka, T1 memisahkan arsip vs NRT; sebelumnya 12a data 2026-11-19 masuk aplikasi + skor kerawanan di panel `W2`, 11e lapisan kelas kerawanan desa, 11d kerawanan desa di API, 11c `P4` di antarmuka, 11b `P4` di API, 11a basis data pindah ke Aiven, 10b/10a `P2`+`W1`, 09c basemap, 09b nginx, 09a unit systemd, 08a, 07a, 06b) — rincian dan hasil ukurnya di [`docs/ITERATIONS.md`](docs/ITERATIONS.md) |
 
 Purwarupa untuk penilaian tugas akhir; belum layak dipakai publik.
 
@@ -148,8 +148,8 @@ yang sengaja belum dikerjakan ada di [`frontend/README.md`](frontend/README.md).
 | `GET /api/v1/panel/kabupaten_kota/{kode}` | W2 | panel satu kabupaten/kota: titik panas per tahun, kejadian, status darurat 2025, IRBI, dan skor kerawanan tiga skema |
 | `GET /api/v1/search/regions?q=` | C1 | pencarian wilayah empat tingkat (provinsi, kabupaten/kota, kecamatan, desa/kelurahan), maksimal 20 baris + `bbox` untuk memperbesar peta |
 | `GET /api/v1/analysis/national_trend` | A1 | tren nasional 2020–2026: titik panas (seri `main`/`fill` apa adanya + `archive_total`) dan kejadian, plus luas terbakar sebagai konteks; tabel tahunan tidak lagi memuat `nrt` |
-| `GET /api/v1/point_coverage?year=` | T1 | berapa titik panas masuk poligon wilayah, berapa yang di luar (tidak dihitung nol) |
-| `GET /api/v1/downloads` · `.../{berkas}` | T1 | daftar 29 tabel siap pakai + unduhan CSV-nya |
+| `GET /api/v1/point_coverage?year=` | T1 | berapa titik panas masuk poligon wilayah, berapa yang di luar (tidak dihitung nol) + rincian per seri arsip; seri `nrt` tidak dimuat |
+| `GET /api/v1/downloads` · `.../{berkas}` | T1 | daftar 31 tabel siap pakai + unduhan CSV-nya |
 | `/api/v1/latest?window=` | P2 | titik panas terkini 24/48/72 jam (`series: nrt`), `region_code` hasil join saat permintaan, `satellites` beserta ketersediaannya |
 | `/api/v1/latest/summary?window=` | W1 | ringkasan nasional: jumlah titik, kabupaten/kota terdampak, 10 provinsi terbanyak — tanpa titik mentah |
 

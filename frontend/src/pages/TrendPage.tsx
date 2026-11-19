@@ -62,7 +62,6 @@ export function TrendPage() {
                 <th className="border-b border-slate-200 py-1">Tahun</th>
                 <th className="border-b border-slate-200 py-1 text-right">main</th>
                 <th className="border-b border-slate-200 py-1 text-right">fill</th>
-                <th className="border-b border-slate-200 py-1 text-right">nrt</th>
                 <th className="border-b border-slate-200 py-1 text-right">arsip (main + fill)</th>
                 <th className="border-b border-slate-200 py-1 text-right">kejadian</th>
               </tr>
@@ -83,9 +82,6 @@ export function TrendPage() {
                     <td className="border-b border-slate-100 py-1 text-right tabular-nums text-slate-800">
                       {angka(row.series.fill)}
                     </td>
-                    <td className="border-b border-slate-100 py-1 text-right tabular-nums text-slate-800">
-                      {angka(row.nrt)}
-                    </td>
                     <td className="border-b border-slate-100 py-1 text-right tabular-nums font-medium text-slate-900">
                       {angka(row.archive_total)}
                     </td>
@@ -99,9 +95,11 @@ export function TrendPage() {
           </table>
         </div>
         <p className="mt-2 text-[11px] text-slate-600">
-          Seri dikirim apa adanya: `main` dan `fill` adalah seri arsip, `nrt` pemrosesan berbeda dan
-          tidak dijumlahkan ke kolom arsip. Satuan: titik panas {data.units.hotspot_count ?? '—'} ·
-          kejadian {data.units.event_count ?? '—'} · luas terbakar {data.units.burned_area_ha ?? '—'}.
+          Seri dikirim apa adanya: `main` dan `fill` adalah seri arsip, dan kolom arsip menjumlahkan
+          keduanya. Seri `nrt` tidak ada di tabel tahunan sejak data dibangun ulang — angkanya hanya
+          hidup di lapisan titik panas terkini (24/48/72 jam). Satuan: titik panas{' '}
+          {data.units.hotspot_count ?? '—'} · kejadian {data.units.event_count ?? '—'} · luas terbakar{' '}
+          {data.units.burned_area_ha ?? '—'}.
         </p>
       </section>
 

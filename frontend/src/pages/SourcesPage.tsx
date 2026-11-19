@@ -11,8 +11,9 @@ function formatKb(bytes: number): string {
 /** Halaman Sumber & Batas Data (`T1`).
  *
  * Memuat: daftar dataset sumber, jumlah titik panas yang tidak masuk poligon
- * wilayah, tujuh celah data, daftar istilah, dan unduhan tabel siap pakai.
- * Semua angka dibaca dari API; teks tetap di `lib/transparency-content.ts`.
+ * wilayah (beserta rincian seri arsip `main`/`fill` — `nrt` tidak dimuat ke
+ * tabel titik panas), tujuh celah data, daftar istilah, dan unduhan tabel siap
+ * pakai. Semua angka dibaca dari API; teks tetap di `lib/transparency-content.ts`.
  */
 export function SourcesPage() {
   const sources = useRemoteData(fetchSources, []);
@@ -100,6 +101,13 @@ export function SourcesPage() {
                 : coverage.data.totals.outside_share_percent.toLocaleString('id-ID')}{' '}
               %) tidak jatuh di poligon wilayah mana pun. Angka itu tidak dihapus dan tidak dihitung
               nol.
+            </p>
+            <p>
+              Angka di halaman ini hanya <strong>seri arsip</strong>:{' '}
+              {formatCount(coverage.data.totals.series?.main)} titik seri <code>main</code> +{' '}
+              {formatCount(coverage.data.totals.series?.fill)} titik seri <code>fill</code>. Seri{' '}
+              <code>nrt</code> tidak dimuat ke tabel titik panas — ia hanya dipakai lapisan terkini
+              24/48/72 jam, dan tidak boleh dijumlahkan dengan angka 2020–2026 ini.
             </p>
             <table className="w-full border-collapse text-xs">
               <thead>

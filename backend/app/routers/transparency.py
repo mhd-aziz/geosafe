@@ -5,7 +5,10 @@ Tiga hal yang disajikan router ini:
 1. daftar dataset sumber (`data_sources`) — nama, institusi, URL, tanggal akses,
    dan jumlah baris (`SRS-F-72`);
 2. penempatan titik panas: berapa titik yang jatuh **di luar** poligon wilayah
-   (`SRS-F-76`, dipakai juga oleh `SRS-F-16` di halaman peta);
+   (`SRS-F-76`, dipakai juga oleh `SRS-F-16` di halaman peta). Tabel titik panas
+   hanya memuat seri arsip (`main` + `fill`): seri `nrt` tidak dimuat dan hidup di
+   endpoint terkini, jadi rincian per seri ikut dikirim di `totals.series` supaya
+   dua hal itu tidak bisa tertukar;
 3. daftar tabel siap pakai yang boleh diunduh (`SRS-F-75`) beserta pengunduhan satu
    berkas. Berkasnya tinggal di folder data di luar repo aplikasi (aturan repo
    nomor 2), jadi yang disajikan adalah daftar isi folder itu — bukan salinan.
@@ -123,6 +126,11 @@ def point_coverage(
     outside = sum(entry["outside_count"] for entry in by_year)
     share = round(outside / total_points * 100, 2) if total_points else None
 
+    series_totals: dict[str, int] = {}
+    for entry in by_year:
+        for series, count in entry["series"].items():
+            series_totals[series] = series_totals.get(series, 0) + count
+
     notes = [
         "penempatan dihitung terhadap geometri wilayah yang terpasang di basis data "
         "ini, sehingga bisa berbeda sedikit dari angka per wilayah hasil ETL yang "
@@ -130,6 +138,15 @@ def point_coverage(
         "titik di luar poligon tidak dihapus dan tidak dihitung nol; jumlahnya "
         "dinyatakan di sini supaya selisihnya bisa dipertanggungjawabkan",
     ]
+    # Sejak data dibangun ulang 2026-11-19 seri `nrt` tidak dimuat ke tabel titik
+    # panas sama sekali (hanya `main` + `fill`); NRT hidup di endpoint terkini.
+    if "nrt" not in series_totals:
+        notes.append(
+            "tabel titik panas hanya memuat seri arsip (main + fill): seri nrt "
+            "tidak dimuat dan hanya dipakai endpoint titik panas terkini 24/48/72 "
+            "jam, sehingga angka terkini tidak boleh dijumlahkan dengan angka "
+            "2020–2026 di halaman ini"
+        )
     if not by_year:
         notes.append(
             f"tidak ada baris titik panas untuk tahun {year}"
@@ -144,6 +161,7 @@ def point_coverage(
             "placed_count": total_points - outside,
             "outside_count": outside,
             "outside_share_percent": share,
+            "series": series_totals,
         },
         "by_year": by_year,
         "notes": notes,
