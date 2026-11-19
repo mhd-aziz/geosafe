@@ -46,7 +46,8 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 12j | Cloudflare R2 (di luar repo) | Basemap 216 MB pindah ke R2 (`geosafe-basemap` + domain `geosafe-tiles.zisaltech.site`); unggah REST 39,6 dtk; peta terbukti `206` dari R2 dengan **0** permintaan ke Blob | — | `iter-12j-basemap-r2` |
 | 12k | `feat/frontend-latest-bbox` | `truncated` di lapisan terkini punya jalan keluar: kendali kotak peta mengirim `bbox` hasil potongan batas Indonesia; `bash`/`pytest` tidak berubah | #30 | `iter-12k-latest-bbox` |
 | 12l | `chore/drop-homelab-frontend` | Hosting frontend di mesin ini dihapus: nginx dimatikan & di-disable, situs `:8080` hilang, CD hanya memuat ulang API, basemap dev dari R2 | #31 | `iter-12l-vercel-only` |
-| 12m | `feat/api-village-panel` | Panel desa/kelurahan `W4`: endpoint `GET /api/v1/panel/desa/{kode}` + panel di antarmuka (klik poligon desa maupun pencarian) | PR | `iter-12m-village-panel` |
+| 12m | `feat/api-village-panel` | Panel desa/kelurahan `W4`: endpoint `GET /api/v1/panel/desa/{kode}` + panel di antarmuka (klik poligon desa maupun pencarian) | #32 | `iter-12m-village-panel` |
+| 13a | `feat/api-composition-ranking` | `A2` komposisi (10 provinsi + 10 kabupaten/kota, metrik titik panas ↔ kejadian, pangsa %) + `A3` peringkat 514 kabupaten/kota (urut titik panas/kepadatan/kejadian, pencarian) + penanda tahun parsial dari tanggal deteksi terakhir | PR | `iter-13a-composition-ranking` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
 iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
@@ -55,6 +56,52 @@ iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m (2026-11
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 13a — `feat/api-composition-ranking` (`A2` + `A3` + penanda tahun parsial)
+
+Di halaman analisis baru, `A2` menjawab "wilayah mana yang paling banyak" dan `A3` menjawab
+"bagaimana urutan seluruh kabupaten/kota". Keduanya membaca `REGION_FACTS` yang sudah dipakai
+`A1`, jadi iterasi ini tidak menambah satu baris data pun — hanya dua endpoint dan satu halaman.
+
+| Hal | Nilai |
+|---|---|
+| Endpoint | `GET /api/v1/analysis/composition?year=&metric=` (tag `A2`, default `hotspot_count`) dan `GET /api/v1/analysis/ranking?year=` (tag `A3`); total endpoint aplikasi 17 → **19** |
+| Isi komposisi | 10 provinsi + 10 kabupaten/kota teratas, `value` + `share_pct`, `total` per tingkat, `coverage` tahun, `notes` |
+| Isi peringkat | seluruh **514** baris: titik panas tahun itu, kepadatan (tanpa tahun), kejadian tahun itu |
+| Pengurutan/pencarian | di peramban (`RankingTable`), bukan parameter API — 514 baris = ± 60 kB sekali muat |
+| Penanda tahun parsial | `coverage_by_year` di `A1`, `coverage` di `A2`/`A3`, plus pita peringatan dan tanda `*` di tabel angka |
+| Uji | backend **112 lulus** (102 sebelumnya), frontend **146 lulus** (19 berkas; 133 sebelumnya), `tsc --noEmit` bersih |
+
+Bukti lewat peramban (Vite dev `:5173` → API `:8000`, Chrome tab di depan):
+
+| Yang diklik | Hasil nyata |
+|---|---|
+| halaman `/analisis` (tahun bawaan 2026) | pita "Tahun 2026 belum penuh: data titik panas terukur sampai **2026-07-31** (212 dari 365 hari, **58,10%** tahun)"; komposisi titik panas 2026 → Kalimantan Barat **9.187** (15,02%), Papua Selatan 6.699 (10,95%); peringkat **514 baris**, teratas Merauke 5.228 |
+| metrik → `Kejadian` | satuan berubah jadi "kejadian"; provinsi teratas Jawa Tengah **189** (17,03%), kabupaten/kota teratas Klaten **40** (3,60%) |
+| tahun → `2023` | kejadian 2023 → Kalimantan Selatan **449** (20,85%); peringkat 2023 → Merauke **22.474**, Ogan Komering Ilir 17.867 |
+| urut → `Kepadatan / 1.000 km²` | Kota Cilegon **2.961,56** per 1.000 km² di puncak — wilayah kecil padat deteksi, bukan wilayah dengan titik panas terbanyak |
+| cari `merauke` | **1 baris tampil**, Merauke (9301) · Papua Selatan |
+
+Temuan:
+
+1. **Metrik `hotspot_coverage_pct` tidak bisa dipakai sebagai penanda tahun parsial.** Metrik itu
+   ditulis **dua baris per tahun tanpa pembeda** (2020: 68,9 dan 70,8; 2023: 54,9 dan 59,2) —
+   tidak ada kolom yang membedakan keduanya. Penanda karena itu diturunkan dari
+   `point_observations`: tanggal deteksi terakhir per tahun. Hasilnya tegas: 2020–2025 terukur
+   sampai 31 Desember, **2026 hanya sampai 2026-07-31** (212 hari, 58,1%).
+2. **Nilai satu wilayah per tahun = `main` + `fill`.** Satu wilayah bisa punya dua baris seri
+   (`2023`: 514 baris `main` + 241 baris `fill`), jadi query menjumlahkan keduanya; total
+   kabupaten/kota, total provinsi, dan angka nasional `A1` sama-sama **256.222** untuk 2023 —
+   bukti ketiga jalur itu konsisten.
+3. **Kepadatan tidak bertahun** (`region_facts.hotspot_per_1000_km2` seluruhnya tanpa `year`), jadi
+   kolom itu tidak berubah saat tahun diganti dan itu dinyatakan di catatan — bukan dibiarkan
+   terbaca sebagai angka tahun terpilih.
+4. **Query coverage memindai 918 ribu baris (1,2 dtk di Aiven)**, sedangkan nilainya hanya berubah
+   kalau ETL dijalankan ulang; hasilnya di-cache 15 menit di proses. Setelah cache hangat,
+   `/analysis/national_trend` diukur **47 ms**.
+5. **`ranking` mengirim seluruh 514 baris sekali** dan membiarkan peramban mengurutkan/mencari.
+   Parameter `sort`/`q` sengaja tidak dibuat: memindahkannya ke server menambah permintaan tanpa
+   menghemat muatan. Konsekuensinya dicatat di `notes` balasan.
 
 ## Iterasi 12m — `feat/api-village-panel` (`W4` panel desa/kelurahan)
 

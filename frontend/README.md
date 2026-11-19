@@ -76,7 +76,7 @@ frontend/
     ├── main.tsx                pemasangan React ke #root + BrowserRouter
     ├── App.tsx                 kerangka: judul, navigasi, rute, keterangan sumber
     ├── index.css               masuknya Tailwind (`@import 'tailwindcss'`)
-    ├── pages/                  MapPage · TrendPage · SourcesPage (satu berkas per halaman)
+    ├── pages/                  MapPage · TrendPage · AnalysisPage · SourcesPage (satu berkas per halaman)
     ├── api/                    client.ts (pembungkus fetch) · geosafe.ts (per endpoint)
     ├── components/
     │   ├── map/                MapView · MapToolbar · LatestControl · Legend
@@ -93,8 +93,9 @@ frontend/
     └── test/setup.ts           pembersihan DOM antar uji
 ```
 
-Halaman: `/` peta (P1 + C1 + W2 + P2/W1 lapisan terkini) · `/tren` grafik nasional (A1) ·
-`/sumber` Sumber & Batas Data (T1). Uji diletakkan bersebelahan dengan berkas yang diuji
+Halaman: `/` peta (P1 + C1 + W2 + P2/W1 lapisan terkini + W4 panel desa) · `/tren` grafik nasional
+(A1) · `/analisis` komposisi wilayah (A2) + peringkat kabupaten/kota (A3) · `/sumber` Sumber &
+Batas Data (T1). Uji diletakkan bersebelahan dengan berkas yang diuji
 (`*.test.ts(x)`), supaya perubahan komponen dan ujinya terlihat dalam satu
 tampilan diff.
 

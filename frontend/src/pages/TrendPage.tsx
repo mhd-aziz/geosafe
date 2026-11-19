@@ -3,12 +3,11 @@ import { TrendChart } from '../components/analysis/TrendChart';
 import { DataNotes } from '../components/common/DataNotes';
 import { fetchNationalTrend } from '../api/geosafe';
 import { useRemoteData } from '../hooks/useRemoteData';
-import { useSourceSummary } from '../hooks/useSourceSummary';
+import { formatCount, formatDecimal } from '../lib/format';
 
 /** Halaman tren nasional (`A1`): dua seri berdampingan + luas terbakar sebagai konteks. */
 export function TrendPage() {
   const { status, data, error } = useRemoteData(fetchNationalTrend, []);
-  const { firms } = useSourceSummary();
 
   if (status === 'loading') {
     return <p className="p-4 text-sm text-slate-600">memuat tren nasional…</p>;
@@ -23,11 +22,11 @@ export function TrendPage() {
   }
 
   const lastYear = data.years[data.years.length - 1];
-  // Tahun terakhir biasanya belum penuh: sumber titik panas berhenti di suatu
-  // tanggal. Menyebutkannya mencegah penurunan 2026 dibaca sebagai penurunan
-  // sepanjang tahun.
-  const partialYear =
-    firms?.data_until && firms.data_until.startsWith(String(lastYear)) ? firms.data_until : null;
+  // Tahun parsial dihitung API dari tanggal deteksi terakhir yang benar-benar
+  // tercatat — lebih kuat daripada metadata "data sampai" milik sumber, yang
+  // tidak menjamin barisnya benar-benar terisi sampai tanggal itu.
+  const coverage = data.coverage_by_year[String(lastYear)];
+  const partialYear = coverage?.partial ? coverage : null;
 
   return (
     <div className="mx-auto h-full w-full max-w-5xl space-y-4 overflow-y-auto p-3 sm:p-5">
@@ -46,8 +45,10 @@ export function TrendPage() {
 
       {partialYear ? (
         <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
-          Tahun {lastYear} belum penuh: data titik panas berhenti pada {partialYear}. Penurunan pada
-          tahun itu karena itu belum tentu penurunan sepanjang tahun.
+          Tahun {lastYear} belum penuh: data titik panas terukur sampai{' '}
+          {partialYear.last_observed_on} ({formatCount(partialYear.days_covered)} dari{' '}
+          {formatCount(partialYear.days_in_year)} hari, {formatDecimal(partialYear.coverage_pct)}%
+          tahun). Penurunan pada tahun itu karena itu belum tentu penurunan sepanjang tahun.
         </p>
       ) : null}
 
@@ -75,6 +76,9 @@ export function TrendPage() {
                   <tr key={row.year}>
                     <th scope="row" className="border-b border-slate-100 py-1 text-left font-normal text-slate-700">
                       {row.year}
+                      {data.coverage_by_year[String(row.year)]?.partial ? (
+                        <span title="tahun parsial: datanya belum setahun penuh"> *</span>
+                      ) : null}
                     </th>
                     <td className="border-b border-slate-100 py-1 text-right tabular-nums text-slate-800">
                       {angka(row.series.main)}
@@ -99,7 +103,8 @@ export function TrendPage() {
           keduanya. Seri `nrt` tidak ada di tabel tahunan sejak data dibangun ulang — angkanya hanya
           hidup di lapisan titik panas terkini (24/48/72 jam). Satuan: titik panas{' '}
           {data.units.hotspot_count ?? '—'} · kejadian {data.units.event_count ?? '—'} · luas terbakar{' '}
-          {data.units.burned_area_ha ?? '—'}.
+          {data.units.burned_area_ha ?? '—'}. Tanda <strong>*</strong> menandai tahun parsial: data
+          tahun itu belum terukur setahun penuh.
         </p>
       </section>
 

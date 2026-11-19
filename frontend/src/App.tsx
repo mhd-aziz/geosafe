@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from 'react-router-dom';
 
 import { useSourceSummary } from './hooks/useSourceSummary';
 import { MAP_SERIES } from './lib/constants';
+import { AnalysisPage } from './pages/AnalysisPage';
 import { MapPage } from './pages/MapPage';
 import { SourcesPage } from './pages/SourcesPage';
 import { TrendPage } from './pages/TrendPage';
@@ -9,6 +10,7 @@ import { TrendPage } from './pages/TrendPage';
 const NAV = [
   { to: '/', label: 'Peta' },
   { to: '/tren', label: 'Tren nasional' },
+  { to: '/analisis', label: 'Analisis wilayah' },
   { to: '/sumber', label: 'Sumber & Batas Data' },
 ];
 
@@ -89,6 +91,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<MapPage />} />
           <Route path="/tren" element={<TrendPage />} />
+          <Route path="/analisis" element={<AnalysisPage />} />
           <Route path="/sumber" element={<SourcesPage />} />
           <Route
             path="*"

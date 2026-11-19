@@ -149,7 +149,22 @@ export interface DownloadsResponse {
   notes: string[];
 }
 
-/** `GET /api/v1/analysis/national_trend` — tren nasional dua seri. */
+/** Cakupan satu tahun: sampai kapan datanya benar-benar terukur.
+ *
+ * Diturunkan API dari tanggal deteksi terakhir di `point_observations`, bukan dari
+ * metadata sumber, sehingga `partial = true` berarti tahun itu belum setahun penuh
+ * (2026 terukur sampai 31 Juli 2026 = 58,1%).
+ */
+export interface YearCoverage {
+  first_observed_on: string | null;
+  last_observed_on: string | null;
+  days_covered: number;
+  days_in_year: number;
+  coverage_pct: number | null;
+  partial: boolean;
+}
+
+/** Satu baris seri titik panas per tahun di `A1`. */
 export interface TrendHotspotRow {
   year: number;
   series: Record<string, number>;
@@ -157,14 +172,76 @@ export interface TrendHotspotRow {
   nrt: number | null;
 }
 
+/** `GET /api/v1/analysis/national_trend` — tren nasional dua seri. */
 export interface TrendData {
   scope: string;
   years: number[];
   hotspot_by_year: TrendHotspotRow[];
   event_by_year: { year: number; event_count: number | null }[];
   burned_area_by_year: { year: number; burned_area_ha: number | null }[];
+  /** Kunci = tahun sebagai teks, karena JSON memaksa kunci objek jadi string. */
+  coverage_by_year: Record<string, YearCoverage>;
   units: Record<string, string>;
   metric_names: Record<string, string>;
+  notes: string[];
+}
+
+/** Metrik yang boleh dipilih di komposisi wilayah (`SRS-F-51`). */
+export type CompositionMetric = 'hotspot_count' | 'event_count';
+
+export interface CompositionProvinceRow {
+  province_code: string;
+  province_name: string;
+  value: number;
+  share_pct: number | null;
+}
+
+export interface CompositionRegencyRow {
+  region_code: string;
+  region_name: string;
+  province_name: string | null;
+  value: number;
+  share_pct: number | null;
+}
+
+/** `GET /api/v1/analysis/composition` — 10 provinsi + 10 kabupaten/kota teratas (`A2`).
+ *
+ * `total` adalah jumlah seluruh wilayah pada tingkat itu di tahun tersebut —
+ * pembagi `share_pct`, bukan jumlah sepuluh baris yang dikirim.
+ */
+export interface CompositionData {
+  year: number;
+  metric: CompositionMetric;
+  metric_name: string | null;
+  unit: string | null;
+  province: { total: number | null; rows: CompositionProvinceRow[] };
+  regency: { total: number | null; rows: CompositionRegencyRow[] };
+  coverage: YearCoverage;
+  notes: string[];
+}
+
+/** Satu baris peringkat kabupaten/kota (`A3`). Nilai `null` = belum punya baris fakta. */
+export interface RankingRow {
+  region_code: string;
+  region_name: string;
+  region_type: string | null;
+  province_code: string | null;
+  province_name: string | null;
+  hotspot_count: number | null;
+  hotspot_per_1000_km2: number | null;
+  event_count: number | null;
+}
+
+/** `GET /api/v1/analysis/ranking` — seluruh 514 kabupaten/kota (`A3`).
+ *
+ * Seluruh baris dikirim sekali (± 60 kB) dan diurutkan/dicari di peramban; itu
+ * disengaja, jadi tidak ada parameter `sort` atau `q` di API.
+ */
+export interface RankingData {
+  year: number;
+  count: number;
+  coverage: YearCoverage;
+  regions: RankingRow[];
   notes: string[];
 }
 
