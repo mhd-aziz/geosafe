@@ -4,9 +4,9 @@
 GeoSafe bisa didemokan dan dinilai, dan apa yang sengaja ditunda.
 
 Status: 2026-11-19 · kelima fitur MVP (P1, C1, W2, A1, T1) selesai dan alurnya sudah
-bisa dijalankan lewat satu alamat (`http://127.0.0.1:8080`, nginx menyajikan halaman
-hasil build, meneruskan `/api` serta `/tiles` ke API, dan melayani basemap
-`/pmtiles/`). Iterasi 10 (P2 titik panas terkini + W1 panelnya) selesai di API
+bisa dijalankan lewat satu alamat (halaman di **Vercel**, API di mesin ini lewat Cloudflare
+Tunnel `geosafe-api.zisaltech.site`, basemap dari Cloudflare R2; salinan halaman di
+`127.0.0.1:8080` dihapus pada 12l). Iterasi 10 (P2 titik panas terkini + W1 panelnya) selesai di API
 (10a) dan di antarmuka (10b); iterasi 11 mengerjakan P4 kerawanan versi B — 11a
 memindahkan basis data pengembangan ke Aiven, 11b menyelesaikan sisinya di API,
 11c mengerjakannya di antarmuka sekaligus merapikan tampilan dan tata letak, 11d
@@ -99,6 +99,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 12i | Vercel (di luar repo) | Sisa Vercel dirapikan: proyek sementara hilang (410), status `Vercel` menunjuk proyek `geosafe`, token unggah mati, dua store Blob yang tidak dipakai dihapus pemilik repo (2026-11-19) | ✅ `iter-12i-vercel-cleanup` |
 | 12j | Cloudflare R2 (di luar repo) | Basemap 216 MB pindah ke R2 (`geosafe-basemap` + domain `geosafe-tiles.zisaltech.site`); unggah REST 39,6 dtk; peta terbukti `206` dari R2 dengan **0** permintaan ke Blob | ✅ `iter-12j-basemap-r2` |
 | 12k | `feat/frontend-latest-bbox` — lapisan terkini bisa dipersempit ke kotak peta saat muatan `truncated`; kotak dipotong ke batas wilayah Indonesia lebih dulu | ✅ PR #30, tag `iter-12k-latest-bbox` |
+| 12l | `chore/drop-homelab-frontend` — hosting frontend di mesin ini dihapus (nginx mati, `:8080` hilang), CD hanya memuat ulang API, basemap dev dari R2; halaman sepenuhnya di Vercel | PR, tag `iter-12l-vercel-only` |
 | — | panel desa `W4`, kepadatan per tahun sebagai atribut tile, penanda tahun parsial, lalu `P3`/`P5` dan `A2`/`A3` | belum dijadwalkan |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti

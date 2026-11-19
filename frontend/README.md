@@ -18,10 +18,11 @@ npm run dev       # http://127.0.0.1:5173
 
 Selama pengembangan, Vite mem-proxy `/api` dan `/tiles` ke `127.0.0.1:8000`
 (lihat `vite.config.ts`), jadi tidak ada alamat API di dalam kode dan tidak ada
-kunci rahasia di sisi peramban. `/pmtiles` ikut di-proxy, tetapi ke nginx
-(`127.0.0.1:8080`) karena berkas basemap 216 MB tinggal di luar repo dan nginx
-yang melayaninya — jadi **nginx harus hidup** saat `npm run dev` ingin menampilkan
-basemap.
+kunci rahasia di sisi peramban. Basemap 216 MB **tidak** diproxy: berkasnya ditarik
+langsung dari Cloudflare R2 (`geosafe-tiles.zisaltech.site`, bawaan `BASEMAP_URL` di
+`src/lib/map-style.ts`), dan `VITE_BASEMAP_URL` bisa menimpanya bila ingin memakai
+berkas lokal. Sejak 2026-11-19 mesin homelab tidak lagi menyajikan frontend maupun
+`/pmtiles/`, jadi `npm run dev` tidak butuh nginx.
 
 ### Pratinjau di Vercel
 
@@ -110,13 +111,13 @@ tampilan diff.
 3. **Uji jsdom dan `tsc` tidak menangkap dua hal di atas.** Halaman wajib dibuka
    sekali di peramban sungguhan sebelum sebuah iterasi ditutup.
 4. **Basemap butuh tiga hal sekaligus, dan kalau satu hilang gejalanya berbeda:**
-   berkas PMTiles lewat `/pmtiles/` (kalau nginx mati atau proxy salah → peta
-   kosong), protokol `pmtiles` terdaftar sebelum gaya dipasang (kalau tidak →
-   sumber gagal dimuat), dan berkas font/sprite dari
+   berkas PMTiles dari Cloudflare R2 (`geosafe-tiles.zisaltech.site`; kalau sumber
+   salah atau CORS-nya hilang → peta kosong), protokol `pmtiles` terdaftar sebelum
+   gaya dipasang (kalau tidak → sumber gagal dimuat), dan berkas font/sprite dari
    `protomaps.github.io/basemaps-assets` (kalau tanpa internet → geometri tetap
    tergambar tetapi semua nama tempat hilang). Periksa berkasnya per rentang byte:
-   `curl -r 0-99 -D- http://127.0.0.1:8080/pmtiles/indonesia.pmtiles` harus menjawab
-   `206` dengan `Content-Range`.
+   `curl -r 0-99 -D- https://geosafe-tiles.zisaltech.site/indonesia.pmtiles` harus
+   menjawab `206` dengan `Content-Range`.
 5. **Salinan lama berkas worker di cache peramban tidak pernah kedaluwarsa.**
    Berkas `maplibre-gl-worker-<hash>.mjs` diberi `Cache-Control: immutable`, dan
    namanya diturunkan dari isi berkasnya — jadi peramban yang pernah membukanya

@@ -1,15 +1,16 @@
 import { LIGHT, layers } from '@protomaps/basemaps';
 import type { StyleSpecification } from 'maplibre-gl';
 
-// Sumber basemap: satu berkas PMTiles 216 MB di luar repo. Bawaannya dilayani
-// nginx pada `/pmtiles/` (`../planning-GeoSafe/data/basemap/indonesia.pmtiles`),
-// tetapi pratinjau di Vercel tidak punya berkas itu — di sana alamatnya diisi
-// lewat `VITE_BASEMAP_URL` (mis. `pmtiles://https://geosafe-tiles.zisaltech.site/pmtiles/indonesia.pmtiles`).
+// Sumber basemap: satu berkas PMTiles 216 MB di luar repo, disajikan dari
+// Cloudflare R2 (`geosafe-tiles.zisaltech.site`, tanpa biaya egress). Sejak
+// 2026-11-19 mesin ini tidak lagi menyajikan frontend maupun `/pmtiles/`, jadi
+// bawaannya menunjuk R2 agar `npm run dev` bekerja tanpa nginx; `VITE_BASEMAP_URL`
+// tetap bisa menimpanya (mis. berkas lokal saat menguji basemap baru).
 // Klien menariknya per rentang byte lewat protokol `pmtiles://`, yang didaftarkan
 // di `MapView` — tanpa pendaftaran itu gaya gagal memuat sumber ini.
 export const BASEMAP_SOURCE_ID = 'basemap';
 export const BASEMAP_URL: string =
-  import.meta.env.VITE_BASEMAP_URL ?? 'pmtiles:///pmtiles/indonesia.pmtiles';
+  import.meta.env.VITE_BASEMAP_URL ?? 'pmtiles://https://geosafe-tiles.zisaltech.site/indonesia.pmtiles';
 
 // Layer teks dan ikon membutuhkan berkas font dan sprite; keduanya diambil dari
 // aset publik Protomaps (tanpa kunci API). Tanpa keduanya, seluruh layer `symbol`
