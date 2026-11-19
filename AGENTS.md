@@ -13,13 +13,13 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 102 passed, 30-115 dtk (Aiven); butuh basis data hidup
+uv run pytest -q                         # 112 passed, 30-115 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
 cd frontend
 npm ci                                   # sekali, dari package-lock.json
-npm test                                 # 133 passed (17 berkas, Vitest + jsdom), tanpa DB
+npm test                                 # 146 passed (19 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
                                          #   hanya untuk diperiksa; halaman disajikan Vercel
@@ -266,6 +266,14 @@ dokumen boleh langsung ke `main`.
     memakai `month is null`; tanpa itu satu tahun tampil beberapa kali dan angkanya terbaca
     lebih besar. Baris tahunan sendiri unik per (wilayah, metrik, tahun, seri) — diperiksa
     2026-11-19, 0 duplikat — jadi `sum()` tidak diperlukan begitu penyaringnya ada.
+21. **Penanda tahun parsial tidak boleh diambil dari `region_facts.hotspot_coverage_pct`.**
+    Metrik itu ditulis **dua baris per tahun tanpa kolom pembeda** (2020: 68,9 dan 70,8; 2023:
+    54,9 dan 59,2), jadi tidak ada cara memilih salah satunya. Sumber yang dipakai:
+    `point_observations.observed_on` — tanggal deteksi terakhir per tahun dibandingkan dengan
+    31 Desember. Hasil terukur 2026-11-19: 2020–2025 sampai 31 Desember, **2026 hanya sampai
+    2026-07-31** (212 dari 365 hari, 58,1%). Query pemindainya (918 ribu baris, 1,2 dtk di
+    Aiven) di-cache 15 menit di proses (`app/routers/analysis.py`), jadi jangan memanggilnya
+    langsung per permintaan tanpa cache.
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.
