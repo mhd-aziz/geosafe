@@ -140,7 +140,10 @@ describe('penyaring kepercayaan (SRS-F-15)', () => {
   });
 
   it('meneruskan kelas ke endpoint penempatan supaya angkanya angka tampilan aktif', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ year: 2023, confidence: 'h' }));
+    // Parameternya ditulis supaya `mock.calls[0][0]` bertipe (tuple kosong kalau tidak).
+    const fetchMock = vi.fn(async (_input: string) =>
+      jsonResponse({ year: 2023, confidence: 'h' }),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     await fetchPointCoverage(2023, 'h');
