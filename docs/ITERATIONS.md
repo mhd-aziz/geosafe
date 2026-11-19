@@ -34,7 +34,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 11c | `feat/frontend-risk-ui` | `P4` di antarmuka: lapisan kerawanan + pemilih skema, bacaan skor, perapian tampilan dan tata letak responsif | #20 | `iter-11c-risk-ui` |
 | 11d | `feat/api-village-risk-tiles` | `P4` di API: tile kelas kerawanan desa per provinsi (`SRS-F-38`) + daftar provinsi untuk pemilihnya, pagar zoom di `app/tiles.py` | #21 | `iter-11d-village-risk-api` |
 | 11e | `feat/frontend-village-risk` | `P4` di antarmuka: lapisan kerawanan desa + pemilih provinsi (`SRS-F-38`/`F-39`), zoom peta dijaga 8 ke atas; sekaligus `fix(api)` kolam koneksi basis data | #22 | `iter-11e-village-risk-ui` |
-| 12a | `feat/api-panel-risk-density` | data hasil bangun ulang 2026-11-19 masuk aplikasi: 12 angka uji disinkronkan, panel `W2` memuat skor kerawanan tiga skema, label kepadatan diperbaiki | belum | `iter-12a-data-sync-panel` |
+| 12a | `feat/api-panel-risk-density` | data hasil bangun ulang 2026-11-19 masuk aplikasi: 12 angka uji disinkronkan, panel `W2` memuat skor kerawanan tiga skema, label kepadatan diperbaiki | #23 | `iter-12a-data-sync-panel` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
@@ -43,9 +43,10 @@ Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c,
 
 ---
 
-## Iterasi 12a — `feat/api-panel-risk-density` (PR belum dibuka)
+## Iterasi 12a — `feat/api-panel-risk-density` (PR #23)
 
-Tag `iter-12a-data-sync-panel` menandai commit hasil *squash merge* nanti.
+Tag `iter-12a-data-sync-panel` menandai commit hasil *squash merge* di `main`
+(`9c5193e`), 2026-11-19.
 
 Data di `../planning-GeoSafe/` dibangun ulang 2026-11-19 (arsip titik panas jadi
 918.319 baris, NRT 621.100 dipisah, nol ditulis eksplisit, kepadatan dihitung
