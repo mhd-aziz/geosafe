@@ -15,10 +15,10 @@ atas) beserta daftar provinsi untuk pemilihnya, dan 11e membawanya ke antarmuka
 sakaligus mengganti koneksi basis data menjadi kolam (`psycopg_pool`, maksimal 3)
 karena satu koneksi per permintaan tidak lagi cukup saat satu lapisan meminta
 belasan tile sekaligus.
-Sisa yang direncanakan: kepadatan per tahun sebagai atribut tile, penanda tahun
-parsial, lalu `P3`/`P5` dan `A2`/`A3`. Skor kerawanan di panel kabupaten/kota (`W2`)
-selesai di 12a, kendali kotak wilayah untuk kasus `truncated` pada lapisan terkini
-selesai di 12k, dan panel desa/kelurahan (`W4`) selesai di 12m.
+Sisa yang direncanakan: kepadatan per tahun sebagai atribut tile, lalu `P3`/`P5`. Skor
+kerawanan di panel kabupaten/kota (`W2`) selesai di 12a, kendali kotak wilayah untuk kasus
+`truncated` pada lapisan terkini selesai di 12k, panel desa/kelurahan (`W4`) selesai di 12m,
+dan komposisi (`A2`), peringkat (`A3`), serta penanda tahun parsial selesai di 13a.
 
 ---
 
@@ -100,8 +100,9 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 12j | Cloudflare R2 (di luar repo) | Basemap 216 MB pindah ke R2 (`geosafe-basemap` + domain `geosafe-tiles.zisaltech.site`); unggah REST 39,6 dtk; peta terbukti `206` dari R2 dengan **0** permintaan ke Blob | ✅ `iter-12j-basemap-r2` |
 | 12k | `feat/frontend-latest-bbox` — lapisan terkini bisa dipersempit ke kotak peta saat muatan `truncated`; kotak dipotong ke batas wilayah Indonesia lebih dulu | ✅ PR #30, tag `iter-12k-latest-bbox` |
 | 12l | `chore/drop-homelab-frontend` — hosting frontend di mesin ini dihapus (nginx mati, `:8080` hilang), CD hanya memuat ulang API, basemap dev dari R2; halaman sepenuhnya di Vercel | ✅ PR #31, tag `iter-12l-vercel-only` |
-| 12m | `feat/api-village-panel` — panel desa/kelurahan (`W4`): `GET /api/v1/panel/desa/{kode}` + panel di antarmuka, terbuka dari klik poligon desa maupun pencarian | PR, tag `iter-12m-village-panel` |
-| — | kepadatan per tahun sebagai atribut tile, penanda tahun parsial, lalu `P3`/`P5` dan `A2`/`A3` | belum dijadwalkan |
+| 12m | `feat/api-village-panel` — panel desa/kelurahan (`W4`): `GET /api/v1/panel/desa/{kode}` + panel di antarmuka, terbuka dari klik poligon desa maupun pencarian | ✅ PR #32, tag `iter-12m-village-panel` |
+| 13a | `feat/api-composition-ranking` — `A2` komposisi wilayah + `A3` peringkat 514 kabupaten/kota + penanda tahun parsial dari tanggal deteksi terakhir | PR, tag `iter-13a-composition-ranking` |
+| — | kepadatan per tahun sebagai atribut tile, lalu `P3`/`P5` | belum dijadwalkan |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar

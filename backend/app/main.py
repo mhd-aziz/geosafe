@@ -56,6 +56,8 @@ app.include_router(panels.router)
 app.include_router(panels.village_router)
 app.include_router(search.router)
 app.include_router(analysis.router)
+app.include_router(analysis.composition_router)
+app.include_router(analysis.ranking_router)
 app.include_router(latest.router)
 app.include_router(risk.router)
 

@@ -2,12 +2,15 @@
 
 import { API_BASE, fetchJson } from './client';
 import type {
+  CompositionData,
+  CompositionMetric,
   DownloadsResponse,
   LatestResponse,
   LatestSummary,
   LatestWindow,
   MapLevel,
   PointCoverage,
+  RankingData,
   RegionPanelData,
   RiskSchemeCode,
   RiskSchemesResponse,
@@ -92,6 +95,19 @@ export function downloadFileUrl(fileName: string): string {
 
 export function fetchNationalTrend(): Promise<TrendData> {
   return fetchJson<TrendData>('/api/v1/analysis/national_trend');
+}
+
+/** Komposisi wilayah (`A2`): sepuluh provinsi + sepuluh kabupaten/kota teratas. */
+export function fetchComposition(year: number, metric: CompositionMetric): Promise<CompositionData> {
+  return fetchJson<CompositionData>(
+    `/api/v1/analysis/composition?year=${year}&metric=${metric}`,
+  );
+}
+
+/** Peringkat seluruh kabupaten/kota (`A3`). Seluruh baris datang sekali;
+ * pengurutan dan pencarian dilakukan di peramban atas data yang sama. */
+export function fetchRanking(year: number): Promise<RankingData> {
+  return fetchJson<RankingData>(`/api/v1/analysis/ranking?year=${year}`);
 }
 
 /** Titik panas terkini untuk lapisan peta (`P2`).

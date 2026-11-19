@@ -46,6 +46,26 @@ const TREND: TrendData = {
     { year: 2020, burned_area_ha: 170481.94 },
     { year: 2023, burned_area_ha: 1110064.36 },
   ],
+  // Diturunkan dari tanggal deteksi terakhir di `point_observations`:
+  // 2026 hanya terukur sampai 31 Juli 2026 = 212 dari 365 hari.
+  coverage_by_year: {
+    '2020': {
+      first_observed_on: '2020-01-01',
+      last_observed_on: '2020-12-31',
+      days_covered: 366,
+      days_in_year: 366,
+      coverage_pct: 100,
+      partial: false,
+    },
+    '2026': {
+      first_observed_on: '2026-01-01',
+      last_observed_on: '2026-07-31',
+      days_covered: 212,
+      days_in_year: 365,
+      coverage_pct: 58.1,
+      partial: true,
+    },
+  },
   units: { hotspot_count: 'titik', event_count: 'kejadian', burned_area_ha: 'hektar' },
   metric_names: { hotspot_count: 'Jumlah titik panas' },
   notes: [
@@ -108,13 +128,27 @@ describe('TrendPage', () => {
     expect(await screen.findByText(/tidak boleh dijumlahkan dan digambar pada dua sumbu/)).toBeTruthy();
   });
 
-  it('menyebut tahun terakhir belum penuh karena data berhenti di tengah tahun', async () => {
+  it('menyebut tahun terakhir belum penuh dari tanggal deteksi terakhir yang terukur', async () => {
     fetchTrendMock.mockResolvedValue(TREND);
     render(<TrendPage />);
 
     expect(
-      await screen.findByText(/Tahun 2026 belum penuh: data titik panas berhenti pada 2026-07-31/),
+      await screen.findByText(
+        /Tahun 2026 belum penuh: data titik panas terukur sampai 2026-07-31 \(212 dari 365 hari, 58,10% tahun\)/,
+      ),
     ).toBeTruthy();
+  });
+
+  it('menandai tahun parsial di tabel angka, bukan hanya di pita peringatan', async () => {
+    fetchTrendMock.mockResolvedValue(TREND);
+    render(<TrendPage />);
+
+    const tabel = await screen.findByText('Angka per tahun');
+    const section = tabel.closest('section') as HTMLElement;
+    const baris2026 = within(section).getByText(/^2026/);
+    expect(baris2026.textContent).toContain('*');
+    // 2020 sudah setahun penuh: tidak bertanda bintang.
+    expect(within(section).getByText(/^2020/).textContent).not.toContain('*');
   });
 
   it('menyebut kegagalan memuat tren apa adanya', async () => {
