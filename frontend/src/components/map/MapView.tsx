@@ -22,6 +22,7 @@ import { latestCircleColorExpression, pointsToGeoJson as latestPointsToGeoJson }
 import { basemapStyle } from '../../lib/map-style';
 import { riskFillColorExpression, villageRiskFillColorExpression } from '../../lib/risk';
 import type {
+  ConfidenceCode,
   EventPoint,
   LatestPoint,
   MapLayer,
@@ -87,6 +88,8 @@ export interface MapViewProps {
   latestPoints: LatestPoint[] | null;
   /** Titik kejadian karhutla tahun terpilih (`P5`); `null` = belum dimuat/tidak aktif. */
   eventPoints?: EventPoint[] | null;
+  /** Tingkat kepercayaan deteksi untuk tile kabupaten/kota (`SRS-F-15`). */
+  confidence?: ConfidenceCode | null;
   onSelectRegion: (region: { code: string; name: string; level: SearchLevel }) => void;
   /** Klik satu titik kejadian membuka rinciannya (`SRS-F-42`). */
   onSelectEventPoint?: (point: EventPoint) => void;
@@ -112,6 +115,7 @@ export function MapView({
   focusBounds,
   latestPoints,
   eventPoints = null,
+  confidence = null,
   onSelectRegion,
   onSelectEventPoint,
   onViewportChange,
@@ -307,7 +311,7 @@ export function MapView({
       return;
     }
 
-    const spec = thematicSpec(layer, level, year, riskScheme, provinceCode);
+    const spec = thematicSpec(layer, level, year, riskScheme, provinceCode, confidence);
     for (const ids of THEMATIC_IDS) {
       if (map.getLayer(ids.fillLayerId)) {
         map.removeLayer(ids.fillLayerId);
@@ -374,7 +378,7 @@ export function MapView({
       },
       beforeId,
     );
-  }, [ready, layer, level, year, riskScheme, provinceCode]);
+  }, [ready, layer, level, year, riskScheme, provinceCode, confidence]);
 
   // Lapisan titik panas terkini (`P2`): titik, bukan poligon — wilayahnya dipakai
   // panel, sedangkan peta menunjukkan sebaran deteksinya.

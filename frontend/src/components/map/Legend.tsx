@@ -1,9 +1,10 @@
 import { legendEntries } from '../../lib/choropleth';
 import { MAP_SERIES } from '../../lib/constants';
+import { formatCount } from '../../lib/format';
 import { eventLegendEntries } from '../../lib/events';
 import { COORD_LEVEL_ORDER, COORD_LEVEL_STYLES } from '../../lib/event-points';
 import { riskLegendEntries, villageLegendEntries } from '../../lib/risk';
-import type { MapLayer } from '../../types/geosafe';
+import type { ConfidenceCode, MapLayer } from '../../types/geosafe';
 
 export interface LegendProps {
   layer: MapLayer;
@@ -15,6 +16,15 @@ export interface LegendProps {
   villageWithoutProvince?: number | null;
   /** Titik panas terkini (`P2`) sedang digambar di atas lapisan tematik. */
   latestShown?: boolean;
+  /** Kelas kepercayaan aktif (`SRS-F-15`); `null` = seluruh kelas. */
+  confidence?: ConfidenceCode | null;
+  /** Angka tampilan aktif dari `/api/v1/point_coverage` (`SRS-F-16`). */
+  coverage?: {
+    point_count: number;
+    placed_count: number;
+    outside_count: number;
+    series: Record<string, number>;
+  } | null;
 }
 
 /** Legenda lapisan aktif, dengan angka setiap kelas (`SRS-F-18`).
@@ -33,6 +43,8 @@ export function Legend({
   villageClassCounts = {},
   villageWithoutProvince = null,
   latestShown = false,
+  confidence = null,
+  coverage = null,
 }: LegendProps) {
   const riskActive = layer === 'risk';
   const villageActive = layer === 'risk_village';
@@ -118,6 +130,19 @@ export function Legend({
           {villageWithoutProvince.toLocaleString('id-ID')} desa belum punya kode kecamatan induk di
           sumbernya, sehingga tidak bisa dimuat lewat lapisan per provinsi — pencarian wilayah tetap
           menemukannya.
+        </p>
+      ) : null}
+
+      {layer === 'hotspot' && coverage !== null ? (
+        // `SRS-F-16`: angka yang dipakai tampilan aktif, termasuk titik yang di
+        // luar poligon wilayah — yang terakhir tidak boleh dibaca sebagai nol.
+        <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] text-slate-600">
+          Tampilan aktif memakai seri{' '}
+          <code>main</code>
+          {confidence === null ? ' seluruh kelas kepercayaan' : ` kelas kepercayaan ${confidence}`}:{' '}
+          {formatCount(coverage.series.main ?? coverage.point_count)} titik ·{' '}
+          {formatCount(coverage.placed_count)} masuk poligon wilayah ·{' '}
+          {formatCount(coverage.outside_count)} di luar (tidak dihitung nol).
         </p>
       ) : null}
 

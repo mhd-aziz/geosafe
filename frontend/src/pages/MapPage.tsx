@@ -1,6 +1,11 @@
 import { useCallback, useState } from 'react';
 
-import { fetchNationalTrend, fetchRiskSchemes, fetchVillageProvinces } from '../api/geosafe';
+import {
+  fetchNationalTrend,
+  fetchPointCoverage,
+  fetchRiskSchemes,
+  fetchVillageProvinces,
+} from '../api/geosafe';
 import { Legend } from '../components/map/Legend';
 import { LatestControl } from '../components/map/LatestControl';
 import { MapToolbar } from '../components/map/MapToolbar';
@@ -22,6 +27,7 @@ import { DEFAULT_YEAR } from '../lib/constants';
 import { bboxParam } from '../lib/format';
 import { DEFAULT_RISK_SCHEME } from '../lib/risk';
 import type {
+  ConfidenceCode,
   EventPoint,
   LatestWindow,
   MapLayer,
@@ -57,6 +63,8 @@ export function MapPage() {
   // dikunci di klien, supaya keputusan mana yang jadi tampilan awal tetap di API.
   const [schemeChoice, setSchemeChoice] = useState<RiskSchemeCode | null>(null);
   const [year, setYear] = useState<number>(DEFAULT_YEAR);
+  // Kelas kepercayaan deteksi (`SRS-F-15`); hanya berlaku di tingkat kabupaten/kota.
+  const [confidence, setConfidence] = useState<ConfidenceCode | null>(null);
   const [level, setLevel] = useState<MapLevel>('regency');
   // Lapisan desa dimuat per provinsi (`SRS-F-38`): tanpa provinsi terpilih tidak
   // ada tile yang sah untuk diminta.
@@ -85,6 +93,9 @@ export function MapPage() {
   // Titik kejadian (`P5`) hanya diminta saat lapisannya aktif, dan selalu untuk
   // tahun yang sedang dipilih.
   const eventPoints = useEventPoints(year, layer === 'event_points');
+  // Angka tampilan aktif (`SRS-F-16`): titik yang dipakai peta untuk tahun dan
+  // kelas kepercayaan yang sedang dipilih, beserta yang jatuh di luar poligon.
+  const coverage = useRemoteData(() => fetchPointCoverage(year, confidence), [year, confidence]);
   // Data hanya dipakai bila berasal dari jendela yang sedang dipilih: saat pengguna
   // berganti jendela, angka jendela lama tidak boleh tetap tampil di sebelah tombol
   // jendela baru, dan bila tarikan jendela baru gagal hal itu disebut apa adanya.
@@ -142,6 +153,15 @@ export function MapPage() {
 
   const closePanel = useCallback(() => setSelected(null), []);
 
+  // Di tingkat provinsi API tidak punya baris per kelas, jadi pilihan kelas
+  // dikembalikan ke "semua" saat pengguna berpindah ke sana.
+  const handleLevelChange = useCallback((next: MapLevel) => {
+    setLevel(next);
+    if (next === 'province') {
+      setConfidence(null);
+    }
+  }, []);
+
   // Kotak peta hanya dikirim saat pengguna memintanya: mengirimnya otomatis setiap
   // geseran berarti menarik ulang titik setiap kali peta digeser. Kotaknya dipotong
   // ke batas wilayah Indonesia (`bboxParam`), dan `null` berarti peta sedang
@@ -181,6 +201,7 @@ export function MapPage() {
           level={level}
           provinceCode={provinceCode}
           focusBounds={focusBounds}
+          confidence={layer === 'hotspot' ? confidence : null}
           latestPoints={latest.data?.points ?? null}
           eventPoints={layer === 'event_points' ? (eventPoints.data?.points ?? null) : null}
           onSelectRegion={handleSelectFromMap}
@@ -204,12 +225,16 @@ export function MapPage() {
               year={year}
               level={level}
               onYearChange={setYear}
-              onLevelChange={setLevel}
+              onLevelChange={handleLevelChange}
+              confidence={confidence}
+              onConfidenceChange={setConfidence}
             />
           </div>
           <div className="pointer-events-auto">
             <Legend
               layer={layer}
+              confidence={confidence}
+              coverage={coverage.data?.totals ?? null}
               riskSchemeName={activeSchemeName}
               villageClassCounts={villageProvinces.data?.class_counts ?? {}}
               villageWithoutProvince={villageProvinces.data?.villages_without_province ?? null}

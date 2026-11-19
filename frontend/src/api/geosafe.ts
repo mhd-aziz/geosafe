@@ -3,6 +3,7 @@
 import { API_BASE, fetchJson } from './client';
 import type {
   CompositionData,
+  ConfidenceCode,
   CompositionMetric,
   DistrictPanelData,
   EventPointsResponse,
@@ -23,10 +24,20 @@ import type {
   VillageProvincesResponse,
 } from '../types/geosafe';
 
-/** Templat URL tile MVT untuk MapLibre (placeholder `{z}`, `{x}`, `{y}`). */
-export function tileUrlTemplate(level: MapLevel, year: number): string {
+/** Templat URL tile MVT untuk MapLibre (placeholder `{z}`, `{x}`, `{y}`).
+ *
+ * `confidence` (`SRS-F-15`) hanya berlaku di tingkat kabupaten/kota: API membalas
+ * `422` untuk kelas kepercayaan di tile provinsi, jadi pemanggil tidak boleh
+ * mengirimkannya di tingkat itu.
+ */
+export function tileUrlTemplate(
+  level: MapLevel,
+  year: number,
+  confidence: ConfidenceCode | null = null,
+): string {
   const path = level === 'province' ? 'provinces' : 'regions';
-  return `${API_BASE}/tiles/${path}/{z}/{x}/{y}.mvt?year=${year}`;
+  const filter = confidence === null ? '' : `&confidence=${confidence}`;
+  return `${API_BASE}/tiles/${path}/{z}/{x}/{y}.mvt?year=${year}${filter}`;
 }
 
 /** Nama layer di dalam MVT; berbeda per tingkat wilayah. */
@@ -101,8 +112,20 @@ export function fetchSources(): Promise<SourcesResponse> {
   return fetchJson<SourcesResponse>('/api/v1/sources');
 }
 
-export function fetchPointCoverage(year?: number): Promise<PointCoverage> {
-  const query = year === undefined ? '' : `?year=${year}`;
+/** Penempatan titik panas per tahun (`SRS-F-16`), dengan penyaring kelas yang sama
+ * seperti peta (`SRS-F-15`) supaya angkanya angka tampilan yang sedang aktif. */
+export function fetchPointCoverage(
+  year?: number,
+  confidence: ConfidenceCode | null = null,
+): Promise<PointCoverage> {
+  const params: string[] = [];
+  if (year !== undefined) {
+    params.push(`year=${year}`);
+  }
+  if (confidence !== null) {
+    params.push(`confidence=${confidence}`);
+  }
+  const query = params.length === 0 ? '' : `?${params.join('&')}`;
   return fetchJson<PointCoverage>(`/api/v1/point_coverage${query}`);
 }
 

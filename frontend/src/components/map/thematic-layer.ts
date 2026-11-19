@@ -13,7 +13,7 @@ import {
   riskClassLabel,
   villageRiskClassLabel,
 } from '../../lib/risk';
-import type { MapLayer, MapLevel, RiskSchemeCode } from '../../types/geosafe';
+import type { ConfidenceCode, MapLayer, MapLevel, RiskSchemeCode } from '../../types/geosafe';
 
 /** Sumber dan layer tematik yang dipasang untuk satu keadaan peta.
  *
@@ -70,6 +70,7 @@ export function thematicSpec(
   year: number,
   scheme: RiskSchemeCode,
   provinceCode: string | null = null,
+  confidence: ConfidenceCode | null = null,
 ): ThematicSpec | null {
   if (layer === 'risk_village') {
     if (!provinceCode) {
@@ -111,7 +112,9 @@ export function thematicSpec(
 
   return {
     ...HOTSPOT_IDS,
-    url: tileUrlTemplate(level, year),
+    // Penyaring kepercayaan hanya ada di tile kabupaten/kota (`SRS-F-15`); API
+    // menolak `?confidence=` di tile provinsi, jadi di sana parameternya dibuang.
+    url: tileUrlTemplate(level, year, level === 'regency' ? confidence : null),
     sourceLayer: tileSourceLayer(level),
     minzoom: 0,
   };

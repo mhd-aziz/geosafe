@@ -2,6 +2,7 @@ import type { RemoteState } from '../../hooks/useRemoteData';
 import { YEARS } from '../../lib/constants';
 import { DEFAULT_RISK_SCHEME } from '../../lib/risk';
 import type {
+  ConfidenceCode,
   MapLayer,
   MapLevel,
   RiskScheme,
@@ -27,6 +28,9 @@ export interface MapToolbarProps {
   level: MapLevel;
   onYearChange: (year: number) => void;
   onLevelChange: (level: MapLevel) => void;
+  /** Kelas kepercayaan aktif (`SRS-F-15`); `null` = seluruh kelas. */
+  confidence: ConfidenceCode | null;
+  onConfidenceChange: (confidence: ConfidenceCode | null) => void;
 }
 
 /** Kendali peta: lapisan, tahun, tingkat wilayah, skema bobot, provinsi lapisan desa.
@@ -51,6 +55,8 @@ export function MapToolbar({
   level,
   onYearChange,
   onLevelChange,
+  confidence,
+  onConfidenceChange,
 }: MapToolbarProps) {
   // Tahun berlaku untuk lapisan titik panas dan lapisan kejadian; dua lapisan
   // kerawanan adalah ringkasan satu periode pada tingkat tetap.
@@ -146,6 +152,35 @@ export function MapToolbar({
           wilayah dikunci ke kabupaten/kota (`SRS-F-28`), dan abu-abu berarti tidak ada kejadian
           tercatat pada tahun terpilih.
         </p>
+      ) : null}
+
+      {hotspotActive ? (
+        <div className="space-y-1" data-testid="confidence-control">
+          <Segmented
+            label="Kepercayaan"
+            value={(confidence ?? 'semua') as 'semua' | ConfidenceCode}
+            onChange={(next) => onConfidenceChange(next === 'semua' ? null : next)}
+            options={[
+              { value: 'semua', label: 'Semua', title: 'Seluruh kelas kepercayaan (angka resmi)' },
+              { value: 'h', label: 'h', title: 'Kepercayaan tinggi' },
+              { value: 'n', label: 'n', title: 'Kepercayaan nominal' },
+              { value: 'l', label: 'l', title: 'Kepercayaan rendah' },
+            ].map((option) => ({
+              ...option,
+              value: option.value as 'semua' | ConfidenceCode,
+              // API hanya menyimpan baris per kelas di tingkat kabupaten/kota.
+              disabled: level === 'province',
+              title: `${option.title}${
+                level === 'province' ? ' — tidak tersedia di tingkat provinsi' : ''
+              }`,
+            }))}
+          />
+          <p className="text-[11px] leading-snug text-slate-600">
+            {level === 'province'
+              ? 'Penyaring kepercayaan hanya berlaku di tingkat kabupaten/kota: basis data tidak menyimpan baris provinsi per kelas.'
+              : 'Menyaring memperbarui angka dan warna peta. Kelas h + n + l menjumlah tepat ke angka tanpa penyaring, jadi keduanya tidak pernah bertentangan.'}
+          </p>
+        </div>
       ) : null}
 
       {pointsActive ? (
