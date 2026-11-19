@@ -35,7 +35,10 @@ menjalankan `frontend` (typecheck · `npm test` · build) dan `backend` (`uv syn
 `pytest --collect-only` → `pytest` ke basis data hidup). Uji basis data memakai rahasia repo
 `GEOSAFE_DATABASE_URL` berisi role **baca-saja** `geosafe_ci` (hanya SELECT); PR dari fork tidak
 menerima secret itu, jadi hanya koleksi uji yang diperiksa dan alasannya ditulis di ringkasan job.
-Tidak ada ESLint/Prettier — yang diperiksa CI persis yang diperiksa di mesin ini.
+Tidak ada ESLint/Prettier — yang diperiksa CI persis yang diperiksa di mesin ini. Dua uji unduhan
+(`test_daftar_unduhan_memuat_tabel_siap_pakai`, `test_unduh_berkas_tabel_siap_pakai_berisi_csv_nyata`)
+**dilewati** di runner karena folder `../planning-GeoSafe/data/siap-pakai/` ada di luar repo; jangan
+menggantinya dengan tiruan — endpoint-nya sendiri sudah menjawab jujur (`count: 0` + catatan).
 
 Basis data harus hidup: **Aiven PostgreSQL 18.7 + PostGIS 3.6.4** (basis data `geosafe`, TLS wajib)
 sejak 2026-11-17, DSN di `~/.config/geosafe/geosafe.env` (jangan pernah ditulis di repo). Koneksi
