@@ -76,3 +76,81 @@ def test_unknown_region_answers_404() -> None:
 
     assert response.status_code == 404
     assert "9999" in response.json()["detail"]
+
+
+# --- W4 panel desa/kelurahan -------------------------------------------------
+#
+# Desa uji: Bukit Tunggal (6271012003, Kecamatan Jekan Raya, Kota Palangkaraya).
+# Dipilih karena datanya lengkap dan tidak rata: titik panas tujuh tahun (2022,
+# 2024, 2025 nol terukur; 2023 = 128), kejadian enam tahun (2025 tidak ada
+# barisnya), dan tabel `village_facts` juga memuat baris **bulanan** untuk desa
+# ini (2023: bulan 8, 9, 10, 11) sehingga penyaring `month is null` ikut teruji.
+
+VILLAGE = "/api/v1/panel/desa/6271012003"
+
+
+def test_village_panel_carries_identity_and_area() -> None:
+    response = client.get(VILLAGE)
+
+    assert response.status_code == 200
+    village = response.json()["village"]
+
+    assert village["village_code"] == "6271012003"
+    assert village["village_name"] == "Bukit Tunggal"
+    assert village["district_name"] == "Jekan Raya"
+    assert village["region_name"] == "Kota Palangkaraya"
+    assert village["province_name"] == "Kalimantan Tengah"
+    assert 270 < village["area_km2"] < 280
+
+
+def test_village_panel_returns_one_row_per_year_not_the_monthly_rows() -> None:
+    hotspot = client.get(VILLAGE).json()["hotspot_by_year"]
+
+    # Baris bulanan 2023 (5, 37, 85, 1) tidak boleh ikut: yang dikirim hanya
+    # baris tahunan 128.
+    tahun_2023 = [row for row in hotspot if row["year"] == 2023]
+    assert len(tahun_2023) == 1
+    assert tahun_2023[0]["hotspot_count"] == 128
+
+    assert {row["year"] for row in hotspot} == set(range(2020, 2027))
+    assert {row["series"] for row in hotspot} == {"main"}
+    nilai = {row["year"]: row["hotspot_count"] for row in hotspot}
+    assert nilai[2022] == 0  # nol terukur, bukan "tidak ada baris"
+    assert nilai[2026] == 21
+
+
+def test_village_panel_carries_events_where_they_exist() -> None:
+    events = client.get(VILLAGE).json()["event_by_year"]
+
+    assert [row["year"] for row in events] == [2020, 2021, 2022, 2023, 2024, 2026]
+    assert {row["year"]: row["event_count"] for row in events}[2026] == 5
+
+
+def test_village_panel_carries_class_density_and_limits() -> None:
+    body = client.get(VILLAGE).json()
+
+    assert body["risk_class_desa"] == "tinggi"
+    assert body["hotspot_per_1000_km2"] is not None
+
+    notes = " ".join(body["notes"])
+    # `SRS-F-66`: kelas kerawanan desa wajib dinyatakan sebagai susunan penelitian.
+    assert "bukan kelas resmi BNPB" in notes
+    assert "2.181 dari 83.530 desa" in notes
+    assert "nol deteksi yang terukur" in notes
+    # Tahun tanpa baris tidak boleh terbaca sebagai nol kejadian.
+    assert "belum dimuat, bukan berarti nol kejadian" in notes
+
+
+def test_village_panel_states_a_village_without_event_rows() -> None:
+    # Sungai Ambawang Kuala (6112080011): punya titik panas, tidak punya satu pun
+    # baris kejadian.
+    body = client.get("/api/v1/panel/desa/6112080011").json()
+
+    assert body["event_by_year"] == []
+    assert "tidak punya baris kejadian" in " ".join(body["notes"])
+
+
+def test_unknown_village_answers_404_and_short_code_answers_422() -> None:
+    assert client.get("/api/v1/panel/desa/9999999999").status_code == 404
+    # Kode desa BPS selalu sepuluh digit; kode pendek bukan wilayah yang "tidak ada".
+    assert client.get("/api/v1/panel/desa/6271").status_code == 422

@@ -8,6 +8,7 @@ import { MapView } from '../components/map/MapView';
 import { LatestPanel } from '../components/panel/LatestPanel';
 import { RegionPanel } from '../components/panel/RegionPanel';
 import { RiskPanel } from '../components/panel/RiskPanel';
+import { VillageDetailPanel } from '../components/panel/VillageDetailPanel';
 import { VillagePanel } from '../components/panel/VillagePanel';
 import { SearchBox } from '../components/search/SearchBox';
 import { useLatestHotspots } from '../hooks/useLatestHotspots';
@@ -239,14 +240,34 @@ export function MapPage() {
             <div className={CARD}>
               <RegionPanel regionCode={selected.code} onClose={closePanel} />
             </div>
+          ) : selected.level === 'village' ? (
+            // `W4`: klik poligon desa atau hasil pencarian desa. Kode kosong berarti
+            // wilayah itu ditemukan tanpa kode BPS — panel tidak bisa diminta.
+            selected.code ? (
+              <div className={CARD}>
+                <VillageDetailPanel villageCode={selected.code} onClose={closePanel} />
+              </div>
+            ) : (
+              <div className={`${CARD} space-y-2 text-xs text-slate-700`}>
+                <p className="text-sm font-medium text-slate-900">{selected.name}</p>
+                <p>Desa ini tidak punya kode BPS di sumbernya, jadi panel angkanya tidak bisa dimuat.</p>
+                <button
+                  type="button"
+                  onClick={closePanel}
+                  className="min-h-9 cursor-pointer rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-100 sm:min-h-8"
+                >
+                  Tutup
+                </button>
+              </div>
+            )
           ) : (
             <div className={`${CARD} space-y-2 text-xs text-slate-700`}>
               <p className="text-sm font-medium text-slate-900">
                 {selected.name} ({selected.level})
               </p>
               <p>
-                Peta sudah diarahkan ke wilayah ini. Panel angka baru tersedia untuk kabupaten/kota
-                (`W2`); panel kecamatan (`W3`) dan desa/kelurahan (`W4`) belum dikerjakan.
+                Peta sudah diarahkan ke wilayah ini. Panel angka tersedia untuk kabupaten/kota
+                (`W2`) dan desa/kelurahan (`W4`); panel kecamatan (`W3`) belum dikerjakan.
               </p>
               <button
                 type="button"

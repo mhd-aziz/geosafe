@@ -16,6 +16,8 @@ const { mapState, FakeMap } = vi.hoisted(() => {
     fitBounds: [] as unknown[],
     minZoom: [] as number[],
     removed: [] as string[],
+    /** Hasil `queryRenderedFeatures` tiruan; dikosongkan sebelum setiap uji. */
+    queryRows: [] as { properties: Record<string, unknown> }[],
   };
 
   class FakeMap {
@@ -46,7 +48,7 @@ const { mapState, FakeMap } = vi.hoisted(() => {
       mapState.removed.push(`layer:${id}`);
     }
     queryRenderedFeatures() {
-      return [];
+      return mapState.queryRows;
     }
     getBounds() {
       // Kotak peta tiruan: seluruh Indonesia.
@@ -117,6 +119,7 @@ beforeEach(() => {
   mapState.fitBounds.length = 0;
   mapState.minZoom.length = 0;
   mapState.removed.length = 0;
+  mapState.queryRows.length = 0;
 });
 
 describe('MapView kotak peta', () => {
@@ -215,5 +218,35 @@ describe('MapView lapisan desa', () => {
     expect(mapState.fitBounds).toEqual([
       { padding: 48, maxZoom: 11, minZoom: 8, duration: 800 },
     ]);
+  });
+
+  it('membuka panel desa saat poligon desa diklik (`W4`)', () => {
+    const onSelectRegion = vi.fn();
+    mapState.queryRows.push({ properties: { village_code: '6271012003', village_name: 'Bukit Tunggal' } });
+    mount({ ...baseProps, layer: 'risk_village', provinceCode: '62', onSelectRegion });
+
+    act(() => {
+      const click = mapState.listeners.get('click') as unknown as (event: unknown) => void;
+      click({ point: { x: 10, y: 10 } });
+    });
+
+    // Kode desa yang dibuka, bukan kabupaten/kota induknya: panelnya `W4`.
+    expect(onSelectRegion).toHaveBeenCalledWith({
+      code: '6271012003',
+      name: 'Bukit Tunggal',
+      level: 'village',
+    });
+  });
+
+  it('tidak membuka panel saat klik desa tidak mengenai poligon', () => {
+    const onSelectRegion = vi.fn();
+    mount({ ...baseProps, layer: 'risk_village', provinceCode: '62', onSelectRegion });
+
+    act(() => {
+      const click = mapState.listeners.get('click') as unknown as (event: unknown) => void;
+      click({ point: { x: 10, y: 10 } });
+    });
+
+    expect(onSelectRegion).not.toHaveBeenCalled();
   });
 });

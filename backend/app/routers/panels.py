@@ -1,18 +1,22 @@
-"""W2 — panel kabupaten/kota.
+"""W2 — panel kabupaten/kota; W4 — panel desa/kelurahan.
 
 Satu permintaan = satu query agregat untuk satu wilayah, sesuai `ARSITEKTUR.md`
 bagian 4 ("titik akhir berbentuk satu per tingkat wilayah"). Nilai dibaca apa
-adanya dari `REGION_FACTS`:
+adanya dari `REGION_FACTS` (W2) atau `VILLAGE_FACTS` (W4):
 
 - hanya baris **tahunan** (`month is null`) dan **total** (`confidence is null`);
 - kolom `series` dikirim apa adanya — `main` (arsip), `fill` (hari bolong yang
   ditambal), `nrt` (pemrosesan berbeda) **tidak** digabung diam-diam;
 - kelas risiko disimpan pada kolom `value_text`, bukan `value`.
 
+`VILLAGE_FACTS` juga memuat baris **bulanan** untuk metrik yang sama (mis. desa
+6271012003 tahun 2023 punya baris bulan 8, 9, 10, 11 di samping baris tahunan
+128) — tanpa `month is null`, satu tahun akan tampil berkali-kali.
+
 Wilayah yang tidak ada dibalas 404, bukan objek kosong.
 """
 
-from typing import Any
+from typing import Any, cast
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -24,6 +28,9 @@ from app.db import get_connection
 from app.routers.risk import CLASS_METRIC, DEFAULT_SCHEME, SCORE_METRIC
 
 router = APIRouter(prefix="/api/v1", tags=["W2 panel kabupaten/kota"])
+# `W4` memakai berkas yang sama karena query dan bentuk balasannya sekeluarga
+# dengan `W2`, tetapi tag-nya dipisah supaya `/docs` tetap menunjuk kode fiturnya.
+village_router = APIRouter(prefix="/api/v1", tags=["W4 panel desa/kelurahan"])
 
 # Rentang data proyek; dipakai untuk mengenali tahun yang tidak ada barisnya.
 EXPECTED_YEARS: tuple[int, ...] = (2020, 2021, 2022, 2023, 2024, 2025, 2026)
@@ -204,4 +211,137 @@ def panel_kabupaten_kota(
             {row["year"] for row in hotspot if row["year"]},
             {row["year"] for row in events if row["year"]},
         ),
+    }
+
+
+# Metrik `W4`. Tiga di antaranya bertahun dan berseries; dua sisanya
+# (`hotspot_per_1000_km2`, `risk_class_desa`) tidak bertahun sama sekali — sama
+# seperti `risk_*` di tingkat kabupaten/kota.
+VILLAGE_METRICS: tuple[str, ...] = (
+    "hotspot_count",
+    "event_count",
+    "hotspot_per_1000_km2",
+    "risk_class_desa",
+)
+
+# `VILLAGE_FACTS` memuat baris bulanan **dan** tahunan untuk metrik yang sama,
+# jadi `month is null` wajib: tanpa itu satu tahun muncul beberapa kali dan
+# angkanya terbaca lebih besar daripada seharusnya. Tidak ada kolom `confidence`
+# di tabel ini (keputusan ETL: kelas keyakinan agregat hanya sampai tingkat
+# kabupaten/kota), sehingga tidak ada syarat tambahan di sini.
+QUERY_VILLAGE_PANEL = """
+select v.village_code,
+       v.village_name,
+       v.area_km2,
+       d.district_code,
+       d.district_name,
+       r.region_code,
+       r.region_name,
+       p.province_code,
+       p.province_name,
+       f.metric_code,
+       f.year,
+       f.series,
+       f.value,
+       f.value_text
+  from villages v
+  left join districts d on d.district_code = v.district_code
+  left join regions r on r.region_code = d.region_code
+  left join provinces p on p.province_code = r.province_code
+  left join village_facts f
+    on f.village_code = v.village_code
+   and f.month is null
+   and f.metric_code = any(%(metrics)s)
+ where v.village_code = %(code)s
+ order by f.metric_code, f.year, f.series
+"""
+
+# Angka cakupan yang disebut di `notes`, diukur 2026-11-19: 2.181 dari 83.530
+# desa punya baris kejadian, dan kelas kerawanan desa hanya tersusun untuk 83.315
+# desa. Dua celah itu disebut apa adanya, bukan ditampilkan sebagai nol.
+VILLAGES_WITH_EVENTS = 2_181
+VILLAGES_TOTAL = 83_530
+
+
+def _village_notes(grouped: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Batasan data `W4`; `SRS-F-66` mewajibkan status kelas kerawanan desa disebut."""
+    hotspot_years = {row["year"] for row in grouped.get("hotspot_count", []) if row["year"]}
+    event_years = {row["year"] for row in grouped.get("event_count", []) if row["year"]}
+
+    # Pemisah ribuan gaya Indonesia: `2.181`, bukan `2,181`.
+    coverage = (
+        f"jumlah kejadian per desa hanya tersedia untuk {VILLAGES_WITH_EVENTS:,} dari "
+        f"{VILLAGES_TOTAL:,} desa"
+    ).replace(",", ".")
+
+    notes = [
+        "kelas kerawanan desa adalah susunan penelitian ini, bukan kelas resmi BNPB, "
+        "dan dihitung dari titik panas serta luas wilayah desa",
+        coverage + "; desa tanpa baris berarti angkanya belum dimuat, bukan berarti nol kejadian",
+        "angka 0 pada titik panas berarti nol deteksi yang terukur untuk tahun itu",
+    ]
+    if any(row["series"] == "fill" for row in grouped.get("hotspot_count", [])):
+        notes.append(
+            "seri fill adalah hari bolong pada seri arsip yang ditambal, bukan hasil "
+            "pemrosesan baru; seri main dan fill tidak dijumlahkan"
+        )
+    missing = sorted(set(EXPECTED_YEARS) - hotspot_years)
+    if missing:
+        notes.append(
+            "titik panas belum punya baris untuk tahun "
+            + ", ".join(str(year) for year in missing)
+        )
+    if not event_years:
+        notes.append("desa ini tidak punya baris kejadian sama sekali pada 2020–2026")
+    return notes
+
+
+@village_router.get("/panel/desa/{village_code}")
+def panel_desa(
+    village_code: str = Path(
+        min_length=10,
+        max_length=10,
+        description="Kode BPS desa/kelurahan (10 digit)",
+    ),
+    conn: psycopg.Connection = Depends(get_connection),
+) -> dict[str, Any]:
+    """Panel satu desa/kelurahan: identitas, titik panas, kejadian, kelas kerawanan (`W4`)."""
+    with conn.cursor() as cur:
+        cur.execute(QUERY_VILLAGE_PANEL, {"code": village_code, "metrics": list(VILLAGE_METRICS)})
+        rows = cast(list[dict[str, Any]], cur.fetchall())
+
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"desa {village_code} tidak ada")
+
+    head = rows[0]
+    grouped = _rows_per_metric(rows)
+
+    hotspot = [
+        {"year": row["year"], "series": row["series"], "hotspot_count": row["value"]}
+        for row in grouped.get("hotspot_count", [])
+    ]
+    events = [
+        {"year": row["year"], "event_count": row["value"]}
+        for row in grouped.get("event_count", [])
+    ]
+    density = _single_value(grouped.get("hotspot_per_1000_km2", []), "hotspot_per_1000_km2") or {}
+    risk_class = _single_value(grouped.get("risk_class_desa", []), "risk_class_desa") or {}
+
+    return {
+        "village": {
+            "village_code": head["village_code"],
+            "village_name": head["village_name"],
+            "district_code": head["district_code"],
+            "district_name": head["district_name"],
+            "region_code": head["region_code"],
+            "region_name": head["region_name"],
+            "province_code": head["province_code"],
+            "province_name": head["province_name"],
+            "area_km2": head["area_km2"],
+        },
+        "hotspot_by_year": hotspot,
+        "event_by_year": events,
+        "risk_class_desa": risk_class.get("value_text"),
+        "hotspot_per_1000_km2": density.get("value"),
+        "notes": _village_notes(grouped),
     }

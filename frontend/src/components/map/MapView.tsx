@@ -153,10 +153,22 @@ export function MapView({
 
     map.on('click', (event) => {
       const currentLayer = latest.current.layer;
-      // Lapisan desa belum punya panel (W4 belum dikerjakan): klik di sana tidak
-      // membuka apa pun. Nama desa dan kelasnya sudah terbaca di bacaan kursor,
-      // jadi menampilkan panel kabupaten/kota untuk desa justru salah wilayah.
+      // Lapisan desa: klik membuka panel desa (`W4`). Nama desa dan kelasnya juga
+      // terbaca di bacaan kursor, tetapi panelnya butuh kode desa dari properti
+      // tile — kabupaten/kota induknya tidak dipakai karena itu wilayah berbeda.
       if (currentLayer === 'risk_village') {
+        const [villageFeature] = map.queryRenderedFeatures(event.point, {
+          layers: [ACTIVE_FILL_LAYER.risk_village],
+        });
+        const villageProperties = villageFeature?.properties;
+        if (!villageProperties?.village_code) {
+          return;
+        }
+        latest.current.onSelectRegion({
+          code: String(villageProperties.village_code),
+          name: String(villageProperties.village_name),
+          level: 'village',
+        });
         return;
       }
       const fillLayer = ACTIVE_FILL_LAYER[currentLayer];

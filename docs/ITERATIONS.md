@@ -45,15 +45,54 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 12i | Vercel (di luar repo) | Sisa Vercel dirapikan: proyek `omniroute-relay`/`geosafe-uploader` hilang (`404`/`410`), status `Vercel` menunjuk proyek `geosafe`, token unggah tidak dipakai lagi | — | `iter-12i-vercel-cleanup` |
 | 12j | Cloudflare R2 (di luar repo) | Basemap 216 MB pindah ke R2 (`geosafe-basemap` + domain `geosafe-tiles.zisaltech.site`); unggah REST 39,6 dtk; peta terbukti `206` dari R2 dengan **0** permintaan ke Blob | — | `iter-12j-basemap-r2` |
 | 12k | `feat/frontend-latest-bbox` | `truncated` di lapisan terkini punya jalan keluar: kendali kotak peta mengirim `bbox` hasil potongan batas Indonesia; `bash`/`pytest` tidak berubah | #30 | `iter-12k-latest-bbox` |
-| 12l | `chore/drop-homelab-frontend` | Hosting frontend di mesin ini dihapus: nginx dimatikan & di-disable, situs `:8080` hilang, CD hanya memuat ulang API, basemap dev dari R2 | PR | `iter-12l-vercel-only` |
+| 12l | `chore/drop-homelab-frontend` | Hosting frontend di mesin ini dihapus: nginx dimatikan & di-disable, situs `:8080` hilang, CD hanya memuat ulang API, basemap dev dari R2 | #31 | `iter-12l-vercel-only` |
+| 12m | `feat/api-village-panel` | Panel desa/kelurahan `W4`: endpoint `GET /api/v1/panel/desa/{kode}` + panel di antarmuka (klik poligon desa maupun pencarian) | PR | `iter-12m-village-panel` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
-iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 12m — `feat/api-village-panel` (`W4` panel desa/kelurahan)
+
+Panel desa/kelurahan sudah lama jadi lubang terakhir di daftar panel: klik di lapisan desa
+bahkan sengaja tidak membuka apa pun (`W4` belum ada), dan hasil pencarian desa hanya
+mengarahkan peta. Datanya ternyata sudah tersedia sejak ETL pertama — `VILLAGE_FACTS` memuat
+titik panas tahunan, kejadian tahunan, kepadatan, dan kelas kerawanan desa.
+
+| Hal | Nilai |
+|---|---|
+| Endpoint | `GET /api/v1/panel/desa/{village_code}` (10 digit, tag `W4 panel desa/kelurahan`; router kedua di `panels.py`, didaftarkan di `main.py`) |
+| Isi balasan | identitas + rantai wilayah induk, `hotspot_by_year` (per seri), `event_by_year`, `risk_class_desa`, `hotspot_per_1000_km2`, `notes` |
+| Antarmuka | `VillageDetailPanel` di `MapPage`: terbuka saat poligon desa diklik **atau** desa dipilih dari pencarian `C1` |
+| Uji | backend **102 lulus** (96 sebelumnya), frontend **133 lulus** (17 berkas; 125 sebelumnya), `tsc --noEmit` bersih |
+
+Bukti lewat peramban (Vite dev di `127.0.0.1:5173`, API di `:8000`, Chrome dengan tab di depan):
+
+1. Pencarian `Bukit Tunggal` → hasil desa `6271012003` → panel: **Jekan Raya · Kota
+   Palangkaraya · Kalimantan Tengah · kode 6271012003**, luas **274,18 km²**, kelas kerawanan
+   **Tinggi**, kepadatan **80,85 per 1.000 km²**.
+2. Lapisan `Kerawanan desa` + provinsi Kalimantan Tengah → klik satu poligon desa di kanvas →
+   panel: **Tumbang Jalemu (6211010011) · Manuhing · Gunung Mas · Kalimantan Tengah**, luas
+   **76,19 km²**; permintaan `/api/v1/panel/desa/6211010011` tercatat di jaringan peramban.
+3. Tabel titik panas desa Bukit Tunggal: 2020 **1**, 2021 **4**, 2023 **128**, 2026 **21**,
+   2022/2024/2025 **0** (nol terukur); kejadian 2020–2024 dan 2026 ada, 2025 tidak.
+
+Temuan:
+
+1. **`VILLAGE_FACTS` memuat baris bulanan di samping baris tahunan.** Desa 6271012003 tahun
+   2023 punya baris bulan 8, 9, 10, 11 (5, 37, 85, 1) **dan** baris tahunan 128 di tabel yang
+   sama, semuanya dengan `month` terisi/kosong berbeda. Tanpa `month is null`, satu tahun tampil
+   lima kali dan angkanya terbaca jauh lebih besar. Diuji langsung: baris 2023 harus tepat satu
+   dan bernilai 128.
+2. **Angka kejadian hanya tersedia untuk 2.181 dari 83.530 desa.** Desa tanpa baris tidak boleh
+   tampil "0 kejadian"; panel menyebutnya di catatan, dan desa tanpa satu pun baris kejadian
+   (mis. Sungai Ambawang Kuala, `6112080011`) mendapat kalimat khusus di bagian kejadian.
+3. **Kelas kerawanan desa wajib disebut sebagai susunan penelitian** (`SRS-F-66`), bukan hanya
+   di catatan kaki: labelnya menempel pada angka kelasnya di panel.
 
 ## Iterasi 12l — `chore/drop-homelab-frontend`
 
