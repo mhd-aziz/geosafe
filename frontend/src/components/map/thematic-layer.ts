@@ -1,4 +1,6 @@
 import {
+  eventTileSourceLayer,
+  eventTileUrlTemplate,
   riskTileUrlTemplate,
   tileSourceLayer,
   tileUrlTemplate,
@@ -39,6 +41,12 @@ const RISK_IDS = {
   sourceId: 'risk',
   fillLayerId: 'risk-fill',
   lineLayerId: 'risk-line',
+} as const;
+
+const EVENTS_IDS = {
+  sourceId: 'events',
+  fillLayerId: 'events-fill',
+  lineLayerId: 'events-line',
 } as const;
 
 const VILLAGE_IDS = {
@@ -84,6 +92,17 @@ export function thematicSpec(
     };
   }
 
+  // Lapisan kejadian (`P3`) hanya ada di tingkat kabupaten/kota, dan tahunnya
+  // ikut di URL seperti lapisan titik panas.
+  if (layer === 'events') {
+    return {
+      ...EVENTS_IDS,
+      url: eventTileUrlTemplate(year),
+      sourceLayer: eventTileSourceLayer(),
+      minzoom: 0,
+    };
+  }
+
   return {
     ...HOTSPOT_IDS,
     url: tileUrlTemplate(level, year),
@@ -93,7 +112,7 @@ export function thematicSpec(
 }
 
 /** Semua layer/sumber tematik yang mungkin terpasang; dipakai untuk membersihkan. */
-export const THEMATIC_IDS = [HOTSPOT_IDS, RISK_IDS, VILLAGE_IDS];
+export const THEMATIC_IDS = [HOTSPOT_IDS, RISK_IDS, EVENTS_IDS, VILLAGE_IDS];
 
 /** Teks bacaan saat kursor berhenti di atas satu wilayah.
  *
@@ -121,6 +140,15 @@ export function readoutText(
 
   const nameProperty = layer === 'risk' || level === 'regency' ? 'region_name' : 'province_name';
   const name = String(properties[nameProperty] ?? 'wilayah');
+
+  // Lapisan kejadian (`P3`): abu-abu di sini berarti tidak ada kejadian tercatat
+  // pada tahun itu — bukan angka yang belum dimuat seperti pada titik panas.
+  if (layer === 'events') {
+    if (Number(properties.has_fact ?? 0) === 0) {
+      return `${name} · tidak ada kejadian tercatat ${year}`;
+    }
+    return `${name} · ${formatCount(Number(properties.event_count))} kejadian tercatat BNPB ${year}`;
+  }
 
   if (layer === 'risk') {
     if (Number(properties.has_score ?? 0) === 0) {

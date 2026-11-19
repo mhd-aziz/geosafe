@@ -6,6 +6,7 @@ import {
   fetchDownloads,
   fetchLatest,
   fetchLatestSummary,
+  fetchNationalTrend,
   fetchPointCoverage,
   fetchRiskSchemes,
   fetchSources,
@@ -43,6 +44,25 @@ const fetchLatestMock = vi.mocked(fetchLatest);
 const fetchLatestSummaryMock = vi.mocked(fetchLatestSummary);
 const fetchRiskSchemesMock = vi.mocked(fetchRiskSchemes);
 const fetchVillageProvincesMock = vi.mocked(fetchVillageProvinces);
+const fetchNationalTrendMock = vi.mocked(fetchNationalTrend);
+
+/** Halaman peta memakai seri nasional sebagai pembanding lapisan kejadian. */
+function mockNationalTrend() {
+  fetchNationalTrendMock.mockResolvedValue({
+    scope: 'national',
+    years: [2023],
+    hotspot_by_year: [],
+    event_by_year: [
+      { year: 2023, event_count: 2153 },
+      { year: 2026, event_count: 1110 },
+    ],
+    burned_area_by_year: [],
+    coverage_by_year: {},
+    units: {},
+    metric_names: {},
+    notes: [],
+  });
+}
 
 /** Halaman peta menarik lapisan terkini saat dibuka; angkanya cukup satu titik. */
 function mockLatest() {
@@ -175,6 +195,7 @@ beforeEach(() => {
   mockLatest();
   mockRiskSchemes();
   mockVillageProvinces();
+  mockNationalTrend();
 });
 
 function renderApp(path = '/') {
@@ -284,6 +305,23 @@ describe('App', () => {
 
     expect(await screen.findByText(/Keterangan sumber belum tersedia/)).toBeTruthy();
     expect(screen.getByTestId('map-stub')).toBeTruthy();
+  });
+
+  it('memuat lapisan kejadian tercatat BNPB beserta angka nasionalnya', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kejadian' }));
+
+    // `SRS-F-30`: peta ini adalah kejadian tercatat BNPB, bukan deteksi satelit.
+    expect(screen.getAllByText(/kejadian tercatat BNPB/).length).toBeGreaterThanOrEqual(2);
+    // `SRS-F-31`: angka nasional tahun terpilih tampil sebagai pembanding.
+    expect(await screen.findByText('Kejadian nasional 2026')).toBeTruthy();
+    expect(screen.getByText('1.110')).toBeTruthy();
+    // `SRS-F-28`: kejadian dipetakan per kabupaten/kota, jadi saklar provinsi mati.
+    expect(screen.getByRole('button', { name: 'Provinsi' }).hasAttribute('disabled')).toBe(true);
+    // Tahun tetap berlaku di lapisan ini (`SRS-F-29`), tidak dinonaktifkan.
+    expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(false);
   });
 
   it('memuat lapisan kerawanan beserta skema dan uji sensitivitasnya', async () => {

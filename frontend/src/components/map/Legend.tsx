@@ -1,5 +1,6 @@
 import { legendEntries } from '../../lib/choropleth';
 import { MAP_SERIES } from '../../lib/constants';
+import { eventLegendEntries } from '../../lib/events';
 import { riskLegendEntries, villageLegendEntries } from '../../lib/risk';
 import type { MapLayer } from '../../types/geosafe';
 
@@ -34,11 +35,14 @@ export function Legend({
 }: LegendProps) {
   const riskActive = layer === 'risk';
   const villageActive = layer === 'risk_village';
+  const eventsActive = layer === 'events';
   const entries = villageActive
     ? villageLegendEntries(villageClassCounts)
     : riskActive
       ? riskLegendEntries()
-      : legendEntries();
+      : eventsActive
+        ? eventLegendEntries()
+        : legendEntries();
 
   return (
     <div className="w-full rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur-sm sm:max-w-xs">
@@ -47,7 +51,9 @@ export function Legend({
           ? 'Kelas kerawanan desa/kelurahan'
           : riskActive
             ? 'Kelas kerawanan kabupaten/kota'
-            : 'Jumlah titik panas per wilayah'}
+            : eventsActive
+              ? 'Jumlah kejadian karhutla per wilayah'
+              : 'Jumlah titik panas per wilayah'}
       </h2>
       <p className="mt-0.5 text-[11px] text-slate-600">
         {villageActive ? (
@@ -57,6 +63,8 @@ export function Legend({
             {riskSchemeName ? `skema ${riskSchemeName} · ` : ''}susunan penelitian ini, bukan angka
             resmi BNPB
           </>
+        ) : eventsActive ? (
+          <>kejadian tercatat BNPB, bukan deteksi satelit · tingkat kabupaten/kota</>
         ) : (
           <>
             seri <code>{MAP_SERIES}</code> (arsip), tahun terpilih
@@ -85,6 +93,8 @@ export function Legend({
           </>
         ) : riskActive ? (
           'Abu-abu berarti skor wilayah itu belum ada, bukan kerawanan rendah. Skor hanya dihitung untuk kabupaten/kota karena hanya tingkat itu yang punya seluruh indikator.'
+        ) : eventsActive ? (
+          'Abu-abu berarti tidak ada kejadian tercatat di wilayah itu pada tahun terpilih — BNPB mencatat kejadian yang terjadi, jadi angka nol tidak perlu ditulis.'
         ) : (
           'Abu-abu berarti wilayah itu belum punya baris fakta pada tahun terpilih, jadi angkanya tidak boleh dibaca sebagai nol tanpa membaca catatan panel.'
         )}
