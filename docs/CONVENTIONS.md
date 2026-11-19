@@ -135,7 +135,7 @@ Dilarang: pesan berbahasa Indonesia, `update file`, `fix bug`, `wip`, `revisi`.
 ## 4. Alur kerja git
 
 Model **trunk-based dengan cabang pendek**. `main` harus selalu bisa dijalankan:
-repo ini publik, tidak ada CI, dan aplikasinya dipakai untuk demo.
+repo ini publik dan aplikasinya dipakai untuk demo.
 
 | Hal | Aturan |
 |---|---|
