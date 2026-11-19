@@ -4,6 +4,7 @@ import { API_BASE, fetchJson } from './client';
 import type {
   CompositionData,
   CompositionMetric,
+  DistrictPanelData,
   DownloadsResponse,
   LatestResponse,
   LatestSummary,
@@ -61,6 +62,12 @@ export function fetchVillageProvinces(): Promise<VillageProvincesResponse> {
 
 export function fetchRegionPanel(regionCode: string): Promise<RegionPanelData> {
   return fetchJson<RegionPanelData>(`/api/v1/panel/kabupaten_kota/${regionCode}`);
+}
+
+/** Panel kecamatan (`W3`). Kode BPS kecamatan selalu tujuh digit; API membalas
+ * `422` untuk kode lain dan `404` untuk kecamatan yang tidak ada. */
+export function fetchDistrictPanel(districtCode: string): Promise<DistrictPanelData> {
+  return fetchJson<DistrictPanelData>(`/api/v1/panel/kecamatan/${encodeURIComponent(districtCode)}`);
 }
 
 /** Panel desa/kelurahan (`W4`). Kode BPS desa selalu sepuluh digit; API membalas

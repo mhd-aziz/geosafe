@@ -154,3 +154,73 @@ def test_unknown_village_answers_404_and_short_code_answers_422() -> None:
     assert client.get("/api/v1/panel/desa/9999999999").status_code == 404
     # Kode desa BPS selalu sepuluh digit; kode pendek bukan wilayah yang "tidak ada".
     assert client.get("/api/v1/panel/desa/6271").status_code == 422
+
+
+# --- W3 panel kecamatan ------------------------------------------------------
+#
+# Kecamatan uji: Jekan Raya (6271012, Kota Palangkaraya, Kalimantan Tengah).
+# Dipilih karena `district_facts` memuat baris **bulanan** untuk kecamatan ini di
+# samping baris tahunan (2023: bulan 8, 9, 10, 11) sehingga penyaring `month is
+# null` ikut teruji, angkanya tidak rata (2023 = 293, tahun lain 1–24), dan desa
+# Bukit Tunggal yang dipakai uji `W4` berada di kecamatan yang sama.
+
+DISTRICT = "/api/v1/panel/kecamatan/6271012"
+
+
+def test_district_panel_carries_identity_chain_and_area() -> None:
+    response = client.get(DISTRICT)
+
+    assert response.status_code == 200
+    district = response.json()["district"]
+
+    assert district["district_code"] == "6271012"
+    assert district["district_name"] == "Jekan Raya"
+    assert district["region_name"] == "Kota Palangkaraya"
+    assert district["province_name"] == "Kalimantan Tengah"
+    assert 380 < district["area_km2"] < 395
+
+
+def test_district_panel_returns_one_row_per_year_not_the_monthly_rows() -> None:
+    hotspot = client.get(DISTRICT).json()["hotspot_by_year"]
+
+    # Baris bulanan 2023 (57, 81, 154, 1) tidak boleh ikut: yang dikirim baris
+    # tahunan 293.
+    tahun_2023 = [row for row in hotspot if row["year"] == 2023]
+    assert len(tahun_2023) == 1
+    assert tahun_2023[0]["hotspot_count"] == 293
+
+    assert {row["year"] for row in hotspot} == set(range(2020, 2027))
+    assert {row["series"] for row in hotspot} == {"main"}
+
+
+def test_district_panel_carries_events_per_year_and_density() -> None:
+    body = client.get(DISTRICT).json()
+
+    assert {row["year"]: row["event_count"] for row in body["event_by_year"]}[2023] == 5
+    assert body["hotspot_per_1000_km2"] is not None
+
+
+def test_district_panel_states_supporting_role_and_data_limits() -> None:
+    """`SRS-F-64`: sifat angka kecamatan wajib dinyatakan, bukan disimpulkan."""
+    notes = " ".join(client.get(DISTRICT).json()["notes"])
+
+    assert "pendukung, bukan unit analisis" in notes
+    assert "514 kabupaten/kota" in notes
+    assert "1.525 dari 7.169 kecamatan" in notes
+    assert "188 dari 7.357 kecamatan" in notes
+    assert "nol deteksi yang terukur" in notes
+    assert "rata-rata tahun lengkap 2020–2025" in notes
+
+
+def test_district_panel_states_a_district_without_event_rows() -> None:
+    # Rakumpit (6271021) punya titik panas, tidak punya satu pun baris kejadian.
+    body = client.get("/api/v1/panel/kecamatan/6271021").json()
+
+    assert body["event_by_year"] == []
+    assert "tidak punya baris kejadian" in " ".join(body["notes"])
+
+
+def test_unknown_district_answers_404_and_short_code_answers_422() -> None:
+    assert client.get("/api/v1/panel/kecamatan/9999999").status_code == 404
+    # Kode kecamatan BPS selalu tujuh digit; kode pendek bukan wilayah "tidak ada".
+    assert client.get("/api/v1/panel/kecamatan/6271").status_code == 422

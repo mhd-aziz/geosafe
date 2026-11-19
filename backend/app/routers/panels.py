@@ -1,8 +1,8 @@
-"""W2 — panel kabupaten/kota; W4 — panel desa/kelurahan.
+"""W2 — panel kabupaten/kota; W3 — panel kecamatan; W4 — panel desa/kelurahan.
 
 Satu permintaan = satu query agregat untuk satu wilayah, sesuai `ARSITEKTUR.md`
 bagian 4 ("titik akhir berbentuk satu per tingkat wilayah"). Nilai dibaca apa
-adanya dari `REGION_FACTS` (W2) atau `VILLAGE_FACTS` (W4):
+adanya dari `REGION_FACTS` (W2), `DISTRICT_FACTS` (W3), atau `VILLAGE_FACTS` (W4):
 
 - hanya baris **tahunan** (`month is null`) dan **total** (`confidence is null`);
 - kolom `series` dikirim apa adanya — `main` (arsip), `fill` (hari bolong yang
@@ -31,6 +31,9 @@ router = APIRouter(prefix="/api/v1", tags=["W2 panel kabupaten/kota"])
 # `W4` memakai berkas yang sama karena query dan bentuk balasannya sekeluarga
 # dengan `W2`, tetapi tag-nya dipisah supaya `/docs` tetap menunjuk kode fiturnya.
 village_router = APIRouter(prefix="/api/v1", tags=["W4 panel desa/kelurahan"])
+# `W3` juga sekeluarga; tingkat kecamatan adalah angka **pendukung**, bukan unit
+# analisis penelitian ini (`SRS-F-64`).
+district_router = APIRouter(prefix="/api/v1", tags=["W3 panel kecamatan"])
 
 # Rentang data proyek; dipakai untuk mengenali tahun yang tidak ada barisnya.
 EXPECTED_YEARS: tuple[int, ...] = (2020, 2021, 2022, 2023, 2024, 2025, 2026)
@@ -344,4 +347,143 @@ def panel_desa(
         "risk_class_desa": risk_class.get("value_text"),
         "hotspot_per_1000_km2": density.get("value"),
         "notes": _village_notes(grouped),
+    }
+
+
+# --- W3 panel kecamatan ------------------------------------------------------
+#
+# Metrik `W3` menurut `SRS-F-63`: identitas, luas, kejadian per tahun, titik panas
+# per tahun, dan kepadatan. Tingkat kecamatan tidak punya skor/kelas kerawanan —
+# `P4` hanya menyusunnya untuk kabupaten/kota dan desa — jadi metrik `risk_*`
+# tidak ikut di sini.
+DISTRICT_METRICS: tuple[str, ...] = (
+    "hotspot_count",
+    "event_count",
+    "hotspot_per_1000_km2",
+)
+
+# `DISTRICT_FACTS` memuat baris bulanan **dan** tahunan untuk metrik yang sama
+# (95.949 dari 150.942 baris `hotspot_count` adalah bulanan, diukur 2026-11-19),
+# jadi `month is null` wajib: tanpa itu satu tahun tampil beberapa kali dan
+# angkanya terbaca lebih besar. Tabel ini tidak punya kolom `confidence` maupun
+# `value_text`.
+QUERY_DISTRICT_PANEL = """
+select d.district_code,
+       d.district_name,
+       d.area_km2,
+       r.region_code,
+       r.region_name,
+       p.province_code,
+       p.province_name,
+       f.metric_code,
+       f.year,
+       f.series,
+       f.value,
+       -- `district_facts` tidak punya kolom `value_text`; kolom ini hanya supaya
+       -- bentuk barisnya sama dengan `W2`/`W4` (helper bersamanya membaca kolom itu).
+       null::text as value_text
+  from districts d
+  left join regions r on r.region_code = d.region_code
+  left join provinces p on p.province_code = r.province_code
+  left join district_facts f
+    on f.district_code = d.district_code
+   and f.month is null
+   and f.metric_code = any(%(metrics)s)
+ where d.district_code = %(code)s
+ order by f.metric_code, f.year, f.series
+"""
+
+# Angka cakupan yang disebut di `notes`, diukur 2026-11-19 pada basis data
+# pengembangan: `districts` berisi 7.357 baris, 188 di antaranya **tanpa kode BPS**
+# (tidak bisa dibuka sebagai panel), 7.169 berkode dan semuanya punya baris titik
+# panas, tetapi hanya 1.525 yang punya baris kejadian.
+DISTRICTS_TOTAL = 7_357
+DISTRICTS_WITHOUT_CODE = 188
+DISTRICTS_WITH_CODE = 7_169
+DISTRICTS_WITH_EVENTS = 1_525
+
+
+def _thousands(value: int) -> str:
+    """Pemisah ribuan gaya Indonesia: `7.169`, bukan `7,169`."""
+    return f"{value:,}".replace(",", ".")
+
+
+def _district_notes(grouped: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Batasan data `W3`; `SRS-F-64` mewajibkan sifat angka kecamatan disebut."""
+    hotspot_years = {row["year"] for row in grouped.get("hotspot_count", []) if row["year"]}
+    event_years = {row["year"] for row in grouped.get("event_count", []) if row["year"]}
+
+    notes = [
+        "angka kecamatan bersifat pendukung, bukan unit analisis penelitian ini "
+        "(unit analisisnya 514 kabupaten/kota)",
+        "jumlah kejadian per kecamatan hanya tersedia untuk "
+        f"{_thousands(DISTRICTS_WITH_EVENTS)} dari {_thousands(DISTRICTS_WITH_CODE)} kecamatan "
+        "berkode BPS; kecamatan tanpa baris berarti angkanya belum dimuat, bukan berarti "
+        "nol kejadian",
+        f"{DISTRICTS_WITHOUT_CODE} dari {_thousands(DISTRICTS_TOTAL)} kecamatan tidak punya kode "
+        "BPS di sumbernya, sehingga tidak bisa dibuka sebagai panel",
+        "angka 0 pada titik panas berarti nol deteksi yang terukur untuk tahun itu",
+        "hotspot_per_1000_km2 adalah kepadatan deteksi, bukan ukuran kerawanan: satu angka "
+        "rata-rata tahun lengkap 2020–2025 tanpa seri nrt",
+    ]
+    if any(row["series"] == "fill" for row in grouped.get("hotspot_count", [])):
+        notes.append(
+            "seri fill adalah hari bolong pada seri arsip yang ditambal, bukan hasil "
+            "pemrosesan baru; seri main dan fill tidak dijumlahkan"
+        )
+    missing = sorted(set(EXPECTED_YEARS) - hotspot_years)
+    if missing:
+        notes.append(
+            "titik panas belum punya baris untuk tahun "
+            + ", ".join(str(year) for year in missing)
+        )
+    if not event_years:
+        notes.append("kecamatan ini tidak punya baris kejadian sama sekali pada 2020–2026")
+    return notes
+
+
+@district_router.get("/panel/kecamatan/{district_code}")
+def panel_kecamatan(
+    district_code: str = Path(
+        min_length=7,
+        max_length=7,
+        description="Kode BPS kecamatan (7 digit)",
+    ),
+    conn: psycopg.Connection = Depends(get_connection),
+) -> dict[str, Any]:
+    """Panel satu kecamatan: identitas, titik panas per tahun, kejadian, kepadatan (`W3`)."""
+    with conn.cursor() as cur:
+        cur.execute(QUERY_DISTRICT_PANEL, {"code": district_code, "metrics": list(DISTRICT_METRICS)})
+        rows = cast(list[dict[str, Any]], cur.fetchall())
+
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"kecamatan {district_code} tidak ada")
+
+    head = rows[0]
+    grouped = _rows_per_metric(rows)
+
+    hotspot = [
+        {"year": row["year"], "series": row["series"], "hotspot_count": row["value"]}
+        for row in grouped.get("hotspot_count", [])
+    ]
+    events = [
+        {"year": row["year"], "event_count": row["value"]}
+        for row in grouped.get("event_count", [])
+    ]
+    density = _single_value(grouped.get("hotspot_per_1000_km2", []), "hotspot_per_1000_km2") or {}
+
+    return {
+        "district": {
+            "district_code": head["district_code"],
+            "district_name": head["district_name"],
+            "region_code": head["region_code"],
+            "region_name": head["region_name"],
+            "province_code": head["province_code"],
+            "province_name": head["province_name"],
+            "area_km2": head["area_km2"],
+        },
+        "hotspot_by_year": hotspot,
+        "event_by_year": events,
+        "hotspot_per_1000_km2": density.get("value"),
+        "notes": _district_notes(grouped),
     }

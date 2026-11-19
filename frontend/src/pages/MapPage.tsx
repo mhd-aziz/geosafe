@@ -5,6 +5,7 @@ import { Legend } from '../components/map/Legend';
 import { LatestControl } from '../components/map/LatestControl';
 import { MapToolbar } from '../components/map/MapToolbar';
 import { MapView } from '../components/map/MapView';
+import { DistrictDetailPanel } from '../components/panel/DistrictDetailPanel';
 import { LatestPanel } from '../components/panel/LatestPanel';
 import { RegionPanel } from '../components/panel/RegionPanel';
 import { RiskPanel } from '../components/panel/RiskPanel';
@@ -260,6 +261,29 @@ export function MapPage() {
                 </button>
               </div>
             )
+          ) : selected.level === 'district' ? (
+            // `W3`: hasil pencarian tingkat kecamatan. Kode kosong berarti wilayah itu
+            // ditemukan tanpa kode BPS — panelnya tidak bisa diminta.
+            selected.code ? (
+              <div className={CARD}>
+                <DistrictDetailPanel districtCode={selected.code} onClose={closePanel} />
+              </div>
+            ) : (
+              <div className={`${CARD} space-y-2 text-xs text-slate-700`}>
+                <p className="text-sm font-medium text-slate-900">{selected.name}</p>
+                <p>
+                  Kecamatan ini tidak punya kode BPS di sumbernya, jadi panel angkanya tidak bisa
+                  dimuat.
+                </p>
+                <button
+                  type="button"
+                  onClick={closePanel}
+                  className="min-h-9 cursor-pointer rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-100 sm:min-h-8"
+                >
+                  Tutup
+                </button>
+              </div>
+            )
           ) : (
             <div className={`${CARD} space-y-2 text-xs text-slate-700`}>
               <p className="text-sm font-medium text-slate-900">
@@ -267,7 +291,8 @@ export function MapPage() {
               </p>
               <p>
                 Peta sudah diarahkan ke wilayah ini. Panel angka tersedia untuk kabupaten/kota
-                (`W2`) dan desa/kelurahan (`W4`); panel kecamatan (`W3`) belum dikerjakan.
+                (`W2`), kecamatan (`W3`), dan desa/kelurahan (`W4`); tingkat provinsi belum punya
+                panel karena bukan unit analisis.
               </p>
               <button
                 type="button"
