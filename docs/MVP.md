@@ -3,7 +3,7 @@
 *Minimum Viable Product.* Batasan **apa yang harus jalan lebih dulu** supaya
 GeoSafe bisa didemokan dan dinilai, dan apa yang sengaja ditunda.
 
-Status: 2026-11-17 · kelima fitur MVP (P1, C1, W2, A1, T1) selesai dan alurnya sudah
+Status: 2026-11-19 · kelima fitur MVP (P1, C1, W2, A1, T1) selesai dan alurnya sudah
 bisa dijalankan lewat satu alamat (`http://127.0.0.1:8080`, nginx menyajikan halaman
 hasil build, meneruskan `/api` serta `/tiles` ke API, dan melayani basemap
 `/pmtiles/`). Iterasi 10 (P2 titik panas terkini + W1 panelnya) selesai di API
@@ -15,9 +15,10 @@ atas) beserta daftar provinsi untuk pemilihnya, dan 11e membawanya ke antarmuka
 sakaligus mengganti koneksi basis data menjadi kolam (`psycopg_pool`, maksimal 3)
 karena satu koneksi per permintaan tidak lagi cukup saat satu lapisan meminta
 belasan tile sekaligus.
-Sisa yang direncanakan: skor kerawanan di panel kabupaten/kota (`W2`), panel
-desa/kelurahan (`W4`), kendali kotak wilayah untuk kasus `truncated` pada lapisan
-terkini, lalu `P3`/`P5` dan `A2`/`A3`.
+Sisa yang direncanakan: panel desa/kelurahan (`W4`), kepadatan per tahun sebagai
+atribut tile, penanda tahun parsial, lalu `P3`/`P5` dan `A2`/`A3`. Skor kerawanan di
+panel kabupaten/kota (`W2`) selesai di 12a, dan kendali kotak wilayah untuk kasus
+`truncated` pada lapisan terkini selesai di 12k.
 
 ---
 
@@ -97,7 +98,8 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 12h | Vercel (di luar repo) | Basemap PMTiles 216 MB di Vercel Blob; homelab berhenti melayani basemap | ✅ `iter-12h-basemap-blob` |
 | 12i | Vercel (di luar repo) | Sisa Vercel dirapikan: proyek sementara hilang (410), status `Vercel` menunjuk proyek `geosafe`, token unggah mati; tinggal hapus store kosong lewat dasbor | ✅ `iter-12i-vercel-cleanup` |
 | 12j | Cloudflare R2 (di luar repo) | Basemap 216 MB pindah ke R2 (`geosafe-basemap` + domain `geosafe-tiles.zisaltech.site`); unggah REST 39,6 dtk; peta terbukti `206` dari R2 dengan **0** permintaan ke Blob | ✅ `iter-12j-basemap-r2` |
-| — | panel desa `W4`, kendali kotak wilayah (`bbox`), kepadatan per tahun sebagai atribut tile, penanda tahun parsial, lalu `P3`/`P5` dan `A2`/`A3` | belum dijadwalkan |
+| 12k | `feat/frontend-latest-bbox` — lapisan terkini bisa dipersempit ke kotak peta saat muatan `truncated`; kotak dipotong ke batas wilayah Indonesia lebih dulu | ✅ PR #30, tag `iter-12k-latest-bbox` |
+| — | panel desa `W4`, kepadatan per tahun sebagai atribut tile, penanda tahun parsial, lalu `P3`/`P5` dan `A2`/`A3` | belum dijadwalkan |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar

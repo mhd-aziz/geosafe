@@ -19,7 +19,7 @@ uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```bash
 cd frontend
 npm ci                                   # sekali, dari package-lock.json
-npm test                                 # 113 passed (16 berkas, Vitest + jsdom), tanpa DB
+npm test                                 # 125 passed (16 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
                                          #   nginx menyajikan dist/ di 127.0.0.1:8080
@@ -242,6 +242,13 @@ dokumen boleh langsung ke `main`.
     `province_code` terisi), dan nasional (keduanya kosong) dalam satu tabel: satu tahun punya
     **553 baris**, bukan 514. Tanpa `where region_code is not null`, hasilnya 553/… dan ujinya
     menguji hal yang salah.
+19. **`bbox` kiriman peramban harus dipotong ke batas API lebih dulu.** Kotak peta pada zoom
+    nasional (zoom 3,2) adalah 79…157 E / 24 S…19 N — lebih lebar daripada `94,5…141,5` /
+    `-11,5…6,5` yang diterima `/api/v1/latest`, jadi mengirim `getBounds()` apa adanya dijawab
+    `422` justru pada keadaan yang memicu `truncated`. `bboxParam()` di `frontend/src/lib/format.ts`
+    memotong kotaknya dan mengembalikan `null` bila hasil potongannya kosong; batas API
+    diduplikasi di sana — kalau `LON_MIN`…`LAT_MAX` di `backend/app/routers/latest.py` berubah,
+    keduanya harus berubah.
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.

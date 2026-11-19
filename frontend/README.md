@@ -215,6 +215,6 @@ Empat hal yang disengaja:
 | Hal | Alasan |
 |---|---|
 | titik digambar tanpa penyaring kelas keyakinan | kelas dipakai untuk warna (`confidence_class`), bukan untuk menyembunyikan titik; penyaring kelas butuh keputusan penyaring mana yang dipakai pengguna |
-| penyempitan `bbox` otomatis saat `truncated` | API mengganti `points` dengan `null` bila muatan melewati 2 MB; antarmuka tidak punya kendali kotak wilayah, jadi ia menyatakan titiknya tidak digambar dan mengarahkan pembaca ke panel — bukan menebak kotak mana yang harus dipersempit |
+| penyempitan `bbox` atas permintaan pengguna, bukan otomatis | API mengganti `points` dengan `null` bila muatan melewati 2 MB. Antarmuka tidak menebak kotak: pengguna menekan **Batasi ke area tampak** dan kotak peta yang sedang tampil dipotong ke batas wilayah Indonesia (`bboxParam`; peta pada zoom nasional lebih lebar daripada `94,5…141,5` / `-11,5…6,5`, dan tanpa potongan itu API menjawab `422`). Otomatis per geseran ditolak: satu tarikan FIRMS per geseran peta menghabiskan kuota |
 | batas laju 429 | API menahan 60 permintaan/menit per IP; satu peramban memakai 2 permintaan per penyegaran sehingga batas itu tidak pernah tersentuh dari antarmuka |
 | penyegaran memakai `setInterval` biasa | peramban menahan timer di tab latar, jadi jarak tarikan nyata bisa lebih dari 15 menit; `SRS-F-24` menyebut batas *paling sering* 15 menit, bukan jaminan tepat 15 menit |
