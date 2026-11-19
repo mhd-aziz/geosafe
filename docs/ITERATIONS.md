@@ -81,6 +81,26 @@ Temuan:
    `.pmtiles` yang tidak ada dengan `index.html` berkode `206`, sehingga "apakah URL hidup" lolos
    padahal klien gagal mengurai. Yang menentukan: `content-type` dan `content-range`.
 
+## Iterasi 12i — merapikan sisa Vercel
+
+Pembersihan setelah 12f–12h, tanpa menyentuh aplikasi.
+
+| Hal | Bukti |
+|---|---|
+| Proyek sementara `geosafe-uploader` | **sudah dihapus** — `GET /v9/projects/geosafe-uploader` → `404`; tiga URL deployment-nya → `410` (termasuk rute `/api/token`) |
+| Rute penerbit token | mati, jadi tidak ada lagi jalan menerbitkan token unggah untuk store mana pun |
+| Status `Vercel` pada commit `771bd2d` | `success` → `vercel.com/…/geosafe/HjKtJBBygrAeyzicKiE2F8NF1goK` — **menunjuk proyek `geosafe`**, bukan lagi `omniroute-relay` |
+| Basemap | `206` dari `nwn0yxwn6uggklp6.public.blob.vercel-storage.com/indonesia.pmtiles` (216.138.172 byte) |
+| Situs produksi | `200` |
+| Env proyek | `VITE_API_BASE`, `VITE_BASEMAP_URL` (keduanya plain), dan `BLOB_READ_WRITE_TOKEN` milik store **kosong** |
+| Git integrasi | push ke `main` benar-benar memicu deployment (`dpl_HjKt…` untuk commit `771bd2d`), dan pratinjau per cabang sudah terbukti sejak 12f |
+
+Tersisa satu langkah manual yang **tidak bisa** dilakukan lewat API/MCP: menghapus store kosong
+`geosafe-basemap` (`store_3QUGvXe0QDtRRitP`, 0 byte) dari dasbor Vercel → *Storage → geosafe-basemap →
+Delete*. Menghapus store itu sekaligus mencabut `BLOB_READ_WRITE_TOKEN` yang menempel di proyek `geosafe`
+(token itu tidak dipakai kode; frontend hanya butuh dua variabel `VITE_*`). Store `geosafe-basemap-files`
+yang berisi basemap **jangan** dihapus — URL publiknya dipakai `VITE_BASEMAP_URL`.
+
 ## Iterasi 12g — `fix/vercel-basemap` (PR #29)
 
 Basemap di pratinjau Vercel berakhir kosong karena `BASEMAP_URL` masih relatif ke origin (`/pmtiles/...`):

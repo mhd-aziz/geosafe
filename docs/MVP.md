@@ -95,6 +95,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 12e | `feat/cors-vercel-preview` — API publik (Cloudflare Tunnel) + CORS untuk origin pratinjau Vercel | ✅ PR #28, tag `iter-12e-vercel-preview` |
 | 12f | Vercel (di luar repo) — pratinjau frontend hidup dengan `VITE_API_BASE` ke API publik | ✅ `iter-12f-vercel-preview-live` |
 | 12h | Vercel (di luar repo) | Basemap PMTiles 216 MB di Vercel Blob; homelab berhenti melayani basemap | ✅ `iter-12h-basemap-blob` |
+| 12i | Vercel (di luar repo) | Sisa Vercel dirapikan: proyek sementara hilang (410), status `Vercel` menunjuk proyek `geosafe`, token unggah mati; tinggal hapus store kosong lewat dasbor | ✅ `iter-12i-vercel-cleanup` |
 | — | panel desa `W4`, kendali kotak wilayah (`bbox`), kepadatan per tahun sebagai atribut tile, penanda tahun parsial, lalu `P3`/`P5` dan `A2`/`A3` | belum dijadwalkan |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti

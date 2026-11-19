@@ -63,9 +63,18 @@ Variabel proyek `VITE_API_BASE=https://geosafe-api.zisaltech.site` untuk product
 development; nilainya masuk ke bundle **saat build**, jadi mengubahnya butuh deploy ulang. Alias:
 `geosafe-muhamad-azizs-projects-83e323d5.vercel.app` (produksi) dan `geosafe-git-<cabang>-…` (pratinjau).
 Vercel Authentication dimatikan supaya tautannya bisa dibuka tanpa login; jangan dinyalakan lagi tanpa
-alasan. **Repo ini juga tertaut ke proyek Vercel lain `omniroute-relay`** yang berada di luar scope
-token MCP (API membalas 404 walau check-nya muncul di PR); melepas tautan itu harus lewat dasbor
-Vercel: proyek `omniroute-relay` → Settings → Git → Disconnect.
+alasan. Proyek `omniroute-relay` yang dulu ikut membangun repo ini **sudah dihapus pemilik repo**, dan
+status `Vercel` pada commit sekarang menunjuk proyek `geosafe` (`dpl_HjKtJBBygrAeyzicKiE2F8NF1goK`).
+
+Berikutnya, keadaan Vercel per 2026-11-19 (catat supaya tidak bingung lagi):
+
+| Objek | Keadaan |
+|---|---|
+| Proyek | **`geosafe`** saja (`prj_SoYy4Gxw8MXbVFjLc8GZH9p4B3IB`) — produksi dari `main`, pratinjau per cabang; git integrasi aktif (status `Vercel` di commit menunjuk proyek ini) |
+| Env | `VITE_API_BASE=https://geosafe-api.zisaltech.site` · `VITE_BASEMAP_URL=pmtiles://https://nwn0yxwn6uggklp6.public.blob.vercel-storage.com/indonesia.pmtiles` |
+| Blob store berisi basemap | `geosafe-basemap-files` (`store_NWn0yxwn6uGGKlp6`), publik, 216.138.172 byte, 1 berkas, **tidak tertaut proyek** — URL-nya publik dan stabil, jadi ini sah |
+| Proyek sementara | `geosafe-uploader` **sudah dihapus** (API `404`, semua deployment `410`) |
+| Sisa yang harus dihapus manusia | store kosong **`geosafe-basemap`** (`store_3QUGvXe0QDtRRitP`, 0 byte) — hanya bisa dihapus dari dasbor: *Storage → `geosafe-basemap` → Delete*. Token `BLOB_READ_WRITE_TOKEN` di proyek `geosafe` ikut hilang sendiri saat store itu dihapus |
 
 Basemap PMTiles (216 MB) **tidak** ikut ke Vercel sebagai berkas repo; berkasnya diunggah ke **Vercel
 Blob** (store `geosafe-basemap-files`, publik, region `sin1`) dan alamatnya diberikan lewat
