@@ -93,4 +93,4 @@ export const LEVEL_DIFFERENCE_NOTE =
  * Sumbernya `../planning-GeoSafe/docs/SRS-GeoSafe.md`; nilainya **wajib** ikut
  * berubah setiap dokumen itu naik versi, karena halaman ini menampilkannya.
  */
-export const SRS_DOCUMENT = { version: '1.11', date: '23 November 2026' } as const;
+export const SRS_DOCUMENT = { version: '1.12', date: '23 November 2026' } as const;
