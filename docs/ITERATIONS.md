@@ -56,12 +56,55 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 17b | `fix/legend-coverage-series` | Legenda penempatan titik: angka pertama jadi `point_count` (seluruh seri) supaya berjumlah dengan `placed`/`outside` | #39 | `iter-17b-coverage-line` |
 | 18 | `feat/api-heatmap-mode` | Mode heatmap `P1` (`SRS-F-14`): tile titik berkoordinat diagregasi per sel grid + saklar Choropleth/Heatmap | #40 | `iter-18-heatmap` |
 | 19 | `feat/frontend-srs-version` | Halaman Sumber & Batas Data mencantumkan versi dokumen SRS (`SRS-S-04`) + angka kejadian daftar istilah disinkronkan ke 6.390 | #41 | `iter-19-srs-version` |
+| 20 | `feat/frontend-srs-v1-12` | Angka dokumen perencanaan disinkronkan ke muat ulang 2026-11-19 (SRS v1.12: `SRS-D-06` 1.655, `SRS-D-09` 837.075, `SRS-AS-03` 31 tabel) + konstanta `SRS_DOCUMENT` naik ke 1.12 | #42 | `iter-20-srs-v1-12` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
-iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), dan 19 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), 19 dan 20 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
+
+---
+
+## Iterasi 20 — `feat/frontend-srs-v1-12` (angka dokumen disinkronkan, SRS v1.12)
+
+Dokumen perencanaan masih memuat angka **muat 2026-11-16** sesudah basis data dibangun ulang
+2026-11-19. Iterasi ini tidak menambah fitur: setiap angka di dokumen yang menyatakan keadaan
+sekarang diukur ulang ke basis data Aiven dan ke berkas `data/siap-pakai/` pada 2026-11-23, lalu
+diperbaiki. Tidak ada perubahan basis data, ETL, atau endpoint.
+
+| Berkas | Isi |
+|---|---|
+| `frontend/src/lib/transparency-content.ts` | `SRS_DOCUMENT.version` `1.11` → **`1.12`** (halaman `/sumber` menampilkan versi dokumen yang benar) |
+| `../planning-GeoSafe/docs/SRS-GeoSafe.md` | **v1.12**: `SRS-D-06` **1.648 → 1.655** kejadian tanpa kode identitas, `SRS-D-09` **358.493 → 837.075** baris master, `SRS-AS-03`/`[SKEMA]` **29 → 31** tabel siap pakai; baris riwayat 1.12 |
+| `../planning-GeoSafe/docs/ERD-GeoSafe.md` | `DISASTER_EVENTS` **6.390** (s.d. 2026-11-12), `POINT_OBSERVATIONS` **918.319** + NRT 621.100 dipisah, master **837.075**, `coord_level` desa **2.086**, `event_code` **4.664**/61/1.655, `region_code` 170.227 + catatan selisih |
+| `../planning-GeoSafe/docs/ERD-GeoSafe-dipecah.md` · `alur-sistem.md` · `ARSITEKTUR.md` · `draft/01-latar-belakang.md` · `draft/04-ruang-lingkup.md` | angka yang sama di dokumen turunannya, termasuk 29 → 31 CSV dan top-5 provinsi **45,6%** |
+| `../planning-GeoSafe/data/KETERSEDIAAN-DATA.md` · `data/pembangun/README.md` · `docs/ATURAN-PROPOSAL.md` · `AGENTS.md` | 508/514 wilayah ber-titik panas (6 tanpa deteksi, 2026 = 471), cache titik 918.319 baris, master 837.075, butir `SRS-D-06` ditandai selesai |
+| `../planning-GeoSafe/docs/build_srs_docx.py` | halaman judul `Versi 1.11` → **1.12**; `docx`/`pdf` dibangun ulang |
+
+Angka yang berubah, semuanya hasil ukur sesi ini: kejadian **6.383 → 6.390** (30.104 baris BNPB),
+tanpa kode **1.648 → 1.655**, kode unik **4.665 → 4.664**, titik panas arsip **1.452.263 → 918.319**
+(SNPP 889.240 + NOAA20 29.079), masuk poligon **1.348.030 → 748.092** (main 723.684 + fill 24.408),
+luar poligon **104.233 → 170.227**, master **358.493 → 837.075**, tabel **29 → 31 CSV**, wilayah
+ber-titik panas **510 → 508**, konsentrasi 5 provinsi **54,5% → 45,6%**.
+
+```
+cd frontend && npm run typecheck && npm test
+tsc --noEmit                                 (bersih)
+Tests  186 passed (186)                      (25 berkas, 83,10 dtk)
+
+~/.venvs/tro/bin/python ../planning-GeoSafe/docs/build_srs_docx.py
+PDF … (38 halaman, daftar isi 47/47 judul)
+unzip -p …docx word/document.xml | sed 's/<[^>]*>//g' | grep -o "1.655 kejadian" | wc -l   → 2
+```
+
+**Temuan: `region_facts` dan `point_observations` tidak sepakat soal titik di luar poligon.**
+Berkas titik menandai 170.227 di luar poligon, basis data 172.047. Selisih 1.820 titik muncul karena
+`join-titik` di `muat_postgres.py` memakai `ST_Contains` atas geometri **ringkas**
+(`kabupaten_kota_ringkas.geojson`: luas Merauke 45.726 km² vs atribut 46.256 km²), sehingga titik di
+perbatasan tidak masuk poligon. Angka `region_facts` (748.092) mengikuti berkas, bukan hasil join
+titik. Dicatat di `ERD-GeoSafe.md` dan `CATATAN-DISKUSI.md` sesi ke-28 sebagai butir terbuka;
+perbaikannya perubahan skrip muat, bukan dokumen.
 
 ---
 
@@ -2328,6 +2371,9 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 
 | Tanggal | Dokumen | Perubahan |
 |---|---|---|
+| 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.12** | `SRS-D-06` **1.648 → 1.655**, `SRS-D-09` **358.493 → 837.075** baris master, `SRS-AS-03`/`[SKEMA]` **29 → 31** tabel siap pakai, titik panas arsip **918.319** + NRT 621.100 dipisah; `docx`/`pdf` dibangun ulang (38 halaman, daftar isi 47/47). Jumlah kebutuhan tetap **126** |
+| 2026-11-23 | `docs/ERD-GeoSafe.md` · `ERD-GeoSafe-dipecah.md` · `alur-sistem.md` · `ARSITEKTUR.md` · `draft/01-latar-belakang.md` · `draft/04-ruang-lingkup.md` | angka muat ulang 2026-11-19 masuk: kejadian 6.390 / 30.104 baris, titik panas 918.319 (masuk poligon 748.092, luar 170.227), master 837.075, 31 CSV, wilayah 508/514, top-5 provinsi 45,6%, SK 49/127; catatan selisih 1.820 titik `region_code` (DB 172.047 vs berkas 170.227) |
+| 2026-11-23 | `CATATAN-DISKUSI.md` | entri **sesi ke-28**: sinkronisasi angka + SRS v1.12, tabel angka lama → terukur, temuan selisih 1.820 titik, lima butir terbuka |
 | 2026-11-23 | `CATATAN-DISKUSI.md` | entri **sesi ke-27**: iterasi 14–18 (panel `W3`, peta `P3`, titik `P5`, penyaring kepercayaan `h`/`n`/`l`, angka legenda berjumlah, mode heatmap `P1`) beserta angka dan buktinya, 15 keputusan teknis, dan lima butir terbuka (optimasi heatmap, dokumen pengujian, deck/DFD L1, cacat `hotspot_coverage_pct`, koreksi `SRS-D-06`) |
 | 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.10, lalu v1.11** | riwayat versi 1.10: `SRS-F-14` (heatmap), `SRS-F-15`/`F-16`, `SRS-F-28`...`F-31` (`P3`), `SRS-F-40`...`F-44` (`P5`), `SRS-F-63`/`F-64` (`W3`) dinyatakan **sudah berjalan**; angka kejadian **6.383 → 6.390** (bagian 1.3.2, 1.4, dan `SRS-F-40`); `SRS-NF-08` dari "belum diukur" menjadi **terukur lewat HTTP** (1,9–3,0 dtk per tile; diperiksa ulang 6,8–11,7 dtk, ambangnya belum konsisten) beserta aturan baru di bagian 3.4. Versi 1.11: `SRS-F-02` ditulis sesuai bentuk nyata antarmuka (empat halaman; peringkat bagian halaman Analisis wilayah, pencarian kendali di halaman Peta) dan `SRS-S-04` dinyatakan dipenuhi oleh antarmuka. Jumlah kebutuhan tetap **126** |
 | 2026-11-23 | `docs/ARSITEKTUR.md` | bagian 2 diagram (ECharts → grafik SVG), bagian 3 tabel komponen (penyajian titik panas memakai sel grid; ECharts dicabut), bagian 4 (+5 alur: heatmap `P1`, penyaring kepercayaan, `P3`, `P5`, `W3`), bagian 6 (status `NF-05`/`NF-06`/`NF-08`), bagian 7 (+risiko heatmap lambat beserta penahannya), dan **bagian 11 baru: sepuluh keputusan iterasi 14–18** |

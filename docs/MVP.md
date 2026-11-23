@@ -116,6 +116,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 17b | `fix/legend-coverage-series` — angka legenda penempatan titik diambil dari `point_count` supaya berjumlah dengan `placed`/`outside` | ✅ PR #39, tag `iter-17b-coverage-line` |
 | 18 | `feat/api-heatmap-mode` — mode heatmap `P1` (`SRS-F-14`): tile titik berkoordinat diagregasi per sel grid + saklar Choropleth/Heatmap, mulai zoom 4 | ✅ PR #40, tag `iter-18-heatmap` |
 | 19 | `feat/frontend-srs-version` — halaman Sumber & Batas Data mencantumkan versi dokumen SRS (`SRS-S-04`) + angka kejadian daftar istilah disinkronkan ke 6.390 | ✅ PR #41, tag `iter-19-srs-version` |
+| 20 | `feat/frontend-srs-v1-12` — sinkronisasi angka dokumen perencanaan ke muat ulang 2026-11-19 + SRS **v1.12** (`SRS-D-06` 1.655, `SRS-D-09` 837.075, `SRS-AS-03` 31 tabel) + `SRS_DOCUMENT` di halaman `/sumber` naik ke 1.12 | ✅ PR #42, tag `iter-20-srs-v1-12` |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar
