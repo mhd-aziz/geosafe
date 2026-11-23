@@ -1,14 +1,17 @@
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 
 import { useSourceSummary } from './hooks/useSourceSummary';
 import { MAP_SERIES } from './lib/constants';
+import { DEFAULT_MAP_PAGE, MAP_PAGES, mapPagePath } from './lib/map-pages';
 import { AnalysisPage } from './pages/AnalysisPage';
 import { MapPage } from './pages/MapPage';
 import { SourcesPage } from './pages/SourcesPage';
 import { TrendPage } from './pages/TrendPage';
 
 const NAV = [
-  { to: '/', label: 'Peta' },
+  // Tiga peta dipisah karena serinya berbeda dan tidak boleh dicampur; navigasi
+  // utama tetap satu daftar supaya setiap halaman punya alamat sendiri.
+  ...MAP_PAGES.map((page) => ({ to: mapPagePath(page.slug), label: page.label })),
   { to: '/tren', label: 'Tren nasional' },
   { to: '/analisis', label: 'Analisis wilayah' },
   { to: '/sumber', label: 'Sumber & Batas Data' },
@@ -89,7 +92,11 @@ export function App() {
 
       <main className="flex min-h-0 flex-1 flex-col">
         <Routes>
-          <Route path="/" element={<MapPage />} />
+          <Route path="/" element={<Navigate to={mapPagePath(DEFAULT_MAP_PAGE)} replace />} />
+          <Route path="/peta" element={<Navigate to={mapPagePath(DEFAULT_MAP_PAGE)} replace />} />
+          {/* Satu komponen untuk tiga halaman: parameter rute yang memilih lapisan,
+            * sehingga MapLibre tidak diinisialisasi ulang saat berpindah peta. */}
+          <Route path="/peta/:lapisan" element={<MapPage />} />
           <Route path="/tren" element={<TrendPage />} />
           <Route path="/analisis" element={<AnalysisPage />} />
           <Route path="/sumber" element={<SourcesPage />} />
@@ -113,9 +120,10 @@ export function App() {
           {firms ? (
             <p>
               Sumber titik panas: NASA FIRMS — {firms.source_name}. Data sampai{' '}
-              {firms.data_until ?? 'tidak disebutkan'}, diakses {firms.accessed_on}. Peta memakai
-              seri <code>{MAP_SERIES}</code> (arsip); seri <code>nrt</code> 2026 tidak sebanding dan
-              tidak digambar, angkanya ada di panel wilayah dan halaman tren.
+              {firms.data_until ?? 'tidak disebutkan'}, diakses {firms.accessed_on}. Choropleth
+              memakai seri <code>{MAP_SERIES}</code> (arsip); titik oranye memakai seri{' '}
+              <code>nrt</code> (terkini). Kedua seri tidak sebanding dan tidak pernah dijumlahkan;
+              angka 2026 belum setahun penuh.
             </p>
           ) : (
             <p>Keterangan sumber belum tersedia{sourceError ? `: ${sourceError}` : ''}.</p>

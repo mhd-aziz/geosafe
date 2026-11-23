@@ -281,14 +281,46 @@ describe('App', () => {
     expect(screen.getByText('231')).toBeTruthy();
   });
 
-  it('memuat navigasi tiga halaman', async () => {
+  it('menyembunyikan overlay titik terkini saat kotak centang dimatikan', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp();
+
+    const toggle = await screen.findByLabelText('Tampilkan titik terkini');
+    expect(toggle).toHaveProperty('checked', true);
+    expect(screen.getByText('Titik panas terkini')).toBeTruthy();
+
+    fireEvent.click(toggle);
+
+    // Kendali jendela ikut hilang karena tidak ada titik yang digambar; panel
+    // ringkasan nasional tetap ada karena itu `W1`, bukan overlay peta.
+    expect(screen.queryByText('Titik panas terkini')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Ringkasan nasional titik panas' })).toBeTruthy();
+  });
+
+  it('mengalihkan alamat peta yang tidak dikenal ke halaman titik panas', async () => {
+    fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
+    renderApp('/peta/tidak-ada');
+
+    expect(await screen.findByLabelText('Tahun')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Heatmap' })).toBeTruthy();
+  });
+
+  it('memuat navigasi enam halaman, termasuk tiga peta terpisah', async () => {
     fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
     renderApp();
 
     const nav = screen.getByRole('navigation', { name: 'Navigasi halaman' });
-    expect(nav.textContent).toContain('Peta');
-    expect(nav.textContent).toContain('Tren nasional');
-    expect(nav.textContent).toContain('Sumber & Batas Data');
+    for (const label of [
+      'Peta titik panas',
+      'Peta kejadian',
+      'Peta kerawanan',
+      'Tren nasional',
+      'Analisis wilayah',
+      'Sumber & Batas Data',
+    ]) {
+      expect(nav.textContent).toContain(label);
+    }
+    expect(nav.querySelectorAll('a')).toHaveLength(6);
   });
 
   it('memuat halaman Sumber & Batas Data lewat rute /sumber', async () => {
@@ -328,7 +360,7 @@ describe('App', () => {
 
     expect(await screen.findByText(/Titik panas VIIRS\/MODIS/)).toBeTruthy();
     expect(screen.getByText(/Data sampai 2026-11-15, diakses 2026-11-16/)).toBeTruthy();
-    expect(screen.getByText(/tidak sebanding dan tidak digambar/)).toBeTruthy();
+    expect(screen.getByText(/tidak sebanding dan tidak pernah dijumlahkan/)).toBeTruthy();
     expect(screen.getAllByText('nrt').length).toBeGreaterThan(0);
   });
 
@@ -369,30 +401,29 @@ describe('App', () => {
 
     expect(await screen.findByText('Kepadatan titik panas (heatmap)')).toBeTruthy();
     // Tanpa kelas angka, dan sebabnya dinyatakan — bukan legenda kosong.
-    expect(screen.getByText(/legenda ini tidak memakai kelas angka/)).toBeTruthy();
-    expect(screen.getByText(/mulai zoom 4|baru menggambar mulai zoom 4/)).toBeTruthy();
+    expect(screen.getAllByText(/legenda ini tidak memakai kelas angka/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/baru menggambar mulai zoom 4/).length).toBeGreaterThan(0);
   });
 
-  it('memuat lapisan kejadian tercatat BNPB beserta angka nasionalnya', async () => {
+  it('memuat halaman kejadian tercatat BNPB beserta angka nasionalnya', async () => {
     fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
-    renderApp();
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Kejadian' }));
+    renderApp('/peta/kejadian');
 
     // `SRS-F-30`: peta ini adalah kejadian tercatat BNPB, bukan deteksi satelit.
     expect(screen.getAllByText(/kejadian tercatat BNPB/).length).toBeGreaterThanOrEqual(2);
     // `SRS-F-31`: angka nasional tahun terpilih tampil sebagai pembanding.
     expect(await screen.findByText('Kejadian nasional 2026')).toBeTruthy();
     expect(screen.getByText('1.110')).toBeTruthy();
-    // `SRS-F-28`: kejadian dipetakan per kabupaten/kota, jadi saklar provinsi mati.
-    expect(screen.getByRole('button', { name: 'Provinsi' }).hasAttribute('disabled')).toBe(true);
-    // Tahun tetap berlaku di lapisan ini (`SRS-F-29`), tidak dinonaktifkan.
+    // `SRS-F-28`: kejadian dipetakan per kabupaten/kota, jadi kendali tingkat
+    // provinsi tidak ada di halaman ini — bukan dinonaktifkan.
+    expect(screen.queryByRole('button', { name: 'Provinsi' })).toBeNull();
+    // Tahun tetap berlaku di halaman ini (`SRS-F-29`).
     expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(false);
   });
 
-  it('memuat lapisan titik kejadian beserta sebaran ketelitian koordinatnya', async () => {
+  it('memuat tampilan titik kejadian beserta sebaran ketelitian koordinatnya', async () => {
     fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
-    renderApp();
+    renderApp('/peta/kejadian');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Titik kejadian' }));
 
@@ -402,56 +433,52 @@ describe('App', () => {
     expect(screen.getByText(/Desa\/kelurahan \(teliti\): 200/)).toBeTruthy();
     // Legenda lapisan titik, bukan legenda titik panas.
     expect(screen.getByText('Titik kejadian menurut ketelitian koordinat')).toBeTruthy();
-    // Tahun tetap berlaku (`SRS-F-43`), tingkat provinsi tidak (`SRS-F-40`).
+    // Tahun tetap berlaku (`SRS-F-43`), tingkat provinsi tidak ada (`SRS-F-40`).
     expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(false);
-    expect(screen.getByRole('button', { name: 'Provinsi' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Provinsi' })).toBeNull();
   });
 
-  it('memuat lapisan kerawanan beserta skema dan uji sensitivitasnya', async () => {
+  it('memuat halaman kerawanan beserta skema dan uji sensitivitasnya', async () => {
     fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
-    renderApp();
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan' }));
+    renderApp('/peta/kerawanan');
 
     // `SRS-F-33`: skema A tampil sebagai pilihan awal.
     expect(screen.getByRole('button', { name: 'A' }).getAttribute('aria-pressed')).toBe('true');
     // `SRS-F-34`: hasil uji sensitivitas ikut tampil, bukan hanya pilihan skema.
     expect(await screen.findByText(/Korelasi peringkat/)).toBeTruthy();
     expect(screen.getByText('0,9252')).toBeTruthy();
-    // `SRS-F-37`: skor hanya ada di kabupaten/kota, jadi saklar provinsi dimatikan.
-    expect(screen.getByRole('button', { name: 'Provinsi' }).hasAttribute('disabled')).toBe(true);
+    // `SRS-F-37`: skor hanya ada di kabupaten/kota, jadi kendali tingkat provinsi
+    // tidak ada di halaman ini.
+    expect(screen.queryByRole('button', { name: 'Provinsi' })).toBeNull();
     // `SRS-F-35`/`SRS-F-36`: IRBI sejajar sebagai konteks, skor bukan angka resmi BNPB.
     // Kalimat itu muncul di dua tempat yang keduanya wajib (legenda dan panel),
     // jadi yang diperiksa jumlahnya, bukan satu simpul tertentu.
     expect(screen.getAllByText(/bukan angka resmi BNPB/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/IRBI 2025 ditampilkan sejajar/).length).toBeGreaterThanOrEqual(1);
-    // Lapisan kerawanan tidak bertahun: penyaring tahun nonaktif, bukan dibiarkan berlaku.
-    expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(true);
-    // Alasan penonaktifan harus terbaca di teks layar, bukan hanya di `title`
-    // (elemen nonaktif tidak dapat difokus pengguna keyboard).
+    // Lapisan kerawanan tidak bertahun: penyaring tahun tidak ada di halaman ini.
+    expect(screen.queryByLabelText('Tahun')).toBeNull();
+    // Alasan ketiadaan kendali harus terbaca di teks layar, bukan hanya di `title`.
     expect(screen.getByText(/ringkasan satu periode, jadi penyaring tahun tidak berlaku/)).toBeTruthy();
   });
 
   it('menyebut kegagalan keterangan skema alih-alih menulis "sedang dimuat"', async () => {
     fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
     fetchRiskSchemesMock.mockRejectedValue(new Error('Failed to fetch'));
-    renderApp();
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan' }));
+    renderApp('/peta/kerawanan');
 
     // Satu layar tidak boleh memuat dua pesan yang saling bertentangan.
-    expect(screen.getByText(/keterangan skema gagal dimuat/)).toBeTruthy();
+    expect(await screen.findByText(/keterangan skema gagal dimuat/)).toBeTruthy();
     expect(screen.queryByText(/keterangan skema sedang dimuat/)).toBeNull();
     // Peta dan kendali tetap bisa dipakai; skema default tetap ditawarkan.
     expect(screen.getByRole('button', { name: 'A' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByText(/Peta tetap memakai skema default/)).toBeTruthy();
   });
 
-  it('memuat lapisan kerawanan desa beserta pemilih provinsi dan angka kelasnya', async () => {
+  it('memuat kelas kerawanan desa beserta pemilih provinsi dan angka kelasnya', async () => {
     fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
-    renderApp();
+    renderApp('/peta/kerawanan');
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan desa' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Desa/kelurahan' }));
 
     // `SRS-F-38`: lapisan ini dimuat per provinsi, jadi provinsinya harus dipilih.
     const select = await screen.findByLabelText('Provinsi');
@@ -467,18 +494,18 @@ describe('App', () => {
     // Angka dari API ikut tampil sebagai kelas, bukan hanya nama kelas.
     expect(screen.getByText('43.753')).toBeTruthy();
     expect(screen.getByText('812 desa')).toBeTruthy();
-    // Kendali yang tidak berlaku dinonaktifkan, dan sebabnya terbaca di teks layar.
-    expect(screen.getByLabelText('Tahun').hasAttribute('disabled')).toBe(true);
-    expect(screen.getByRole('button', { name: 'Provinsi' }).hasAttribute('disabled')).toBe(true);
+    // Kendali yang tidak berlaku tidak ada di halaman ini, dan sebabnya terbaca.
+    expect(screen.queryByLabelText('Tahun')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Provinsi' })).toBeNull();
     expect(screen.getByText(/dimuat satu provinsi pada satu waktu/)).toBeTruthy();
     expect(screen.getByText(/susunan penelitian ini, bukan angka resmi BNPB · satu provinsi/)).toBeTruthy();
   });
 
-  it('memperbesar peta ke provinsi yang dipilih pada lapisan desa', async () => {
+  it('memperbesar peta ke provinsi yang dipilih pada tampilan kelas desa', async () => {
     fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
-    renderApp();
+    renderApp('/peta/kerawanan');
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan desa' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Desa/kelurahan' }));
     fireEvent.change(await screen.findByLabelText('Provinsi'), { target: { value: '33' } });
 
     // Peta diperbesar ke kotak wilayah provinsi itu sebelum tile diminta, karena
@@ -490,11 +517,11 @@ describe('App', () => {
   it('menyatakan kegagalan daftar provinsi, bukan menulis "sedang dimuat"', async () => {
     fetchSourcesMock.mockResolvedValue({ count: 1, sources: [] });
     fetchVillageProvincesMock.mockRejectedValue(new Error('Failed to fetch'));
-    renderApp();
+    renderApp('/peta/kerawanan');
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Kerawanan desa' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Desa/kelurahan' }));
 
-    expect(screen.getByText(/daftar provinsi gagal dimuat/)).toBeTruthy();
+    expect(await screen.findByText(/daftar provinsi gagal dimuat/)).toBeTruthy();
     expect(screen.queryByText(/daftar provinsi sedang dimuat/)).toBeNull();
     expect(screen.getByLabelText('Provinsi').hasAttribute('disabled')).toBe(true);
     expect(screen.getByText(/Keterangan kerawanan desa gagal dimuat/)).toBeTruthy();

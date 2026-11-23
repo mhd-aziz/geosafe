@@ -11,6 +11,12 @@ export type MapLevel = 'regency' | 'province';
  *  atau kelas kerawanan desa/kelurahan. */
 export type MapLayer = 'hotspot' | 'events' | 'event_points' | 'risk' | 'risk_village';
 
+/** Tampilan di halaman Peta Kejadian: choropleth jumlah kejadian atau titik kejadian (`P5`). */
+export type EventView = 'choropleth' | 'points';
+
+/** Tampilan di halaman Peta Kerawanan: skor kabupaten/kota atau kelas desa. */
+export type RiskView = 'regency' | 'village';
+
 /** Skema bobot skor kerawanan (`P4`); nilainya ditentukan API. */
 export type RiskSchemeCode = 'a' | 'b' | 'c';
 

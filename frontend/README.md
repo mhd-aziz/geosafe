@@ -76,7 +76,7 @@ frontend/
     ├── main.tsx                pemasangan React ke #root + BrowserRouter
     ├── App.tsx                 kerangka: judul, navigasi, rute, keterangan sumber
     ├── index.css               masuknya Tailwind (`@import 'tailwindcss'`)
-    ├── pages/                  MapPage · TrendPage · AnalysisPage · SourcesPage (satu berkas per halaman)
+    ├── pages/                  MapPage (tiga rute peta) · TrendPage · AnalysisPage · SourcesPage
     ├── api/                    client.ts (pembungkus fetch) · geosafe.ts (per endpoint)
     ├── components/
     │   ├── map/                MapView · MapToolbar · LatestControl · Legend
@@ -86,16 +86,20 @@ frontend/
     │   └── common/             DataNotes
     ├── hooks/                  useDebouncedValue · useRegionSearch · useRegionPanel ·
     │                           useLatestHotspots (lapisan terkini) · useEventPoints (titik kejadian) ·
-    │                           useSourceSummary · useRemoteData (baca-saja halaman)
+    │                           useSourceSummary · useRemoteData (baca-saja halaman) ·
+    │                           useIsNarrow (tempat legenda di layar sempit)
     ├── lib/                    constants · format · choropleth · events · event-points · latest-layer ·
-    │                           map-style · risk · transparency-content
+    │                           map-pages (tiga halaman peta) · map-style · risk · transparency-content
     ├── types/geosafe.ts        bentuk balasan API (nama medan = nama kolom DB)
     └── test/setup.ts           pembersihan DOM antar uji
 ```
 
-Halaman: `/` peta (P1 + P3 lapisan kejadian + P5 titik kejadian + C1 + W2 + P2/W1 lapisan terkini + W3 panel kecamatan + W4 panel desa) · `/tren` grafik nasional
-(A1) · `/analisis` komposisi wilayah (A2) + peringkat kabupaten/kota (A3) · `/sumber` Sumber &
-Batas Data (T1). Uji diletakkan bersebelahan dengan berkas yang diuji
+Halaman: `/peta/titik-panas` (P1 choropleth/heatmap + P2/W1 overlay terkini + C1 + W2 + W3/W4 dari pencarian) ·
+`/peta/kejadian` (P3 choropleth / P5 titik kejadian) · `/peta/kerawanan` (P4 skor kabupaten/kota / kelas desa) ·
+`/tren` grafik nasional (A1) · `/analisis` komposisi wilayah (A2) + peringkat kabupaten/kota (A3) ·
+`/sumber` Sumber & Batas Data (T1). `/` dialihkan ke `/peta/titik-panas`. Kendali peta satu baris;
+legenda dan kendali jendela terkini tinggal di kolom kanan (legenda kembali ke peta dan terlipat di bawah
+640 px). Uji diletakkan bersebelahan dengan berkas yang diuji
 (`*.test.ts(x)`), supaya perubahan komponen dan ujinya terlihat dalam satu
 tampilan diff.
 
