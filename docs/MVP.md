@@ -118,6 +118,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 19 | `feat/frontend-srs-version` — halaman Sumber & Batas Data mencantumkan versi dokumen SRS (`SRS-S-04`) + angka kejadian daftar istilah disinkronkan ke 6.390 | ✅ PR #41, tag `iter-19-srs-version` |
 | 20 | `feat/frontend-srs-v1-12` — sinkronisasi angka dokumen perencanaan ke muat ulang 2026-11-19 + SRS **v1.12** (`SRS-D-06` 1.655, `SRS-D-09` 837.075, `SRS-AS-03` 31 tabel) + `SRS_DOCUMENT` di halaman `/sumber` naik ke 1.12 | ✅ PR #42, tag `iter-20-srs-v1-12` |
 | 21 | `feat/api-heatmap-z4-grid` — tile heatmap z4 dilayani materialized view `mv_heatmap_cells` (76.173 sel grid; 11,4 dtk → 0,13–0,74 dtk), z≥5 tetap per baris; `SRS-NF-08` v1.13 | ✅ PR #43, tag `iter-21-heatmap-grid` |
+| 22 | `docs/pengujian` — dokumen pengujian `docs/PENGUJIAN.md` v1.0 (137 uji backend + 186 frontend, tabel penerimaan `P1`…`T1`, status `NF-04`…`NF-11`, keterbatasan) + SRS v1.14 merujuknya | ✅ PR #44, tag `iter-22-pengujian` |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar

@@ -58,12 +58,42 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 19 | `feat/frontend-srs-version` | Halaman Sumber & Batas Data mencantumkan versi dokumen SRS (`SRS-S-04`) + angka kejadian daftar istilah disinkronkan ke 6.390 | #41 | `iter-19-srs-version` |
 | 20 | `feat/frontend-srs-v1-12` | Angka dokumen perencanaan disinkronkan ke muat ulang 2026-11-19 (SRS v1.12: `SRS-D-06` 1.655, `SRS-D-09` 837.075, `SRS-AS-03` 31 tabel) + konstanta `SRS_DOCUMENT` naik ke 1.12 | #42 | `iter-20-srs-v1-12` |
 | 21 | `feat/api-heatmap-z4-grid` | Tile heatmap z4 dilayani `mv_heatmap_cells` (76.173 sel grid, dibangun `muat_postgres.py grid`): 11,4 dtk → **0,13–0,74 dtk**; z≥5 tetap per baris; SRS `NF-08` v1.13 | #43 | `iter-21-heatmap-grid` |
+| 22 | `docs/pengujian` | Dokumen pengujian `docs/PENGUJIAN.md` v1.0 (di repo perencanaan) + SRS v1.14 merujuknya; `SRS_DOCUMENT` di halaman `/sumber` → 1.14 | #44 | `iter-22-pengujian` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
-iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), 19, 20, dan 21 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), 19, 20, 21, dan 22 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
+
+---
+
+## Iterasi 22 — `docs/pengujian` (dokumen pengujian + SRS v1.14)
+
+SRS bagian 4.3 menjanjikan **dokumen pengujian terpisah** "setelah prototipe pertama berjalan";
+seluruh antrean fitur `P1`–`P5` sudah jalan, jadi janji itu bisa dipenuhi. Dokumennya dibuat di
+repo perencanaan (`../planning-GeoSafe/docs/PENGUJIAN.md`, v1.0) — bukan di repo ini, karena
+isinya bukti yang harus diperbarui setiap data dimuat ulang tanpa menaikkan versi SRS.
+
+| Berkas | Isi |
+|---|---|
+| `../planning-GeoSafe/docs/PENGUJIAN.md` | **baru**, v1.0: lingkungan uji; perintah + hasil (`pytest` 137, `npm test` 186); inventaris 12 berkas uji backend dan 25 berkas uji frontend; tabel penerimaan 25 permintaan HTTP untuk `P1`→`T1`; status `NF-04`…`NF-11`; pemeriksaan data; yang tidak diotomasi; keterbatasan; checklist demo 8 langkah |
+| `../planning-GeoSafe/docs/SRS-GeoSafe.md` → **v1.14** | bagian 4.3 menunjuk dokumen itu; baris `[PENGUJIAN]` di daftar referensi; riwayat 1.14 |
+| `frontend/src/lib/transparency-content.ts` | `SRS_DOCUMENT` `1.13` → **`1.14`** |
+
+Angka bukti di dokumen diambil dari eksekusi hari yang sama: tile `P1` z0 `200` 55.396 B 0,34 dtk;
+heatmap z4 `200` 97.693 B 0,26 dtk; panel `W2` Merauke `200` 2.388 B 0,06 dtk; `P5` 2023
+`200` 841.221 B 0,27 dtk; `A3` `200` 101.327 B 0,09 dtk (514 baris); galat sengaja: zoom heatmap di
+bawah 4 → `422`, tile laut → `204`, lapisan desa di bawah z8 → `422`.
+
+```
+cd frontend && npm run typecheck && npm test
+tsc --noEmit            (bersih)
+Tests  186 passed       (25 berkas; tidak ada uji baru — perubahannya satu konstanta)
+
+~/.venvs/tro/bin/python ../planning-GeoSafe/docs/build_srs_docx.py
+PDF … (40 halaman, daftar isi 47/47 judul)
+```
 
 ---
 
@@ -2416,6 +2446,7 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 
 | Tanggal | Dokumen | Perubahan |
 |---|---|---|
+| 2026-11-23 | `docs/PENGUJIAN.md` (baru) · `docs/SRS-GeoSafe.md` → **v1.14** | dokumen pengujian v1.0: 137 uji backend + 186 uji frontend, 25 permintaan penerimaan `P1`…`T1`, status `NF-04`…`NF-11`, pemeriksaan data, keterbatasan, checklist demo; SRS 4.3 + `[PENGUJIAN]` + `docx`/`pdf` dibangun ulang (40 halaman) |
 | 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.13** | `SRS-NF-08`: heatmap z4 **0,13–0,74 dtk** sesudah dilayani `mv_heatmap_cells` (sebelumnya 1,8 dtk hangat / 11,4 dtk dingin), z6 0,23–1,38, z8 0,06–0,09; **z5 dinyatakan belum memenuhi**; `docx`/`pdf` dibangun ulang (39 halaman, daftar isi 47/47). Jumlah kebutuhan tetap **126** |
 | 2026-11-23 | `docs/ERD-GeoSafe.md` · `docs/ARSITEKTUR.md` | catatan `mv_heatmap_cells` bukan tabel ERD ke-15 (76.173 baris, wajib dibangun ulang sesudah muat); komponen + alur heatmap, risiko `NF-08`, dan bagian 12 (lima keputusan iterasi 21) |
 | 2026-11-23 | `AGENTS.md` (repo perencanaan) + `CATATAN-DISKUSI.md` | `muat_postgres.py` 12 tahap (`grid`), aturan bangun ulang view, entri **sesi ke-29** |
