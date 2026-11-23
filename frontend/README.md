@@ -144,9 +144,10 @@ tampilan diff.
    MapLibre menolak seluruh lapisan dan menampilkan "Sebagian latar peta gagal dimuat"
    — perbaikannya `interpolate` menjadi akar dan faktor `coord_level` dihitung di setiap
    stop; (b) efek choropleth tidak bergantung pada `hotspotView`, sehingga Heatmap
-   menambah lapisan tanpa melepas poligon. Uji ekspresi dengan
+   menambah lapisan tanpa melepas poligon; (c) heatmap ditambahkan tanpa `beforeId`
+   sehingga menutupi titik terkini. Uji ekspresi dengan
    `createPropertyExpression` dari `@maplibre/maplibre-gl-style-spec` (jsdom tidak
-   memvalidasi gaya) dan uji perpindahan choropleth ↔ heatmap di `MapView.test.tsx`.
+   memvalidasi gaya) uji perpindahan choropleth ↔ heatmap, dan urutan heatmap di bawah overlay di `MapView.test.tsx`.
 
 ## Lapisan kerawanan (`P4`)
 

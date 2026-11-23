@@ -309,7 +309,8 @@ dokumen boleh langsung ke `main`.
     choropleth pernah tidak mencantumkan `hotspotView`, sehingga memilih Heatmap
     menambah lapisan heatmap tanpa melepas poligon choropleth. Saat menambah keadaan
     yang memengaruhi sumber/layer, masukkan ke daftar dependensi dan uji perpindahan
-    dua arah (choropleth → heatmap → choropleth).
+    dua arah (choropleth → heatmap → choropleth). Lapisan baru yang harus berada di bawah
+    overlay lain wajib memakai `beforeId`; heatmap pernah menutupi `latest-hotspot-points`.
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.

@@ -483,6 +483,9 @@ export function MapView({
     }
 
     const spec = heatmapSpec(year, confidence);
+    // Heatmap dipasang **di bawah** titik terkini bila lapisan itu ada; tanpa
+    // `beforeId`, heatmap menutupi titik oranye yang checkbox-nya aktif.
+    const beforeId = map.getLayer(LATEST_LAYER_ID) ? LATEST_LAYER_ID : undefined;
     map.addSource(spec.sourceId, {
       type: 'vector',
       tiles: [spec.url],
@@ -517,7 +520,7 @@ export function MapView({
           '#b30000',
         ] as never,
       },
-    });
+    }, beforeId);
   }, [ready, layer, hotspotView, year, confidence]);
 
   // Lapisan titik kejadian (`P5`): GeoJSON, bukan tile — 2.153 kejadian pada tahun
