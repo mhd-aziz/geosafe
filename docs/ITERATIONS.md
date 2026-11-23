@@ -59,7 +59,7 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 20 | `feat/frontend-srs-v1-12` | Angka dokumen perencanaan disinkronkan ke muat ulang 2026-11-19 (SRS v1.12: `SRS-D-06` 1.655, `SRS-D-09` 837.075, `SRS-AS-03` 31 tabel) + konstanta `SRS_DOCUMENT` naik ke 1.12 | #42 | `iter-20-srs-v1-12` |
 | 21 | `feat/api-heatmap-z4-grid` | Tile heatmap z4 dilayani `mv_heatmap_cells` (76.173 sel grid, dibangun `muat_postgres.py grid`): 11,4 dtk → **0,13–0,74 dtk**; z≥5 tetap per baris; SRS `NF-08` v1.13 | #43 | `iter-21-heatmap-grid` |
 | 22 | `docs/pengujian` | Dokumen pengujian `docs/PENGUJIAN.md` v1.0 (di repo perencanaan) + SRS v1.14 merujuknya; `SRS_DOCUMENT` di halaman `/sumber` → 1.14 | #44 | `iter-22-pengujian` |
-| 23 | `feat/frontend-map-pages` | Tiga halaman peta terpisah (`/peta/titik-panas`, `/peta/kejadian`, `/peta/kerawanan`) + navigasi enam menu; kendali per halaman satu baris, legenda & kendali terkini pindah ke kolom kanan, kamera awal ke seluruh Indonesia; `P2` tetap overlay dengan kotak centang | — (belum digabung) | — (belum) |
+| 23 | `feat/frontend-map-pages` | Tiga halaman peta terpisah (`/peta/titik-panas`, `/peta/kejadian`, `/peta/kerawanan`) + navigasi enam menu; kendali per halaman satu baris, legenda & kendali terkini pindah ke kolom kanan, kamera awal ke seluruh Indonesia; `P2` tetap overlay dengan kotak centang | #45 | `iter-23-map-pages` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
 iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), 19, 20, 21, dan 22 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
@@ -69,7 +69,7 @@ iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13
 
 ---
 
-## Iterasi 23 — `feat/frontend-map-pages` (tiga halaman peta + kendali per halaman)
+## Iterasi 23 — `feat/frontend-map-pages` (tiga halaman peta + kendali per halaman, PR #45)
 
 Satu halaman peta menampung lima lapisan sekaligus. Diukur di peramban 2026-11-23 pada
 viewport 1440×857: tiga kartu kendali mengapung (kendali 495×251, legenda 198×407, terkini
