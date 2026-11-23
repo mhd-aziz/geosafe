@@ -60,12 +60,56 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 21 | `feat/api-heatmap-z4-grid` | Tile heatmap z4 dilayani `mv_heatmap_cells` (76.173 sel grid, dibangun `muat_postgres.py grid`): 11,4 dtk → **0,13–0,74 dtk**; z≥5 tetap per baris; SRS `NF-08` v1.13 | #43 | `iter-21-heatmap-grid` |
 | 22 | `docs/pengujian` | Dokumen pengujian `docs/PENGUJIAN.md` v1.0 (di repo perencanaan) + SRS v1.14 merujuknya; `SRS_DOCUMENT` di halaman `/sumber` → 1.14 | #44 | `iter-22-pengujian` |
 | 23 | `feat/frontend-map-pages` | Tiga halaman peta terpisah (`/peta/titik-panas`, `/peta/kejadian`, `/peta/kerawanan`) + navigasi enam menu; kendali per halaman satu baris, legenda & kendali terkini pindah ke kolom kanan, kamera awal ke seluruh Indonesia; `P2` tetap overlay dengan kotak centang | #45 | `iter-23-map-pages` |
+| 23b | `fix/frontend-map-layers` | Tiga regresi lapisan peta: `circle-radius` titik kejadian ditolak MapLibre karena `zoom` di dalam `["*"]` (seluruh lapisan hilang); choropleth tidak dilepas saat mode heatmap karena `hotspotView` tidak ada di dependensi efek. Uji validator style-spec, pergantian lapisan, dan urutan heatmap di bawah overlay terkini | #46 | `iter-23b-map-layer-fix` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
 iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), 19, 20, 21, dan 22 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
+
+---
+
+## Iterasi 23b — `fix/frontend-map-layers` (dua regresi lapisan peta, PR #46)
+
+Tiga bug ditemukan saat menguji semua halaman/lapisan di peramban setelah iterasi 23:
+
+1. **P5 titik kejadian gagal total.** MapLibre menolak `circle-radius` karena `["zoom"]`
+   berada di dalam `["*"]`: `layers.event-points-circles.paint.circle-radius: "zoom"
+   expression may only be used as input to a top-level "step" or "interpolate"
+   expression`. Seluruh lapisan tidak dipasang dan peta menampilkan banner "Sebagian
+   latar peta gagal dimuat". Perbaikan: `interpolate` menjadi akar ekspresi, faktor
+   `coord_level` dievaluasi di setiap stop (`z3` → 2,4/3,6/4,8 px; `z9` → 6/9/12 px).
+2. **Choropleth tetap di bawah heatmap.** Efek lapisan tematik tidak mencantumkan
+   `hotspotView` di dependensi, jadi pembersihan `hotspot-fill`/`hotspot-line` tidak
+   pernah berjalan saat pengguna memilih Heatmap. Perbaikan: `hotspotView` masuk
+   dependensi; uji pergantian dua arah ditambahkan.
+3. **Heatmap menutupi titik terkini.** Heatmap ditambahkan tanpa `beforeId` sehingga
+   berada di atas `latest-hotspot-points`; titik oranye yang checkbox-nya aktif tidak
+   terlihat. Perbaikan: heatmap disisipkan sebelum lapisan terkini.
+
+Bukti di peramban (1440×857, data hidup): P5 2026 **1.110** titik dan 2023 **2.153**
+titik ter-render tanpa banner; heatmap hanya menyisakan `hotspot-heat` +
+`latest-hotspot-points`; kembali ke choropleth memulihkan `hotspot-fill`/`hotspot-line`;
+heatmap 2023 + `n` memakai tile `year=2023&confidence=n`; overlay terkini on/off/on,
+klik poligon W2, klik titik kejadian (`EVT-5281`), W3/W4 dari pencarian, dan desa
+provinsi 33 → 35 (8.603 → 3.885 poligon) berjalan tanpa galat. Halaman `/tren`,
+`/analisis`, `/sumber`, serta lebar 390 px dan 768 px tidak meluber.
+
+```bash
+cd frontend
+npm run typecheck   # bersih
+npm test            # 193 passed (25 berkas, 81,45 dtk) — 190 -> 193
+npm run build       # ✓ built in 13,90s
+cd ../backend && .venv/bin/python -m pytest -q   # 137 passed, 42,21 dtk
+```
+
+Uji regresi: `event-points.test.ts` memakai validator resmi `createPropertyExpression`
+dari `@maplibre/maplibre-gl-style-spec` untuk `circle-radius` dan `circle-color`;
+`MapView.test.tsx` memeriksa choropleth → heatmap → choropleth dan urutan heatmap di bawah overlay terkini. Dokumen: SRS **v1.16**,
+`PENGUJIAN.md` **v1.2**, `PETA-DIREKTORI.md`, `README.md`, `docs/MVP.md`,
+`frontend/README.md`, `AGENTS.md` (jebakan ekspresi zoom + dependensi efek),
+`CATATAN-DISKUSI.md` sesi ke-33, `SRS_DOCUMENT` → **1.16**.
 
 ---
 
@@ -2492,6 +2536,7 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 
 | Tanggal | Dokumen | Perubahan |
 |---|---|---|
+| 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.16** · `docs/PENGUJIAN.md` → **v1.2** · `PETA-DIREKTORI.md` | 4.3 menunjuk PENGUJIAN v1.2 dengan **193** uji frontend; tiga uji regresi (validator ekspresi MapLibre, pergantian choropleth/heatmap, urutan heatmap di bawah overlay); build `.docx`/`.pdf` 42 halaman, daftar isi 47/47 |
 | 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.15** · `docs/PENGUJIAN.md` → **v1.1** · `PETA-DIREKTORI.md` | `SRS-F-02` menjadi enam halaman (tiga peta terpisah); 4.3 menunjuk PENGUJIAN v1.1 dengan **190** uji frontend (dari 186); build `.docx`/`.pdf` 41 halaman, daftar isi 47/47 |
 | 2026-11-23 | `docs/PENGUJIAN.md` (baru) · `docs/SRS-GeoSafe.md` → **v1.14** | dokumen pengujian v1.0: 137 uji backend + 186 uji frontend, 25 permintaan penerimaan `P1`…`T1`, status `NF-04`…`NF-11`, pemeriksaan data, keterbatasan, checklist demo; SRS 4.3 + `[PENGUJIAN]` + `docx`/`pdf` dibangun ulang (40 halaman) |
 | 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.13** | `SRS-NF-08`: heatmap z4 **0,13–0,74 dtk** sesudah dilayani `mv_heatmap_cells` (sebelumnya 1,8 dtk hangat / 11,4 dtk dingin), z6 0,23–1,38, z8 0,06–0,09; **z5 dinyatakan belum memenuhi**; `docx`/`pdf` dibangun ulang (39 halaman, daftar isi 47/47). Jumlah kebutuhan tetap **126** |

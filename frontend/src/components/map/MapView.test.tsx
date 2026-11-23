@@ -12,6 +12,7 @@ const { mapState, FakeMap } = vi.hoisted(() => {
   const mapState = {
     sources: new Map<string, unknown>(),
     layers: new Map<string, { id: string }>(),
+    order: [] as string[],
     listeners: new Map<string, () => void>(),
     fitBounds: [] as unknown[],
     fitBoundsBounds: [] as unknown[],
@@ -41,11 +42,18 @@ const { mapState, FakeMap } = vi.hoisted(() => {
       mapState.sources.delete(id);
       mapState.removed.push(`source:${id}`);
     }
-    addLayer(layer: { id: string }) {
+    addLayer(layer: { id: string }, beforeId?: string) {
       mapState.layers.set(layer.id, layer);
+      const at = beforeId ? mapState.order.indexOf(beforeId) : -1;
+      if (at >= 0) {
+        mapState.order.splice(at, 0, layer.id);
+      } else {
+        mapState.order.push(layer.id);
+      }
     }
     removeLayer(id: string) {
       mapState.layers.delete(id);
+      mapState.order = mapState.order.filter((layerId) => layerId !== id);
       mapState.removed.push(`layer:${id}`);
     }
     queryRenderedFeatures() {
@@ -90,6 +98,7 @@ vi.mock('maplibre-gl/dist/maplibre-gl-worker.mjs?url', () => ({ default: '/worke
 vi.mock('../../lib/map-style', () => ({ basemapStyle: () => ({}) }));
 
 import { MapView } from './MapView';
+import type { LatestPoint } from '../../types/geosafe';
 
 const baseProps = {
   riskScheme: 'a' as const,
@@ -98,6 +107,19 @@ const baseProps = {
   focusBounds: null,
   latestPoints: null,
   onSelectRegion: vi.fn(),
+};
+
+const LATEST_POINT: LatestPoint = {
+  latitude: -2,
+  longitude: 118,
+  observed_at: '2026-11-23T00:00:00Z',
+  confidence: 'n',
+  confidence_class: 'nominal',
+  satellite: 'VIIRS_NOAA20_NRT',
+  instrument: 'VIIRS',
+  brightness: 330,
+  frp: 1.2,
+  region_code: null,
 };
 
 /** Pasang peta lalu jalankan kejadian `load`, sama seperti peramban sungguhan.
@@ -116,6 +138,7 @@ function mount(props: Parameters<typeof MapView>[0]) {
 beforeEach(() => {
   mapState.sources.clear();
   mapState.layers.clear();
+  mapState.order.length = 0;
   mapState.listeners.clear();
   mapState.fitBounds.length = 0;
   mapState.fitBoundsBounds.length = 0;
@@ -223,6 +246,46 @@ describe('MapView lapisan desa', () => {
       tiles: ['/tiles/risk/villages/{z}/{x}/{y}.mvt?province=35'],
     });
     expect(mapState.layers.size).toBe(2); // fill + line, tidak berganda
+  });
+
+  it('melepas choropleth saat mode heatmap dan memasangnya kembali', () => {
+    // Regresi 2026-11-23: efek choropleth tidak ikut berjalan saat `hotspotView`
+    // berubah, sehingga poligon tetap di bawah heatmap.
+    const view = mount({ ...baseProps, layer: 'hotspot', provinceCode: null });
+
+    expect(mapState.layers.has('hotspot-fill')).toBe(true);
+
+    view.rerender(
+      <MapView {...baseProps} layer="hotspot" provinceCode={null} hotspotView="heatmap" />,
+    );
+
+    expect(mapState.layers.has('hotspot-fill')).toBe(false);
+    expect(mapState.layers.has('hotspot-line')).toBe(false);
+    expect(mapState.layers.has('hotspot-heat')).toBe(true);
+
+    view.rerender(
+      <MapView {...baseProps} layer="hotspot" provinceCode={null} hotspotView="choropleth" />,
+    );
+
+    expect(mapState.layers.has('hotspot-heat')).toBe(false);
+    expect(mapState.layers.has('hotspot-fill')).toBe(true);
+  });
+
+  it('menaruh heatmap di bawah titik terkini supaya overlay tetap terlihat', () => {
+    // Tanpa `beforeId`, heatmap ditambahkan setelah titik terkini dan menutupinya.
+    mount({
+      ...baseProps,
+      layer: 'hotspot',
+      provinceCode: null,
+      hotspotView: 'heatmap',
+      latestPoints: [LATEST_POINT],
+    });
+
+    expect(mapState.order).toContain('hotspot-heat');
+    expect(mapState.order).toContain('latest-hotspot-points');
+    expect(mapState.order.indexOf('hotspot-heat')).toBeLessThan(
+      mapState.order.indexOf('latest-hotspot-points'),
+    );
   });
 
   it('menaikkan zoom minimum peta selama lapisan desa aktif', () => {
