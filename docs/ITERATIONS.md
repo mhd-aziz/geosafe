@@ -70,7 +70,7 @@ iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13
 
 ---
 
-## Iterasi 23b — `fix/frontend-map-layers` (dua regresi lapisan peta, PR #46)
+## Iterasi 23b — `fix/frontend-map-layers` (tiga regresi lapisan peta, PR #46)
 
 Tiga bug ditemukan saat menguji semua halaman/lapisan di peramban setelah iterasi 23:
 
