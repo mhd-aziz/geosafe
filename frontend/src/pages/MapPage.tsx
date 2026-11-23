@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 
 import {
   fetchNationalTrend,
@@ -21,19 +22,28 @@ import { VillageDetailPanel } from '../components/panel/VillageDetailPanel';
 import { VillagePanel } from '../components/panel/VillagePanel';
 import { SearchBox } from '../components/search/SearchBox';
 import { useEventPoints } from '../hooks/useEventPoints';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import { useLatestHotspots } from '../hooks/useLatestHotspots';
 import { useRemoteData } from '../hooks/useRemoteData';
 import { DEFAULT_YEAR } from '../lib/constants';
 import { bboxParam } from '../lib/format';
+import {
+  DEFAULT_MAP_PAGE,
+  mapPageFromSlug,
+  mapPagePath,
+  type MapPageConfig,
+} from '../lib/map-pages';
 import { DEFAULT_RISK_SCHEME } from '../lib/risk';
 import type {
   ConfidenceCode,
   EventPoint,
+  EventView,
   HotspotView,
   LatestWindow,
   MapLayer,
   MapLevel,
   RiskSchemeCode,
+  RiskView,
   SearchLevel,
   SearchResult,
   SelectedRegion,
@@ -44,21 +54,24 @@ type Bounds = [number, number, number, number];
 /** Kartu sidebar: satu lapisan visual untuk setiap bagian panel. */
 const CARD = 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm';
 
-/** Halaman peta: pilih lapisan → pilih tahun/skema/provinsi → choropleth → klik wilayah → panel.
+/** Tiga halaman peta, dipilih dari alamat (`/peta/:lapisan`).
  *
- * Alur MVP (`P1` → `C1` → `W2`) ditambah lapisan kerawanan kabupaten/kota (`P4`),
- * lapisan kelas kerawanan desa (`P4`, `SRS-F-38`), dan titik terkini (`P2`).
- * Lapisan kerawanan kabupaten/kota hanya ada di tingkat itu (`SRS-F-37`) dan
- * lapisan desa dimuat per provinsi pada zoom 8 ke atas (`SRS-F-38`), jadi saat
- * keduanya aktif pilihan tingkat provinsi dan tahun dinonaktifkan beserta
- * sebabnya — bukan dibiarkan tampak berlaku.
- *
- * Lapisan titik terkini hidup berdampingan dengan choropleth arsip: dua seri itu
- * tidak pernah dijumlahkan (`SRS-F-26`) — titik terkini digambar sebagai titik,
- * choropleth memakai seri `main` per tahun atau kelas kerawanan.
+ * Satu komponen dipakai untuk ketiganya supaya `MapView` tidak diinisialisasi
+ * ulang saat pengguna berpindah peta: basemap PMTiles dan gaya peta tidak dimuat
+ * ulang, dan kamera tidak melompat. Tampilan di dalam halaman (choropleth/heatmap,
+ * choropleth/titik kejadian, skor/kelas desa) tetap keadaan lokal.
  */
 export function MapPage() {
-  const [layer, setLayer] = useState<MapLayer>('hotspot');
+  const { lapisan } = useParams<{ lapisan: string }>();
+  const page = mapPageFromSlug(lapisan);
+  if (!page) {
+    return <Navigate to={mapPagePath(DEFAULT_MAP_PAGE)} replace />;
+  }
+  return <MapPageView page={page} />;
+}
+
+function MapPageView({ page }: { page: MapPageConfig }) {
+  const narrow = useIsNarrow();
   // Pilihan skema dibiarkan kosong sampai pengguna memilih: selama belum dipilih,
   // yang dipakai adalah `default_scheme` dari API (`SRS-F-33`) — bukan nilai yang
   // dikunci di klien, supaya keputusan mana yang jadi tampilan awal tetap di API.
@@ -68,6 +81,11 @@ export function MapPage() {
   const [confidence, setConfidence] = useState<ConfidenceCode | null>(null);
   // Choropleth atau heatmap untuk lapisan titik panas (`SRS-F-14`).
   const [hotspotView, setHotspotView] = useState<HotspotView>('choropleth');
+  // Tampilan di halaman kejadian (`P3`/`P5`) dan kerawanan (`P4`).
+  const [eventView, setEventView] = useState<EventView>('choropleth');
+  const [riskView, setRiskView] = useState<RiskView>('regency');
+  // Lapisan titik terkini (`P2`) tetap overlay, tapi bisa dimatikan pengguna.
+  const [showLatest, setShowLatest] = useState(true);
   const [level, setLevel] = useState<MapLevel>('regency');
   // Lapisan desa dimuat per provinsi (`SRS-F-38`): tanpa provinsi terpilih tidak
   // ada tile yang sah untuk diminta.
@@ -93,33 +111,47 @@ export function MapPage() {
   const trend = useRemoteData(fetchNationalTrend, []);
   // Daftar provinsi + sebaran kelas desa: dipakai kendali lapisan desa dan panelnya.
   const villageProvinces = useRemoteData(fetchVillageProvinces, []);
-  // Titik kejadian (`P5`) hanya diminta saat lapisannya aktif, dan selalu untuk
+  // Titik kejadian (`P5`) hanya diminta saat tampilannya aktif, dan selalu untuk
   // tahun yang sedang dipilih.
-  const eventPoints = useEventPoints(year, layer === 'event_points');
+  const eventPoints = useEventPoints(year, eventView === 'points' && page.base === 'events');
   // Angka tampilan aktif (`SRS-F-16`): titik yang dipakai peta untuk tahun dan
   // kelas kepercayaan yang sedang dipilih, beserta yang jatuh di luar poligon.
-  const coverage = useRemoteData(() => fetchPointCoverage(year, confidence), [year, confidence]);
+  const coverage = useRemoteData(
+    () => fetchPointCoverage(year, confidence),
+    [year, confidence, page.slug],
+  );
   // Data hanya dipakai bila berasal dari jendela yang sedang dipilih: saat pengguna
   // berganti jendela, angka jendela lama tidak boleh tetap tampil di sebelah tombol
   // jendela baru, dan bila tarikan jendela baru gagal hal itu disebut apa adanya.
   const latestMatchesWindow =
     latest.data?.window_hours === latestWindow && latest.summary?.window_hours === latestWindow;
   const riskScheme = schemeChoice ?? riskSchemes.data?.default_scheme ?? DEFAULT_RISK_SCHEME;
-  const latestShown = (latest.data?.points?.length ?? 0) > 0;
 
-  const handleLayerChange = useCallback((next: MapLayer) => {
-    setLayer(next);
-    // Rincian titik kejadian tidak berlaku setelah lapisannya ditinggalkan.
-    if (next !== 'event_points') {
-      setSelectedPoint(null);
-    }
-    // Kerawanan dan kejadian tidak punya tingkat provinsi, jadi pilihannya ikut
-    // dikembalikan ke kabupaten/kota supaya tidak ada keadaan "lapisan ini +
-    // tingkat provinsi".
-    if (next !== 'hotspot') {
+  // Lapisan tematik yang dikirim ke peta: halaman + tampilan di dalamnya.
+  const layer: MapLayer =
+    page.base === 'hotspot'
+      ? 'hotspot'
+      : page.base === 'events'
+        ? eventView === 'points'
+          ? 'event_points'
+          : 'events'
+        : riskView === 'village'
+          ? 'risk_village'
+          : 'risk';
+
+  // Pindah halaman berarti pindah seri: pilihan wilayah dan titik tidak dibawa,
+  // dan kendali yang hanya berlaku di halaman titik panas dikembalikan ke awal.
+  useEffect(() => {
+    setSelected(null);
+    setSelectedPoint(null);
+    if (page.base !== 'hotspot') {
       setLevel('regency');
+      setConfidence(null);
     }
-  }, []);
+  }, [page.base, page.slug]);
+
+  const latestVisible = page.base === 'hotspot' && showLatest;
+  const latestShown = latestVisible && (latest.data?.points?.length ?? 0) > 0;
 
   const handleProvinceChange = useCallback(
     (code: string) => {
@@ -181,20 +213,54 @@ export function MapPage() {
     riskSchemes.data?.schemes.find((scheme) => scheme.scheme_code === riskScheme)?.scheme_name ??
     null;
 
+  const headlinePanel =
+    page.base === 'hotspot' ? (
+      <div className={CARD}>
+        <LatestPanel
+          summary={latestMatchesWindow ? latest.summary : null}
+          status={latest.status}
+          error={latest.error}
+        />
+      </div>
+    ) : page.base === 'events' ? (
+      eventView === 'points' ? (
+        <div className={CARD}>
+          <EventPointsPanel state={eventPoints} year={year} />
+        </div>
+      ) : (
+        <div className={CARD}>
+          <EventPanel trend={trend} year={year} />
+        </div>
+      )
+    ) : riskView === 'village' ? (
+      <div className={CARD}>
+        <VillagePanel state={villageProvinces} provinceCode={provinceCode} />
+      </div>
+    ) : (
+      <div className={CARD}>
+        <RiskPanel state={riskSchemes} scheme={riskScheme} />
+      </div>
+    );
+
+  // Legenda tinggal di satu tempat saja: di peta (layar sempit, bisa dilipat)
+  // atau di kolom kanan (desktop), supaya teksnya tidak muncul dua kali.
+  const legend = (
+    <Legend
+      layer={layer}
+      hotspotView={hotspotView}
+      confidence={confidence}
+      coverage={page.base === 'hotspot' ? (coverage.data?.totals ?? null) : null}
+      riskSchemeName={activeSchemeName}
+      villageClassCounts={villageProvinces.data?.class_counts ?? {}}
+      villageWithoutProvince={villageProvinces.data?.villages_without_province ?? null}
+      latestShown={latestShown}
+    />
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <section
-        aria-label={
-          layer === 'risk_village'
-            ? 'Peta kelas kerawanan desa/kelurahan'
-            : layer === 'risk'
-              ? 'Peta kelas kerawanan kabupaten/kota'
-              : layer === 'events'
-                ? 'Peta jumlah kejadian karhutla tercatat BNPB'
-                : layer === 'event_points'
-                  ? 'Peta titik kejadian karhutla tercatat BNPB'
-                  : 'Peta sebaran titik panas'
-        }
+        aria-label={page.title}
         className="relative h-[58vh] min-h-[340px] shrink-0 sm:h-[56vh] sm:min-h-[380px] lg:h-auto lg:min-h-0 lg:flex-1"
       >
         <MapView
@@ -206,20 +272,27 @@ export function MapPage() {
           focusBounds={focusBounds}
           confidence={layer === 'hotspot' ? confidence : null}
           hotspotView={hotspotView}
-          latestPoints={latest.data?.points ?? null}
+          latestPoints={latestVisible ? (latest.data?.points ?? null) : null}
           eventPoints={layer === 'event_points' ? (eventPoints.data?.points ?? null) : null}
           onSelectRegion={handleSelectFromMap}
           onSelectEventPoint={setSelectedPoint}
           onViewportChange={setViewport}
         />
-        {/* Kendali mengapung: di layar kecil daftar ini bisa digulir dan tingginya
-         * dibatasi supaya peta tetap kelihatan di bawahnya — tanpa batas itu peta
-         * tertutup penuh oleh kendali dan legenda. */}
-        <div className="pointer-events-auto absolute inset-x-2 top-2 flex max-h-[45%] flex-col items-stretch gap-2 overflow-y-auto sm:pointer-events-none sm:inset-x-3 sm:top-3 sm:max-h-none sm:flex-row sm:items-start sm:justify-between sm:overflow-visible">
-          <div className="pointer-events-auto">
+
+        {/* Kendali peta satu baris. Legenda dan kendali jendela terkini tinggal di
+          * kolom kanan supaya peta tidak tertutup kartu apa pun. */}
+        <div className="pointer-events-none absolute inset-x-2 top-2 z-10 max-h-[45%] overflow-y-auto sm:inset-x-3 sm:top-3 sm:max-h-none sm:overflow-visible">
+          <div className="pointer-events-auto min-w-0 max-w-full">
             <MapToolbar
-              layer={layer}
-              onLayerChange={handleLayerChange}
+              page={page.slug}
+              hotspotView={hotspotView}
+              onHotspotViewChange={setHotspotView}
+              eventView={eventView}
+              onEventViewChange={setEventView}
+              riskView={riskView}
+              onRiskViewChange={setRiskView}
+              showLatest={showLatest}
+              onShowLatestChange={setShowLatest}
               riskScheme={riskScheme}
               onRiskSchemeChange={setSchemeChoice}
               riskSchemes={riskSchemes}
@@ -232,41 +305,15 @@ export function MapPage() {
               onLevelChange={handleLevelChange}
               confidence={confidence}
               onConfidenceChange={setConfidence}
-              hotspotView={hotspotView}
-              onHotspotViewChange={setHotspotView}
-            />
-          </div>
-          <div className="pointer-events-auto">
-            <Legend
-              layer={layer}
-              hotspotView={hotspotView}
-              confidence={confidence}
-              coverage={coverage.data?.totals ?? null}
-              riskSchemeName={activeSchemeName}
-              villageClassCounts={villageProvinces.data?.class_counts ?? {}}
-              villageWithoutProvince={villageProvinces.data?.villages_without_province ?? null}
-              latestShown={latestShown}
-            />
-          </div>
-          <div className="pointer-events-auto order-last sm:order-none">
-            <LatestControl
-              windowHours={latestWindow}
-              onWindowChange={setLatestWindow}
-              loading={!latestMatchesWindow}
-              fetchedAt={latestMatchesWindow ? (latest.data?.fetched_at ?? null) : null}
-              satellites={latestMatchesWindow ? (latest.data?.satellites ?? []) : []}
-              usingSnapshot={latestMatchesWindow ? (latest.data?.using_snapshot ?? false) : false}
-              pointCount={latestMatchesWindow ? (latest.data?.point_count ?? null) : null}
-              truncated={latestMatchesWindow ? (latest.data?.truncated ?? false) : false}
-              bboxActive={latestBbox !== null}
-              canUseViewport={viewportParam !== null}
-              error={latest.error}
-              onRefresh={latest.refresh}
-              onUseViewport={handleUseViewport}
-              onClearBounds={handleClearBounds}
             />
           </div>
         </div>
+
+        {narrow ? (
+          <div className="pointer-events-none absolute inset-x-2 bottom-2 z-10">
+            <div className="pointer-events-auto max-h-[38%] overflow-y-auto">{legend}</div>
+          </div>
+        ) : null}
       </section>
 
       <aside className="flex w-full min-h-0 shrink-0 flex-col gap-3 overflow-y-auto border-t border-slate-200 bg-slate-50/80 p-3 sm:p-4 lg:w-[26rem] lg:border-t-0 lg:border-l">
@@ -274,31 +321,28 @@ export function MapPage() {
           <SearchBox onSelect={handleSelectFromSearch} />
         </div>
 
-        {layer === 'risk' ? (
-          <div className={CARD}>
-            <RiskPanel state={riskSchemes} scheme={riskScheme} />
-          </div>
-        ) : layer === 'events' ? (
-          <div className={CARD}>
-            <EventPanel trend={trend} year={year} />
-          </div>
-        ) : layer === 'event_points' ? (
-          <div className={CARD}>
-            <EventPointsPanel state={eventPoints} year={year} />
-          </div>
-        ) : layer === 'risk_village' ? (
-          <div className={CARD}>
-            <VillagePanel state={villageProvinces} provinceCode={provinceCode} />
-          </div>
-        ) : (
-          <div className={CARD}>
-            <LatestPanel
-              summary={latestMatchesWindow ? latest.summary : null}
-              status={latest.status}
-              error={latest.error}
-            />
-          </div>
-        )}
+        {headlinePanel}
+
+        {latestVisible ? (
+          <LatestControl
+            windowHours={latestWindow}
+            onWindowChange={setLatestWindow}
+            loading={!latestMatchesWindow}
+            fetchedAt={latestMatchesWindow ? (latest.data?.fetched_at ?? null) : null}
+            satellites={latestMatchesWindow ? (latest.data?.satellites ?? []) : []}
+            usingSnapshot={latestMatchesWindow ? (latest.data?.using_snapshot ?? false) : false}
+            pointCount={latestMatchesWindow ? (latest.data?.point_count ?? null) : null}
+            truncated={latestMatchesWindow ? (latest.data?.truncated ?? false) : false}
+            bboxActive={latestBbox !== null}
+            canUseViewport={viewportParam !== null}
+            error={latest.error}
+            onRefresh={latest.refresh}
+            onUseViewport={handleUseViewport}
+            onClearBounds={handleClearBounds}
+          />
+        ) : null}
+
+        {narrow ? null : legend}
 
         {selectedPoint ? (
           // `SRS-F-42`: rincian satu kejadian. Tombol di dalamnya membuka panel

@@ -59,12 +59,58 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 20 | `feat/frontend-srs-v1-12` | Angka dokumen perencanaan disinkronkan ke muat ulang 2026-11-19 (SRS v1.12: `SRS-D-06` 1.655, `SRS-D-09` 837.075, `SRS-AS-03` 31 tabel) + konstanta `SRS_DOCUMENT` naik ke 1.12 | #42 | `iter-20-srs-v1-12` |
 | 21 | `feat/api-heatmap-z4-grid` | Tile heatmap z4 dilayani `mv_heatmap_cells` (76.173 sel grid, dibangun `muat_postgres.py grid`): 11,4 dtk → **0,13–0,74 dtk**; z≥5 tetap per baris; SRS `NF-08` v1.13 | #43 | `iter-21-heatmap-grid` |
 | 22 | `docs/pengujian` | Dokumen pengujian `docs/PENGUJIAN.md` v1.0 (di repo perencanaan) + SRS v1.14 merujuknya; `SRS_DOCUMENT` di halaman `/sumber` → 1.14 | #44 | `iter-22-pengujian` |
+| 23 | `feat/frontend-map-pages` | Tiga halaman peta terpisah (`/peta/titik-panas`, `/peta/kejadian`, `/peta/kerawanan`) + navigasi enam menu; kendali per halaman satu baris, legenda & kendali terkini pindah ke kolom kanan, kamera awal ke seluruh Indonesia; `P2` tetap overlay dengan kotak centang | — (belum digabung) | — (belum) |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
 iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), 19, 20, 21, dan 22 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
+
+---
+
+## Iterasi 23 — `feat/frontend-map-pages` (tiga halaman peta + kendali per halaman)
+
+Satu halaman peta menampung lima lapisan sekaligus. Diukur di peramban 2026-11-23 pada
+viewport 1440×857: tiga kartu kendali mengapung (kendali 495×251, legenda 198×407, terkini
+291×140) memakai **36% permukaan peta**; barisnya membutuhkan **999,99 px** dari peta 1024 px,
+jadi sisa ruang **0 px** dan layar 1366 px meluber horizontal. Kamera juga tetap di
+`center [118,-2.5], zoom 3.2`: Indonesia hanya selebar ±300 px dan Sumatra tertutup kartu.
+Legenda 407 px menutupi 61% tinggi peta.
+
+Perbaikan: tiga halaman peta dengan alamat sendiri, satu komponen `MapPage` membaca
+`/peta/:lapisan` supaya `MapView`/basemap tidak dimuat ulang saat berpindah halaman.
+
+| Berkas | Perubahan |
+|---|---|
+| `frontend/src/lib/map-pages.ts` | **baru**: tiga halaman (`titik-panas`, `kejadian`, `kerawanan`), label navigasi, lapisan dasar |
+| `frontend/src/App.tsx` | navigasi **enam** tautan; `/` dan `/peta` dialihkan ke `/peta/titik-panas`; rute `/peta/:lapisan`; teks footer membedakan seri `main` (choropleth) dan `nrt` (titik oranye) |
+| `frontend/src/pages/MapPage.tsx` | lapisan diturunkan dari parameter rute; tampilan per halaman (`choropleth/heatmap`, `choropleth/titik kejadian`, `skor/kelas desa`); `P2` tetap overlay dengan kotak centang; legenda & kendali jendela terkini pindah ke kolom kanan (legenda kembali ke peta dan terlipat bila layar < 640 px) |
+| `frontend/src/components/map/MapToolbar.tsx` | kendali hanya yang berlaku di halaman itu, satu baris; catatan pindah ke `<details>` |
+| `frontend/src/components/map/MapView.tsx` | kamera awal `fitBounds` ke `94,5…141,5` / `-11,5…6,5` dengan padding atas untuk kartu kendali + tombol **Kembali ke Indonesia** |
+| `frontend/src/components/map/Legend.tsx` · `LatestControl.tsx` | legenda selebar kolom, rincian bisa dilipat di layar sempit; kendali terkini selebar kolom |
+| `frontend/src/hooks/useIsNarrow.ts` | **baru**: memilih tempat legenda (peta vs kolom) tanpa menggandakan teks di DOM |
+
+Hasil ukur sesudahnya, peramban yang sama:
+
+| Ukuran | Sebelum | Sesudah |
+|---|---|---|
+| `documentElement.scrollWidth` vs `innerWidth` 1440 / 1366 | meluber (baris kendali 999,99 px) | **sama** (1440=1440; 1366=1366) |
+| Kartu kendali di peta | 495×251 + legenda 198×407 + terkini 291×140 | **1000×110,6** (satu kartu, satu baris) |
+| Legenda | menutupi 61% tinggi peta | di kolom kanan; di layar 390 px terlipat 84 px di bawah peta |
+| Kamera | `zoom 3.2`, Indonesia ±300 px | `zoom 3,88` (MapLibre 512 px), batas tampak **93,5–142,5 E**; Merauke x=**981** dari 1024, Sabang x=**37** |
+
+```bash
+cd frontend
+npm run typecheck        # bersih
+npm test                 # 190 passed (25 berkas, 81,23 dtk) — 4 uji baru
+npm run build            # ✓ built in 14,31s
+```
+
+Uji baru: navigasi enam tautan, alamat peta tak dikenal dialihkan, kotak centang mematikan
+overlay terkini, kamera awal Indonesia + tombol kembali. Dokumen ikut berubah: SRS **v1.15**
+(`SRS-F-02` enam halaman; 4.3 menunjuk `PENGUJIAN.md` v1.1), `PENGUJIAN.md` **v1.1** (190 uji
+frontend, checklist demo per halaman), dan `SRS_DOCUMENT` di halaman `/sumber` → **1.15**.
 
 ---
 
@@ -2446,6 +2492,7 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 
 | Tanggal | Dokumen | Perubahan |
 |---|---|---|
+| 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.15** · `docs/PENGUJIAN.md` → **v1.1** · `PETA-DIREKTORI.md` | `SRS-F-02` menjadi enam halaman (tiga peta terpisah); 4.3 menunjuk PENGUJIAN v1.1 dengan **190** uji frontend (dari 186); build `.docx`/`.pdf` 41 halaman, daftar isi 47/47 |
 | 2026-11-23 | `docs/PENGUJIAN.md` (baru) · `docs/SRS-GeoSafe.md` → **v1.14** | dokumen pengujian v1.0: 137 uji backend + 186 uji frontend, 25 permintaan penerimaan `P1`…`T1`, status `NF-04`…`NF-11`, pemeriksaan data, keterbatasan, checklist demo; SRS 4.3 + `[PENGUJIAN]` + `docx`/`pdf` dibangun ulang (40 halaman) |
 | 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.13** | `SRS-NF-08`: heatmap z4 **0,13–0,74 dtk** sesudah dilayani `mv_heatmap_cells` (sebelumnya 1,8 dtk hangat / 11,4 dtk dingin), z6 0,23–1,38, z8 0,06–0,09; **z5 dinyatakan belum memenuhi**; `docx`/`pdf` dibangun ulang (39 halaman, daftar isi 47/47). Jumlah kebutuhan tetap **126** |
 | 2026-11-23 | `docs/ERD-GeoSafe.md` · `docs/ARSITEKTUR.md` | catatan `mv_heatmap_cells` bukan tabel ERD ke-15 (76.173 baris, wajib dibangun ulang sesudah muat); komponen + alur heatmap, risiko `NF-08`, dan bagian 12 (lima keputusan iterasi 21) |

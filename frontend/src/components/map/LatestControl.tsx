@@ -61,7 +61,7 @@ export function LatestControl({
   const available = satellites.filter((satellite) => satellite.available).map((s) => s.name);
 
   return (
-    <div className="w-full rounded-xl border border-slate-200 bg-white/95 p-2.5 text-xs shadow-lg backdrop-blur-sm sm:w-auto">
+    <div className="w-full rounded-xl border border-slate-200 bg-white/95 p-2.5 text-xs shadow-lg backdrop-blur-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold text-slate-900">Titik panas terkini</span>
         <Segmented

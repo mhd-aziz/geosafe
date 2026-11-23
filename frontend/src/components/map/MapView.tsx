@@ -51,6 +51,31 @@ addProtocol('pmtiles', new Protocol().tile);
 
 const LATEST_SOURCE_ID = 'latest-hotspot';
 const LATEST_LAYER_ID = 'latest-hotspot-points';
+
+/** Batas wilayah yang dipakai API (`latest.py`); dipakai juga untuk kamera awal. */
+const INDONESIA_BOUNDS: [[number, number], [number, number]] = [
+  [94.5, -11.5],
+  [141.5, 6.5],
+];
+
+/** Paskan kamera ke seluruh Nusantara, dengan ruang untuk kendali dan legenda.
+ *
+ * Sebelum ini kamera tetap di `zoom 3.2`: Indonesia hanya menempati ±300 px dari
+ * peta 1024 px dan separuh baratnya tertutup kartu kendali. Padding atas mengikuti
+ * tinggi kartu kendali; di layar sempit kartu itu membungkus jadi beberapa baris.
+ */
+function fitIndonesia(map: MapLibreMap, container: HTMLElement | null): void {
+  const narrow = (container?.clientWidth ?? 0) > 0 && (container?.clientWidth ?? 0) < 640;
+  map.fitBounds(INDONESIA_BOUNDS, {
+    padding: {
+      top: narrow ? 220 : 130,
+      bottom: narrow ? 24 : 40,
+      left: 20,
+      right: 20,
+    },
+    duration: 0,
+  });
+}
 const EVENT_POINT_SOURCE_ID = 'event-points';
 const EVENT_POINT_LAYER_ID = 'event-points-circles';
 
@@ -194,6 +219,9 @@ export function MapView({
       handler([box.getWest(), box.getSouth(), box.getEast(), box.getNorth()]);
     };
     map.on('load', () => {
+      // Kamera awal dipaskan ke seluruh Indonesia, bukan dibiarkan di zoom 3.2:
+      // pada zoom itu Nusantara hanya selebar ±300 px dan Sumatra tertutup kartu.
+      fitIndonesia(map, containerRef.current);
       setReady(true);
       emitViewport();
     });
@@ -563,7 +591,7 @@ export function MapView({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !focusBounds) {
+    if (!map || !ready || !focusBounds) {
       return;
     }
     const [minX, minY, maxX, maxY] = focusBounds;
@@ -583,11 +611,24 @@ export function MapView({
         duration: reduceMotion ? 0 : 800,
       },
     );
-  }, [focusBounds, layer]);
+  }, [focusBounds, layer, ready]);
 
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" data-testid="map-container" />
+      <button
+        type="button"
+        onClick={() => {
+          const map = mapRef.current;
+          if (map) {
+            fitIndonesia(map, containerRef.current);
+          }
+        }}
+        className="absolute right-3 bottom-3 z-10 min-h-9 cursor-pointer rounded-lg border border-slate-200 bg-white/95 px-3 text-xs font-medium text-slate-700 shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-slate-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-teal-700 sm:min-h-8"
+        title="Perkecil peta ke seluruh Indonesia"
+      >
+        Kembali ke Indonesia
+      </button>
       {error ? (
         <p className="absolute inset-0 flex items-center justify-center bg-slate-100 p-6 text-center text-sm text-slate-700">
           Peta vektor butuh WebGL pada peramban ini, sehingga peta tidak dapat digambar. Panel dan

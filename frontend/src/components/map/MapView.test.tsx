@@ -14,6 +14,7 @@ const { mapState, FakeMap } = vi.hoisted(() => {
     layers: new Map<string, { id: string }>(),
     listeners: new Map<string, () => void>(),
     fitBounds: [] as unknown[],
+    fitBoundsBounds: [] as unknown[],
     minZoom: [] as number[],
     removed: [] as string[],
     /** Hasil `queryRenderedFeatures` tiruan; dikosongkan sebelum setiap uji. */
@@ -61,7 +62,7 @@ const { mapState, FakeMap } = vi.hoisted(() => {
     }
     fitBounds(bounds: unknown, options?: unknown) {
       mapState.fitBounds.push(options);
-      void bounds;
+      mapState.fitBoundsBounds.push(bounds);
     }
     setMinZoom(zoom: number) {
       mapState.minZoom.push(zoom);
@@ -117,6 +118,7 @@ beforeEach(() => {
   mapState.layers.clear();
   mapState.listeners.clear();
   mapState.fitBounds.length = 0;
+  mapState.fitBoundsBounds.length = 0;
   mapState.minZoom.length = 0;
   mapState.removed.length = 0;
   mapState.queryRows.length = 0;
@@ -143,6 +145,35 @@ describe('MapView kotak peta', () => {
       mount({ ...baseProps, layer: 'hotspot', provinceCode: null }),
     ).not.toThrow();
     expect(mapState.listeners.has('moveend')).toBe(true);
+  });
+
+  it('memusatkan kamera ke seluruh Indonesia saat gaya siap', () => {
+    mount({ ...baseProps, layer: 'hotspot', provinceCode: null });
+
+    // Batas yang sama dengan `latest.py`; tanpa ini kamera tetap di zoom 3,2 dan
+    // Sumatra tertutup kartu kendali.
+    expect(mapState.fitBoundsBounds[0]).toEqual([
+      [94.5, -11.5],
+      [141.5, 6.5],
+    ]);
+    expect(mapState.fitBounds[0]).toMatchObject({
+      duration: 0,
+      padding: { left: 20, right: 20 },
+    });
+  });
+
+  it('mengembalikan kamera ke Indonesia lewat tombol peta', () => {
+    const view = mount({ ...baseProps, layer: 'hotspot', provinceCode: null });
+    const button = view.getByRole('button', { name: 'Kembali ke Indonesia' });
+
+    act(() => {
+      button.click();
+    });
+
+    expect(mapState.fitBoundsBounds.at(-1)).toEqual([
+      [94.5, -11.5],
+      [141.5, 6.5],
+    ]);
   });
 });
 
@@ -215,9 +246,14 @@ describe('MapView lapisan desa', () => {
       focusBounds: [108.56, -8.21, 111.69, -5.73],
     });
 
-    expect(mapState.fitBounds).toEqual([
-      { padding: 48, maxZoom: 11, minZoom: 8, duration: 800 },
-    ]);
+    // Panggilan pertama = kamera awal ke seluruh Indonesia; panggilan terakhir =
+    // kotak provinsi yang diminta pengguna.
+    expect(mapState.fitBounds.at(-1)).toEqual({
+      padding: 48,
+      maxZoom: 11,
+      minZoom: 8,
+      duration: 800,
+    });
   });
 
   it('membuka panel desa saat poligon desa diklik (`W4`)', () => {
