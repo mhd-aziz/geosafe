@@ -13,7 +13,7 @@ cd backend
 uv sync                                  # sekali; bikin .venv + uv.lock
 set -a; . ~/.config/geosafe/geosafe.env; set +a
 export GEOSAFE_DATABASE_URL               # Aiven (dev); lokal: GEOSAFE_DATABASE_URL_LOKAL
-uv run pytest -q                         # 136 passed, 30-120 dtk (Aiven); butuh basis data hidup
+uv run pytest -q                         # 137 passed, 30-120 dtk (Aiven); butuh basis data hidup
 uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```
 ```bash
@@ -285,6 +285,16 @@ dokumen boleh langsung ke `main`.
     terbukti sama dengan metrik `hotspot_per_1000_km2` tersimpan (rata-rata kepadatan tahunan
     2020–2025, 0 dari 514 wilayah berselisih > 0,05). Tile provinsi **tidak** punya properti ini
     karena `provinces` tidak menyimpan luas wilayah.
+
+23. **Tile heatmap z4 dilayani `mv_heatmap_cells`, bukan `point_observations`.** View itu
+    dihitung `muat_postgres.py` tahap `grid` (di repo perencanaan) dan **wajib dibangun
+    ulang** setiap `point_observations` diisi ulang — kalau tidak, heatmap z4 menyajikan
+    angka dari muat sebelumnya sementara z≥5 sudah baru. Yang membuatnya perlu: kueri lama
+    membaca 133 ribu baris untuk 4.869 sel (1,8 dtk hangat, 11,4 dtk dingin), sedangkan view
+    menjawab 0,13–0,74 dtk. Rumus sel memakai `round`, **bukan** `floor` (ST_SnapToGrid
+    membulatkan ke grid terdekat); uji `test_heatmap_grid_cells_match_the_per_row_snapping`
+    menjaga kesamaan itu. Sisa terbuka: **z5** masih per baris (1,2–1,5 dtk hangat, 6,8 dtk
+    dingin).
 
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.

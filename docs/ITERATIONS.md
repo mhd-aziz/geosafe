@@ -57,12 +57,57 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 18 | `feat/api-heatmap-mode` | Mode heatmap `P1` (`SRS-F-14`): tile titik berkoordinat diagregasi per sel grid + saklar Choropleth/Heatmap | #40 | `iter-18-heatmap` |
 | 19 | `feat/frontend-srs-version` | Halaman Sumber & Batas Data mencantumkan versi dokumen SRS (`SRS-S-04`) + angka kejadian daftar istilah disinkronkan ke 6.390 | #41 | `iter-19-srs-version` |
 | 20 | `feat/frontend-srs-v1-12` | Angka dokumen perencanaan disinkronkan ke muat ulang 2026-11-19 (SRS v1.12: `SRS-D-06` 1.655, `SRS-D-09` 837.075, `SRS-AS-03` 31 tabel) + konstanta `SRS_DOCUMENT` naik ke 1.12 | #42 | `iter-20-srs-v1-12` |
+| 21 | `feat/api-heatmap-z4-grid` | Tile heatmap z4 dilayani `mv_heatmap_cells` (76.173 sel grid, dibangun `muat_postgres.py grid`): 11,4 dtk → **0,13–0,74 dtk**; z≥5 tetap per baris; SRS `NF-08` v1.13 | #43 | `iter-21-heatmap-grid` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
-iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), 19 dan 20 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), 19, 20, dan 21 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
+
+---
+
+## Iterasi 21 — `feat/api-heatmap-z4-grid` (tile heatmap z4 dari sel grid pra-hitung)
+
+Satu tile heatmap z4 tahun 2023 meminta **133 ribu baris** `point_observations` dari
+Aiven untuk menghasilkan **4.869 sel** — 1,8 dtk saat hangat, **11,4 dtk saat dingin**.
+Biayanya memindahkan baris lewat jaringan, bukan menghitung; karena itu mengganti
+`st_transform` per baris menjadi aritmetika bilangan bulat saja tidak cukup (diukur
+**6,6 dtk**). Iterasi ini memindahkan agregasinya ke basis data sebagai
+**materialized view** `mv_heatmap_cells` dan memakainya hanya untuk tile z4.
+
+| Berkas | Isi |
+|---|---|
+| `../planning-GeoSafe/data/pembangun/muat_postgres.py` | tahap **`grid`** (ke-10 dari 12): bangun `mv_heatmap_cells` (`th, gx, gy, points_h/n/l/o`) pada grid z4 + indeks unik `(th, gx, gy)`; `DROP MATERIALIZED VIEW` ikut di DDL |
+| `backend/app/routers/maps.py` | `QUERY_HEATMAP_GRID_TILE` + `HEATMAP_GRID_ZOOM = 4`; endpoint memilih view untuk z=4, kueri per baris untuk z≥5 |
+| `backend/tests/test_tiles.py` | `test_heatmap_grid_cells_match_the_per_row_snapping` — sel interior tile dibandingkan dengan hitungan per baris |
+| `frontend/src/lib/transparency-content.ts` | `SRS_DOCUMENT` `1.12` → **`1.13`** |
+
+Rumus selnya `round((lon+180)/360*4096)` dan baris Mercator — **bukan** `floor`:
+`ST_SnapToGrid` membulatkan ke grid terdekat. Dibuktikan pada tile 13/8 tahun 2023:
+**4.869 sel, bobot 258.002, 0 selisih**. Jangkauan sel dilebihkan **8 sel** (= buffer
+128/4096) supaya titik dekat batas tile tidak hilang; muatan jadi 97.693 B (dari 85.726 B).
+
+```
+psql (Aiven) EXPLAIN ANALYZE, tile 4/13/8 tahun 2023
+sebelum: Index Scan ix_po_tanggal, 132.920 baris, Execution 10.760 ms
+sesudah: Scan mv_heatmap_cells (76.173 baris untuk 7 tahun)
+
+curl lewat HTTP (API hidup, 2026-11-23)
+z4  200  97.693 B  0,74 dtk (dingin) · 0,19 / 0,13 dtk      (sebelumnya 11,4 / 1,8)
+z4 + confidence=h  200  26.330 B  0,08 dtk
+z5  200  155.783 B  1,2–1,5 dtk hangat · 6,8 dtk dingin      (tidak diubah)
+z6  200   59.466 B  0,23 dtk hangat · 1,38 dtk dingin        (tidak diubah)
+z8  200    6.878 B  0,06 dtk                                 (tidak diubah)
+
+cd backend && .venv/bin/python -m pytest -q
+137 passed, 1 warning in 40,73s                              (sebelumnya 136)
+```
+
+Catatan operasional: `mv_heatmap_cells` **wajib dibangun ulang** setiap
+`point_observations` diisi ulang (`muat_postgres.py grid` atau `semua`), kalau tidak
+heatmap z4 menyajikan angka dari muat sebelumnya. Sisa terbuka: **z5** (1,2–1,5 dtk
+hangat, 6,8 dtk dingin) — jalan yang sama, level z5 pada view, belum dikerjakan.
 
 ---
 
@@ -2371,6 +2416,9 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 
 | Tanggal | Dokumen | Perubahan |
 |---|---|---|
+| 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.13** | `SRS-NF-08`: heatmap z4 **0,13–0,74 dtk** sesudah dilayani `mv_heatmap_cells` (sebelumnya 1,8 dtk hangat / 11,4 dtk dingin), z6 0,23–1,38, z8 0,06–0,09; **z5 dinyatakan belum memenuhi**; `docx`/`pdf` dibangun ulang (39 halaman, daftar isi 47/47). Jumlah kebutuhan tetap **126** |
+| 2026-11-23 | `docs/ERD-GeoSafe.md` · `docs/ARSITEKTUR.md` | catatan `mv_heatmap_cells` bukan tabel ERD ke-15 (76.173 baris, wajib dibangun ulang sesudah muat); komponen + alur heatmap, risiko `NF-08`, dan bagian 12 (lima keputusan iterasi 21) |
+| 2026-11-23 | `AGENTS.md` (repo perencanaan) + `CATATAN-DISKUSI.md` | `muat_postgres.py` 12 tahap (`grid`), aturan bangun ulang view, entri **sesi ke-29** |
 | 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.12** | `SRS-D-06` **1.648 → 1.655**, `SRS-D-09` **358.493 → 837.075** baris master, `SRS-AS-03`/`[SKEMA]` **29 → 31** tabel siap pakai, titik panas arsip **918.319** + NRT 621.100 dipisah; `docx`/`pdf` dibangun ulang (38 halaman, daftar isi 47/47). Jumlah kebutuhan tetap **126** |
 | 2026-11-23 | `docs/ERD-GeoSafe.md` · `ERD-GeoSafe-dipecah.md` · `alur-sistem.md` · `ARSITEKTUR.md` · `draft/01-latar-belakang.md` · `draft/04-ruang-lingkup.md` | angka muat ulang 2026-11-19 masuk: kejadian 6.390 / 30.104 baris, titik panas 918.319 (masuk poligon 748.092, luar 170.227), master 837.075, 31 CSV, wilayah 508/514, top-5 provinsi 45,6%, SK 49/127; catatan selisih 1.820 titik `region_code` (DB 172.047 vs berkas 170.227) |
 | 2026-11-23 | `CATATAN-DISKUSI.md` | entri **sesi ke-28**: sinkronisasi angka + SRS v1.12, tabel angka lama → terukur, temuan selisih 1.820 titik, lima butir terbuka |

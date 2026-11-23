@@ -385,3 +385,57 @@ def test_heatmap_tile_shrinks_with_the_confidence_filter() -> None:
     assert kelas_h.status_code == 200
     # Kelas h hanya 10.012 dari 288.756 titik 2023, jadi muatannya lebih kecil.
     assert len(kelas_h.content) < len(semua.content)
+
+
+def test_heatmap_grid_cells_match_the_per_row_snapping() -> None:
+    """Sel pra-hitung z4 (`mv_heatmap_cells`) harus sama dengan hitungan per baris.
+
+    Dibandingkan pada sel **di dalam** tile 13/8 tahun 2023, bukan cincin buffer:
+    di situ rumus bilangan bulat di view dan `ST_SnapToGrid` 3857 di kueri lama
+    harus menghasilkan jumlah titik dan bobot yang identik. Kalau `round` di view
+    bergeser menjadi `floor`, uji ini merah.
+    """
+    sql = """
+    with tile as (
+        select st_tileenvelope(4, 13, 8) as env
+    ),
+    per_baris as (
+        select round((st_x(p.geom) + 180) / 360 * 4096)::int as gx,
+               round(((pi() - ln(tan(radians(st_y(p.geom)) / 2 + pi() / 4))) / (2 * pi())) * 4096)::int as gy,
+               sum(case p.confidence when 'h' then 3 when 'n' then 2 else 1 end)::int as weight,
+               count(*)::int as titik
+          from point_observations p cross join tile
+         where p.point_type = 'hotspot'
+           and p.series = 'main'
+           and p.observed_on >= '2023-01-01' and p.observed_on < '2024-01-01'
+           and p.geom && st_transform(tile.env, 4326)
+         group by 1, 2
+    ),
+    dalam as (
+        select * from per_baris
+         where gx between 13 * 256 + 1 and 13 * 256 + 254
+           and gy between 8 * 256 + 1 and 8 * 256 + 254
+    ),
+    grid as (
+        select gx,
+               gy,
+               3 * points_h + 2 * points_n + points_l + points_o as weight,
+               points_h + points_n + points_l + points_o as titik
+          from mv_heatmap_cells
+         where th = 2023
+           and gx between 13 * 256 + 1 and 13 * 256 + 254
+           and gy between 8 * 256 + 1 and 8 * 256 + 254
+    )
+    select (select count(*) from dalam) as sel,
+           (select count(*) from grid) as sel_grid,
+           (select coalesce(sum(titik), 0) from dalam) as titik,
+           (select coalesce(sum(titik), 0) from grid) as titik_grid,
+           (select coalesce(sum(weight), 0) from dalam) as bobot,
+           (select coalesce(sum(weight), 0) from grid) as bobot_grid
+    """
+    with psycopg.connect(database_url(), row_factory=dict_row) as conn:
+        row = conn.execute(sql).fetchone()
+
+    assert row["sel"] == row["sel_grid"] > 1_000
+    assert row["titik"] == row["titik_grid"]
+    assert row["bobot"] == row["bobot_grid"]
