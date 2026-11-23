@@ -55,14 +55,49 @@ perintahnya, dan jangan menyembunyikan yang meleset.
 | 17 | `feat/frontend-confidence-filter` | Penyaring kepercayaan `h`/`n`/`l` di lapisan titik panas (`SRS-F-15`) + angka tampilan aktif di legenda (`SRS-F-16`) lewat `point_coverage?confidence=` | #38 | `iter-17-confidence-filter` |
 | 17b | `fix/legend-coverage-series` | Legenda penempatan titik: angka pertama jadi `point_count` (seluruh seri) supaya berjumlah dengan `placed`/`outside` | #39 | `iter-17b-coverage-line` |
 | 18 | `feat/api-heatmap-mode` | Mode heatmap `P1` (`SRS-F-14`): tile titik berkoordinat diagregasi per sel grid + saklar Choropleth/Heatmap | #40 | `iter-18-heatmap` |
+| 19 | `feat/frontend-srs-version` | Halaman Sumber & Batas Data mencantumkan versi dokumen SRS (`SRS-S-04`) + angka kejadian daftar istilah disinkronkan ke 6.390 | #41 | `iter-19-srs-version` |
 
 Semua dikerjakan 2026-11-16, kecuali penyisipan 09b serta iterasi 11a, 11b, 11c, 11d, dan 11e (2026-11-17),
-iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19). Cabang **tidak dihapus** setelah digabung (lihat
+iterasi 12a–12b (data bangun ulang 2026-11-19), dan iterasi 12k–12m serta 13a, 13b, 14, 15, 16, 17, 17b, 18 (2026-11-19), dan 19 (2026-11-23). Cabang **tidak dihapus** setelah digabung (lihat
 [`CONVENTIONS.md`](CONVENTIONS.md) bagian 4) — satu pengecualian: cabang
 `refactor/api-english-identifiers` dihapus atas permintaan pemilik repo, tag
 `iter-06b-english-names` tetap dibuat.
 
 ---
+
+## Iterasi 19 — `feat/frontend-srs-version` (versi dokumen SRS di halaman Sumber & Batas Data)
+
+Penyisiran kebutuhan `SRS` ber-ID terhadap kode (2026-11-23) menyisakan satu kebutuhan yang
+belum punya jejak sama sekali: **`SRS-S-04`** — "sistem harus mencantumkan versi dokumen SRS dan
+tanggalnya pada halaman transparansi". Halaman `/sumber` memang menyebut sumber data, celah,
+unduhan, dan istilah, tetapi tidak pernah menyebut dokumen acuannya.
+
+Bentuk yang dipilih adalah satu konstanta, bukan field API: versi dokumen bukan angka basis data,
+dan halaman ini sudah punya satu tempat untuk teks tetap (`lib/transparency-content.ts`).
+
+| Berkas | Isi |
+|---|---|
+| `frontend/src/lib/transparency-content.ts` | `SRS_DOCUMENT = { version, date }` + catatan bahwa nilainya wajib ikut naik setiap SRS naik versi; angka kejadian pada daftar istilah `6.383` → **`6.390`** (ikut muat ulang data 2026-11-19) |
+| `frontend/src/pages/SourcesPage.tsx` | baris header: "Purwarupa ini mengikuti dokumen SRS versi **1.11** (23 November 2026)" |
+| `frontend/src/pages/SourcesPage.test.tsx` | uji baru `mencantumkan versi dan tanggal dokumen SRS` — membaca konstanta, jadi naik versi tidak membuat uji merah |
+
+```
+cd frontend && npm run typecheck && npm test
+tsc --noEmit                                 (bersih)
+Test Files  25 passed (25)
+Tests      186 passed (186)                  (sebelumnya 185)
+```
+
+Ikut diselesaikan di iterasi ini: redaksi **`SRS-F-02`** disesuaikan dengan bentuk nyata
+antarmuka (empat halaman: Peta · Tren nasional · Analisis wilayah · Sumber & Batas Data;
+peringkat bagian halaman Analisis wilayah, pencarian kendali di halaman Peta), dokumen
+`../planning-GeoSafe/docs/SRS-GeoSafe.md` naik **v1.10 → v1.11**, dan `docx`/`pdf` dibangun ulang
+(38 halaman, daftar isi 47/47 judul).
+
+Temuan: **teks tetap di dalam aplikasi bisa drift seperti angka.** Angka `6.383` bertahan di
+daftar istilah halaman `/sumber` sesudah basis data dibangun ulang (2026-11-19) dan hanya
+ketahuan karena kebutuhan `SRS` ditelusuri satu per satu; catatan wajib diperiksa ulang setiap
+`data/siap-pakai/` dibangun ulang sudah ditulis di kepala `transparency-content.ts`.
 
 ## Iterasi 18 — `feat/api-heatmap-mode` (mode heatmap `P1`)
 
@@ -2293,6 +2328,11 @@ Perubahan dokumen di `../planning-GeoSafe/` yang dipicu pekerjaan di repo ini:
 
 | Tanggal | Dokumen | Perubahan |
 |---|---|---|
+| 2026-11-23 | `CATATAN-DISKUSI.md` | entri **sesi ke-27**: iterasi 14–18 (panel `W3`, peta `P3`, titik `P5`, penyaring kepercayaan `h`/`n`/`l`, angka legenda berjumlah, mode heatmap `P1`) beserta angka dan buktinya, 15 keputusan teknis, dan lima butir terbuka (optimasi heatmap, dokumen pengujian, deck/DFD L1, cacat `hotspot_coverage_pct`, koreksi `SRS-D-06`) |
+| 2026-11-23 | `docs/SRS-GeoSafe.md` → **v1.10, lalu v1.11** | riwayat versi 1.10: `SRS-F-14` (heatmap), `SRS-F-15`/`F-16`, `SRS-F-28`...`F-31` (`P3`), `SRS-F-40`...`F-44` (`P5`), `SRS-F-63`/`F-64` (`W3`) dinyatakan **sudah berjalan**; angka kejadian **6.383 → 6.390** (bagian 1.3.2, 1.4, dan `SRS-F-40`); `SRS-NF-08` dari "belum diukur" menjadi **terukur lewat HTTP** (1,9–3,0 dtk per tile; diperiksa ulang 6,8–11,7 dtk, ambangnya belum konsisten) beserta aturan baru di bagian 3.4. Versi 1.11: `SRS-F-02` ditulis sesuai bentuk nyata antarmuka (empat halaman; peringkat bagian halaman Analisis wilayah, pencarian kendali di halaman Peta) dan `SRS-S-04` dinyatakan dipenuhi oleh antarmuka. Jumlah kebutuhan tetap **126** |
+| 2026-11-23 | `docs/ARSITEKTUR.md` | bagian 2 diagram (ECharts → grafik SVG), bagian 3 tabel komponen (penyajian titik panas memakai sel grid; ECharts dicabut), bagian 4 (+5 alur: heatmap `P1`, penyaring kepercayaan, `P3`, `P5`, `W3`), bagian 6 (status `NF-05`/`NF-06`/`NF-08`), bagian 7 (+risiko heatmap lambat beserta penahannya), dan **bagian 11 baru: sepuluh keputusan iterasi 14–18** |
+| 2026-11-23 | `AGENTS.md` | butir kerja 4 (IRBI sudah dipakai panel `W2`), 5 (`P2`/`P4` selesai), 6 (deck + DFD L1 masih terbuka), butir **9** baru (fitur peta `P3`/`P5`/heatmap/`W3` selesai + sisa terbuka), jebakan "titik panas ≠ kebakaran" (angka 2023/2026 hasil query + baris nasional ditulis **per seri**), dan jebakan IRBI per kabupaten (terbukti ada) |
+| 2026-11-23 | `docs/build_srs_docx.py` | halaman judul docx/pdf `Versi 1.6` → **1.10**, lalu `.docx`/`.pdf` dibangun ulang |
 | 2026-11-19 | `docs/SRS-GeoSafe.md` → **v1.9** | bagian 3.7.1: halaman dilayani **Vercel**, latar peta dilayani **Cloudflare R2**, API = unit systemd pengguna + **Cloudflare Tunnel** `geosafe-api.zisaltech.site`, dan baris "Peladen web dan layanan" tidak lagi menyebut nginx; `docx`/`pdf` dibangun ulang (**35 halaman**, daftar isi 47/47 judul). Jumlah kebutuhan tetap 126 |
 | 2026-11-19 | `docs/ARSITEKTUR.md` | diagram bagian 2 (Vercel + R2 + tunnel, tanpa nginx), tabel komponen (Basemap di R2, Deploy di Vercel + systemd + tunnel), tabel alur bagian 4 (nama endpoint yang benar + `W4`, `A2`/`A3`, penyempitan `bbox`, 4 tingkat pencarian), risiko baru (Vercel/Tunnel, dua basis data), dan **bagian 10: enam keputusan 2026-11-19** (Vercel-only, basemap R2, `month is null` untuk `W4`, ranking 514 baris di peramban, penanda tahun parsial dari `point_observations`, kepadatan per tahun di tile + seri `main` vs `main + fill`) |
 | 2026-11-19 | `CATATAN-DISKUSI.md` | entri **sesi ke-26**: iterasi 12k/12l/12m/13a/13b beserta angka dan buktinya, delapan keputusan teknis, dokumen yang ikut berubah, dan empat butir terbuka (`P3`, `P5`, `W3`, revisi 6.383 → 6.390) |

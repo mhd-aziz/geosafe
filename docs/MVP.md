@@ -18,7 +18,12 @@ belasan tile sekaligus.
 Sisa yang direncanakan: kepadatan per tahun sebagai atribut tile, lalu `P3`/`P5`. Skor
 kerawanan di panel kabupaten/kota (`W2`) selesai di 12a, kendali kotak wilayah untuk kasus
 `truncated` pada lapisan terkini selesai di 12k, panel desa/kelurahan (`W4`) selesai di 12m,
-dan komposisi (`A2`), peringkat (`A3`), serta penanda tahun parsial selesai di 13a.
+dan komposisi (`A2`), peringkat (`A3`), serta penanda tahun parsial selesai di 13a. Sisa antrean
+peta ditutup di 14–18 (panel `W3`, peta kejadian `P3`, titik kejadian `P5`, penyaring kepercayaan,
+mode heatmap `P1`), lalu **19** menutup celah terakhir penyisiran `SRS`: halaman Sumber & Batas
+Data mencantumkan versi dokumen SRS (`SRS-S-04`) dan redaksi `SRS-F-02` disesuaikan dengan
+empat halaman yang benar-benar ada. Tidak ada fitur peta yang tersisa; yang terbuka tinggal
+kualitas (optimasi heatmap `SRS-NF-08`, dokumen pengujian terpisah, deck/DFD Level 1).
 
 ---
 
@@ -110,6 +115,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 17 | `feat/frontend-confidence-filter` — penyaring kepercayaan `h`/`n`/`l` di lapisan titik panas (`SRS-F-15`) + angka tampilan aktif dan titik di luar poligon (`SRS-F-16`) | ✅ PR #38, tag `iter-17-confidence-filter` |
 | 17b | `fix/legend-coverage-series` — angka legenda penempatan titik diambil dari `point_count` supaya berjumlah dengan `placed`/`outside` | ✅ PR #39, tag `iter-17b-coverage-line` |
 | 18 | `feat/api-heatmap-mode` — mode heatmap `P1` (`SRS-F-14`): tile titik berkoordinat diagregasi per sel grid + saklar Choropleth/Heatmap, mulai zoom 4 | ✅ PR #40, tag `iter-18-heatmap` |
+| 19 | `feat/frontend-srs-version` — halaman Sumber & Batas Data mencantumkan versi dokumen SRS (`SRS-S-04`) + angka kejadian daftar istilah disinkronkan ke 6.390 | ✅ PR #41, tag `iter-19-srs-version` |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar

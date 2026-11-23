@@ -238,10 +238,10 @@ peta memperbesar ke wilayah hasil pencarian (`MapView.tsx`).
 | Hal | Alasan |
 |---|---|
 | basemap PMTiles | **sudah ada** sejak penyisipan 09c: berkas 216 MB di `../planning-GeoSafe/data/basemap/`, disajikan **Cloudflare R2** (`geosafe-tiles.zisaltech.site`), gaya dari `@protomaps/basemaps` |
-| heatmap titik panas (`SRS-F-14`) | endpoint tile titik belum ada (titik berkoordinat, bukan agregat wilayah) |
+| heatmap titik panas (`SRS-F-14`) | **sudah ada** sejak iterasi 18: saklar Tampilan Choropleth/Heatmap memakai tile `hotspot_points` (titik berkoordinat diagregasi per sel grid, mulai zoom 4), legenda gradasi menyatakan tidak memakai kelas angka |
 | lapisan kelas kerawanan desa (`SRS-F-38`, `SRS-F-39`) | **sudah ada** sejak iterasi 11e: lapisan ketiga di saklar peta, dimuat per provinsi pada zoom 8 ke atas |
 | panel desa/kelurahan saat desa diklik (`W4`) | **sudah ada** sejak iterasi 12m: panel terbuka dari klik poligon desa maupun hasil pencarian |
-| kendali penyaring `confidence` di toolbar (`SRS-F-15`) | API sudah menerima `?confidence=h\|n\|l` untuk tile kabupaten/kota; kendalinya menyusul |
+| kendali penyaring `confidence` di toolbar (`SRS-F-15`) | **sudah ada** sejak iterasi 17: pilihan Semua/`h`/`n`/`l`; di tingkat provinsi kendalinya nonaktif beserta sebabnya (basis data tidak menyimpan baris provinsi per kelas, API membalas `422`) |
 | panel kecamatan (`W3`) | **sudah ada** sejak iterasi 14: hasil pencarian tingkat kecamatan membuka panelnya; angkanya pendukung, bukan unit analisis (`SRS-F-64`) |
 | grafik A2 dan A3 | **sudah ada** sejak iterasi 13a: komposisi digambar sebagai batang SVG dan peringkat 514 kabupaten/kota sebagai tabel yang bisa diurutkan/dicari |
 | Apache ECharts | rencana awal memakai ECharts; A1–A3 cukup SVG dan tabel, jadi digambar tanpa pustaka grafik tambahan |

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { fetchDownloads, fetchPointCoverage, fetchSources } from '../api/geosafe';
+import { SRS_DOCUMENT } from '../lib/transparency-content';
 import { SourcesPage } from './SourcesPage';
 
 vi.mock('../api/geosafe', () => ({
@@ -120,6 +121,14 @@ describe('SourcesPage', () => {
     render(<SourcesPage />);
 
     expect(await screen.findByText(/Selisih angka nasional, provinsi, dan kabupaten\/kota/)).toBeTruthy();
+  });
+
+  it('mencantumkan versi dan tanggal dokumen SRS', async () => {
+    mockAll();
+    render(<SourcesPage />);
+
+    expect(await screen.findByText(SRS_DOCUMENT.version)).toBeTruthy();
+    expect(screen.getByText(new RegExp(SRS_DOCUMENT.date))).toBeTruthy();
   });
 
   it('menyebut kegagalan memuat sumber apa adanya', async () => {
