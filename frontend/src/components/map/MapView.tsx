@@ -423,7 +423,7 @@ export function MapView({
       },
       beforeId,
     );
-  }, [ready, layer, level, year, riskScheme, provinceCode, confidence]);
+  }, [ready, layer, level, year, riskScheme, provinceCode, confidence, hotspotView]);
 
   // Lapisan titik panas terkini (`P2`): titik, bukan poligon — wilayahnya dipakai
   // panel, sedangkan peta menunjukkan sebaran deteksinya.

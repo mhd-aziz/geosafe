@@ -51,22 +51,35 @@ export function pointColorExpression(): StyleExpression {
   ];
 }
 
-/** Ekspresi jari-jari: dasar menurut zoom, dikali faktor tingkat ketelitian. */
+/** Ekspresi jari-jari: dasar menurut zoom, dikali faktor tingkat ketelitian.
+ *
+ * MapLibre hanya mengizinkan `["zoom"]` sebagai input `step`/`interpolate` di
+ * **akar** ekspresi properti. Versi lama menaruh interpolate di dalam `["*"]`,
+ * sehingga seluruh lapisan titik kejadian ditolak dan peta menampilkan
+ * "Sebagian latar peta gagal dimuat". Karena itu interpolate menjadi akar, dan
+ * faktor ketelitian dievaluasi di setiap stop.
+ */
 export function pointRadiusExpression(): StyleExpression {
+  const atZoom = (base: number): StyleExpression => [
+    'match',
+    ['get', 'coord_level'],
+    'village',
+    base * COORD_LEVEL_STYLES.village.radiusFactor,
+    'district',
+    base * COORD_LEVEL_STYLES.district.radiusFactor,
+    'region',
+    base * COORD_LEVEL_STYLES.region.radiusFactor,
+    base,
+  ];
+
   return [
-    '*',
-    ['interpolate', ['linear'], ['zoom'], 3, 2.4, 9, 6],
-    [
-      'match',
-      ['get', 'coord_level'],
-      'village',
-      COORD_LEVEL_STYLES.village.radiusFactor,
-      'district',
-      COORD_LEVEL_STYLES.district.radiusFactor,
-      'region',
-      COORD_LEVEL_STYLES.region.radiusFactor,
-      1,
-    ],
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    3,
+    atZoom(2.4),
+    9,
+    atZoom(6),
   ];
 }
 

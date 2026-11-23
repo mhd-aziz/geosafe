@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createPropertyExpression, latest } from '@maplibre/maplibre-gl-style-spec';
 
 import {
   COORD_LEVEL_STYLES,
@@ -74,5 +75,27 @@ describe('titik kejadian (P5)', () => {
     expect(JSON.stringify(pointColorExpression())).toContain('coord_level');
     expect(JSON.stringify(pointColorExpression())).toContain(COORD_LEVEL_STYLES.village.color);
     expect(JSON.stringify(pointRadiusExpression())).toContain('zoom');
+  });
+
+  it('ekspresi jari-jari diterima MapLibre: zoom hanya di akar interpolate', () => {
+    // Regresi 2026-11-23: interpolate di dalam `*` membuat MapLibre menolak
+    // seluruh lapisan ("circle-radius: zoom expression may only be used as input
+    // to a top-level step or interpolate") dan peta menampilkan galat.
+    const expression = pointRadiusExpression();
+    expect(expression[0]).toBe('interpolate');
+
+    const result = createPropertyExpression(
+      expression as never,
+      'circle-radius',
+      latest.paint_circle['circle-radius'] as never,
+    );
+    expect(result.result).toBe('success');
+
+    const color = createPropertyExpression(
+      pointColorExpression() as never,
+      'circle-color',
+      latest.paint_circle['circle-color'] as never,
+    );
+    expect(color.result).toBe('success');
   });
 });

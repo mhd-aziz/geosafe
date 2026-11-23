@@ -225,6 +225,29 @@ describe('MapView lapisan desa', () => {
     expect(mapState.layers.size).toBe(2); // fill + line, tidak berganda
   });
 
+  it('melepas choropleth saat mode heatmap dan memasangnya kembali', () => {
+    // Regresi 2026-11-23: efek choropleth tidak ikut berjalan saat `hotspotView`
+    // berubah, sehingga poligon tetap di bawah heatmap.
+    const view = mount({ ...baseProps, layer: 'hotspot', provinceCode: null });
+
+    expect(mapState.layers.has('hotspot-fill')).toBe(true);
+
+    view.rerender(
+      <MapView {...baseProps} layer="hotspot" provinceCode={null} hotspotView="heatmap" />,
+    );
+
+    expect(mapState.layers.has('hotspot-fill')).toBe(false);
+    expect(mapState.layers.has('hotspot-line')).toBe(false);
+    expect(mapState.layers.has('hotspot-heat')).toBe(true);
+
+    view.rerender(
+      <MapView {...baseProps} layer="hotspot" provinceCode={null} hotspotView="choropleth" />,
+    );
+
+    expect(mapState.layers.has('hotspot-heat')).toBe(false);
+    expect(mapState.layers.has('hotspot-fill')).toBe(true);
+  });
+
   it('menaikkan zoom minimum peta selama lapisan desa aktif', () => {
     // MapLibre tidak meminta satu tile pun bila zoom peta yang dibulatkan ke bawah
     // lebih kecil daripada `minzoom` sumbernya, jadi zoom peta sendiri yang harus
