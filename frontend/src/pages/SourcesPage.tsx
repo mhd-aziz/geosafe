@@ -2,7 +2,7 @@ import { downloadFileUrl, fetchDownloads, fetchPointCoverage, fetchSources } fro
 import { DataNotes } from '../components/common/DataNotes';
 import { useRemoteData } from '../hooks/useRemoteData';
 import { formatCount } from '../lib/format';
-import { DATA_GAPS, GLOSSARY, LEVEL_DIFFERENCE_NOTE } from '../lib/transparency-content';
+import { DATA_GAPS, GLOSSARY, LEVEL_DIFFERENCE_NOTE, SRS_DOCUMENT } from '../lib/transparency-content';
 
 function formatKb(bytes: number): string {
   return `${(bytes / 1024).toFixed(1).replace('.', ',')} kB`;
@@ -27,6 +27,10 @@ export function SourcesPage() {
         <p className="text-xs text-slate-600">
           Halaman ini menyebutkan dari mana angkanya datang dan apa yang tidak bisa dijawab datanya.
           Tidak ada angka yang dihitung ulang di sini — semuanya dibaca dari API.
+        </p>
+        <p className="text-xs text-slate-500">
+          Purwarupa ini mengikuti dokumen SRS versi <strong>{SRS_DOCUMENT.version}</strong> (
+          {SRS_DOCUMENT.date}).
         </p>
       </header>
 

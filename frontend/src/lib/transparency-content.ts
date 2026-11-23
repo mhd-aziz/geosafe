@@ -3,8 +3,11 @@
  * Tujuh celah data dan daftar istilah diambil dari `docs/PRD.md` bagian 4 dan 6 —
  * dokumen yang sama yang menuntut keduanya muncul di halaman, bukan hanya di
  * laporan (`SRS-F-73`, `SRS-F-74`). Kalau salah satu daftar berubah di PRD,
- * berkas ini yang ikut berubah; tidak ada angka di sini, jadi tidak ada yang
- * perlu diambil dari basis data.
+ * berkas ini yang ikut berubah.
+ *
+ * Satu angka tetap tinggal di sini: jumlah kejadian karhutla pada daftar istilah.
+ * Angka itu ikut berubah setiap data dibangun ulang (2026-11-19: 6.383 → **6.390**),
+ * jadi wajib diperiksa ulang setiap kali `data/siap-pakai/` dibangun ulang.
  */
 
 export interface GapEntry {
@@ -63,7 +66,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     term: 'kebakaran hutan dan lahan (karhutla)',
-    meaning: 'kategori kejadian resmi BNPB; 6.383 kejadian tercatat pada 2020–2026.',
+    meaning: 'kategori kejadian resmi BNPB; 6.390 kejadian tercatat pada 2020–2026.',
     note: 'Seri ini memakai alat ukur berbeda dari titik panas, jadi digambar pada sumbu terpisah.',
   },
   {
@@ -84,3 +87,10 @@ export const GLOSSARY: GlossaryEntry[] = [
 /** Selisih angka antar tingkat wilayah yang sah, bukan kesalahan hitung (`SRS-F-77`). */
 export const LEVEL_DIFFERENCE_NOTE =
   'Selisih angka nasional, provinsi, dan kabupaten/kota adalah hal yang sah: kejadian yang merambat di beberapa wilayah dihitung sekali pada tingkat nasional tetapi sekali di setiap wilayah pada tingkat yang lebih rinci, sesuai cara BNPB mencatat.';
+
+/** Versi dokumen SRS yang jadi acuan purwarupa ini (`SRS-S-04`).
+ *
+ * Sumbernya `../planning-GeoSafe/docs/SRS-GeoSafe.md`; nilainya **wajib** ikut
+ * berubah setiap dokumen itu naik versi, karena halaman ini menampilkannya.
+ */
+export const SRS_DOCUMENT = { version: '1.11', date: '23 November 2026' } as const;
