@@ -437,6 +437,12 @@ HEATMAP_MIN_ZOOM = 4
 # titik mentah (1,4 MB/tile).
 HEATMAP_CELLS = 256
 
+# Tile z4 dijawab dari `mv_heatmap_cells` (sel grid z4 pra-hitung). Zoom lain
+# tetap menghitung dari `point_observations`: tile-nya kecil (z6 0,23 dtk),
+# sedangkan z4 harus membaca 133 ribu baris untuk 4.869 sel — 1,8 dtk hangat,
+# 11,4 dtk dingin lewat jaringan. Dari view: lihat `docs/ITERATIONS.md` iterasi 21.
+HEATMAP_GRID_ZOOM = 4
+
 QUERY_HOTSPOT_POINTS_TILE = """
 with tile as (
     select st_tileenvelope(%(z)s, %(x)s, %(y)s) as env_3857
@@ -480,6 +486,55 @@ select st_asmvt(mvt_rows.*, 'hotspot_points', 4096, 'geom') as tile
 """
 
 
+QUERY_HEATMAP_GRID_TILE = """
+with tile as (
+    select st_tileenvelope(%(z)s, %(x)s, %(y)s) as env_3857
+),
+cells as (
+    -- Sel diambil dari `mv_heatmap_cells` (z4, dibangun `muat_postgres.py grid`).
+    -- Jangkauan dilebihkan 8 sel = lebar buffer 128/4096 tile, supaya titik di
+    -- dekat batas tile tidak hilang; MVT membuang sendiri sel di luar buffer.
+    select case when %(confidence)s::text is null
+                then points_h + points_n + points_l + points_o
+                when %(confidence)s::text = 'h' then points_h
+                when %(confidence)s::text = 'n' then points_n
+                else points_l end as titik,
+           case when %(confidence)s::text is null
+                then 3 * points_h + 2 * points_n + points_l + points_o
+                when %(confidence)s::text = 'h' then 3 * points_h
+                when %(confidence)s::text = 'n' then 2 * points_n
+                else points_l end as weight,
+           gx,
+           gy
+      from mv_heatmap_cells
+     where th = %(year)s
+       and gx between %(x)s * %(cells)s - 8 and %(x)s * %(cells)s + %(cells)s + 7
+       and gy between %(y)s * %(cells)s - 8 and %(y)s * %(cells)s + %(cells)s + 7
+),
+mvt_rows as (
+    -- Sel dikembalikan ke titik 3857: x = gx * sel - setengah dunia,
+    -- y = setengah dunia - gy * sel (sama dengan hasil ST_SnapToGrid dulu,
+    -- dibuktikan 0 selisih untuk tile z4 2023).
+    select st_asmvtgeom(
+               st_setsrid(st_makepoint(
+                   gx * 40075016.68557849 / 4096.0 - 20037508.342789244,
+                   20037508.342789244 - gy * 40075016.68557849 / 4096.0
+               ), 3857),
+               tile.env_3857,
+               4096,
+               128,
+               false
+           ) as geom,
+           cells.weight,
+           cells.titik
+      from cells cross join tile
+     where cells.titik > 0
+)
+select st_asmvt(mvt_rows.*, 'hotspot_points', 4096, 'geom') as tile
+  from mvt_rows
+"""
+
+
 @heatmap_router.get("/hotspot_points/{z}/{x}/{y:int}.mvt")
 def hotspot_points_tile(
     year: int = Query(ge=2020, le=2026, description="Tahun seri titik panas"),
@@ -497,9 +552,15 @@ def hotspot_points_tile(
     Seri yang dipakai `main` — sama dengan choropleth — sehingga heatmap dan
     choropleth tahun yang sama tidak bercerita beda. Toleransi geometri 64 satuan
     tile dipakai karena heatmap tidak butuh posisi subpiksel.
+
+    Tile **z=4** dijawab dari `mv_heatmap_cells` (sel grid z4 pra-hitung); zoom
+    lain tetap menghitung dari `point_observations` karena tile-nya kecil
+    (z=6 0,23 dtk) sementara z4 harus membaca 133 ribu baris untuk 4.869 sel.
     """
     check_tile_bounds(z, x, y)
     check_zoom_floor(z, HEATMAP_MIN_ZOOM)
+
+    query = QUERY_HEATMAP_GRID_TILE if z == HEATMAP_GRID_ZOOM else QUERY_HOTSPOT_POINTS_TILE
 
     with conn.cursor(row_factory=dict_row) as cur:
         # JIT PostgreSQL memakan 9 dari 10,4 dtk pada kueri ini di instance kecil
@@ -507,7 +568,7 @@ def hotspot_points_tile(
         # tanpa JIT). Dimatikan per sesi kolam, bukan global di server.
         cur.execute("set jit = off")
         cur.execute(
-            QUERY_HOTSPOT_POINTS_TILE,
+            query,
             {"z": z, "x": x, "y": y, "year": year, "confidence": confidence, "cells": HEATMAP_CELLS},
         )
         row = cur.fetchone()
