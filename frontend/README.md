@@ -138,6 +138,16 @@ tampilan diff.
    dari keadaan bersih tanpa mengutak-atik cache peramban milik pengguna, buka
    halaman di konteks peramban incognito (`Target.createBrowserContext`).
 
+6. **Ekspresi `["zoom"]` harus berada di akar `step`/`interpolate`, dan efek lapisan
+   harus mendaftar semua keadaan yang mengubahnya.** Dua regresi 2026-11-23: (a)
+   `circle-radius` titik kejadian memakai `["*", ["interpolate", …zoom…], …]` sehingga
+   MapLibre menolak seluruh lapisan dan menampilkan "Sebagian latar peta gagal dimuat"
+   — perbaikannya `interpolate` menjadi akar dan faktor `coord_level` dihitung di setiap
+   stop; (b) efek choropleth tidak bergantung pada `hotspotView`, sehingga Heatmap
+   menambah lapisan tanpa melepas poligon. Uji ekspresi dengan
+   `createPropertyExpression` dari `@maplibre/maplibre-gl-style-spec` (jsdom tidak
+   memvalidasi gaya) dan uji perpindahan choropleth ↔ heatmap di `MapView.test.tsx`.
+
 ## Lapisan kerawanan (`P4`)
 
 Saklar lapisan di kendali peta mengganti choropleth: **Titik panas** (jumlah

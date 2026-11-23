@@ -296,5 +296,20 @@ dokumen boleh langsung ke `main`.
     menjaga kesamaan itu. Sisa terbuka: **z5** masih per baris (1,2–1,5 dtk hangat, 6,8 dtk
     dingin).
 
+24. **`["zoom"]` hanya boleh menjadi input `step`/`interpolate` di akar ekspresi properti.**
+    `["*", ["interpolate", ["linear"], ["zoom"], …], …]` ditolak MapLibre dengan
+    `"zoom" expression may only be used as input to a top-level "step" or
+    "interpolate" expression`; seluruh lapisan tidak dipasang dan peta menampilkan
+    "Sebagian latar peta gagal dimuat". Untuk menggabungkan faktor per fitur dengan
+    zoom, jadikan `interpolate` akar dan hitung faktor di setiap stop (lihat
+    `pointRadiusExpression` di `frontend/src/lib/event-points.ts`). Uji dengan
+    `createPropertyExpression` dari `@maplibre/maplibre-gl-style-spec`; uji jsdom
+    biasa tidak memvalidasi ekspresi gaya.
+25. **Efek lapisan `MapView` wajib memuat semua keadaan yang mengubah isinya.** Efek
+    choropleth pernah tidak mencantumkan `hotspotView`, sehingga memilih Heatmap
+    menambah lapisan heatmap tanpa melepas poligon choropleth. Saat menambah keadaan
+    yang memengaruhi sumber/layer, masukkan ke daftar dependensi dan uji perpindahan
+    dua arah (choropleth → heatmap → choropleth).
+
 Aturan lengkap dan alasan tiap keputusan: `docs/CONVENTIONS.md`. Batas MVP dan urutan iterasi:
 `docs/MVP.md`.

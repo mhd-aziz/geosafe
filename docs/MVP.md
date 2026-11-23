@@ -120,6 +120,7 @@ Satu iterasi dianggap selesai kalau **semua** ini benar:
 | 21 | `feat/api-heatmap-z4-grid` — tile heatmap z4 dilayani materialized view `mv_heatmap_cells` (76.173 sel grid; 11,4 dtk → 0,13–0,74 dtk), z≥5 tetap per baris; `SRS-NF-08` v1.13 | ✅ PR #43, tag `iter-21-heatmap-grid` |
 | 22 | `docs/pengujian` — dokumen pengujian `docs/PENGUJIAN.md` v1.0 (137 uji backend + 186 frontend, tabel penerimaan `P1`…`T1`, status `NF-04`…`NF-11`, keterbatasan) + SRS v1.14 merujuknya | ✅ PR #44, tag `iter-22-pengujian` |
 | 23 | `feat/frontend-map-pages` — tiga halaman peta terpisah + navigasi enam menu; kendali satu baris, legenda/kendali terkini di kolom kanan, kamera awal Indonesia; `P2` tetap overlay | ✅ PR #45, tag `iter-23-map-pages` |
+| 23b | `fix/frontend-map-layers` — ekspresi `circle-radius` titik kejadian diperbaiki (validator MapLibre) + choropleth dilepas saat heatmap; 192 uji frontend | ✅ PR #46, tag `iter-23b-map-layer-fix` |
 
 Urutan ini boleh bergeser; yang tidak boleh: memasukkan P2/P4 sebelum alur inti
 (P1 → C1 → W2 → A1 → T1) berjalan, karena keduanya menambah ketergantungan luar
