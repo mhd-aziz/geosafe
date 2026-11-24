@@ -19,7 +19,7 @@ uv run uvicorn app.main:app --reload     # http://127.0.0.1:8000
 ```bash
 cd frontend
 npm ci                                   # sekali, dari package-lock.json
-npm test                                 # 186 passed (25 berkas, Vitest + jsdom), tanpa DB
+npm test                                 # 193 passed (25 berkas, Vitest + jsdom), tanpa DB
 npm run typecheck                        # tsc --noEmit
 npm run build                            # tsc --noEmit + vite build ke dist/ (di-gitignore);
                                          #   hanya untuk diperiksa; halaman disajikan Vercel
